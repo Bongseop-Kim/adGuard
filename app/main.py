@@ -1,7 +1,13 @@
-"""adGuard 진입점 (골격): URL을 받아 동봉 Chromium으로 열고 result.json을 쓴다."""
+"""adGuard 진입점 (골격).
+
+- 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다
+- 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
+- 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
+"""
 import json
 import os
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -29,9 +35,7 @@ def launch(p):
         return p.chromium.launch(channel="msedge"), "Edge"  # 동봉 Chromium이 막히면 Edge로
 
 
-def main():
-    sys.stdout.reconfigure(encoding="utf-8")  # Windows에서 출력을 파일로 돌려도 한글이 깨지지 않게
-    url = sys.argv[1] if len(sys.argv) > 1 else input("점검할 URL: ").strip()
+def scan(url, log=print):
     browsers = os.path.join(base_dir(), "browsers")
     if os.path.isdir(browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers  # PC에 같은 환경변수가 있어도 동봉본을 쓴다
@@ -40,7 +44,7 @@ def main():
     started, t0 = datetime.now(KST), time.monotonic()
     with sync_playwright() as p:
         browser, kind = launch(p)
-        print("브라우저: %s %s" % (kind, browser.version))
+        log("브라우저: %s %s" % (kind, browser.version))
         page = browser.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         title = page.title()
@@ -55,7 +59,63 @@ def main():
     }
     out = os.path.join(base_dir(), "result.json")
     write_json(out, {"meta": meta, "findings": []})
-    print("탐지 완료: %s -> %s" % (title, out))
+    log("탐지 완료: %s -> %s" % (title, out))
+
+
+PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8"><title>adGuard</title>
+<body style="font-family:sans-serif;margin:24px">
+<h1>adGuard</h1>
+<input id="url" style="width:420px" placeholder="점검할 URL"> <button id="go" onclick="start()">탐지 시작</button>
+<pre id="log"></pre>
+<script>
+function log(s){ document.getElementById('log').textContent += s + '\\n'; }
+function start(){ document.getElementById('go').disabled = true; pywebview.api.start(document.getElementById('url').value); }
+</script></body></html>"""
+
+
+class Api:
+    def __init__(self, smoke=False):
+        self._window = None  # 밑줄: JS에 노출하지 않음
+        self._smoke = smoke
+
+    def start(self, url):
+        threading.Thread(target=self._run, args=(url,), daemon=True).start()
+
+    def _run(self, url):
+        def log(msg):
+            print(msg, flush=True)
+            self._window.evaluate_js("log(%s)" % json.dumps(msg))
+        try:
+            scan(url, log)
+        except Exception as e:
+            log("오류: %r" % e)
+        if self._smoke:
+            self._window.destroy()
+
+
+def gui(smoke_url=None):
+    import webview
+
+    api = Api(smoke=bool(smoke_url))
+    api._window = webview.create_window("adGuard", html=PAGE, js_api=api, width=760, height=520)
+    if smoke_url:  # 창이 뜨면 URL을 넣고 "탐지 시작"을 누른 것과 같게 한다
+        api._window.events.loaded += lambda: api._window.evaluate_js(
+            "function go(){document.getElementById('url').value=%s; start();}"
+            "if (window.pywebview && pywebview.api && pywebview.api.start) go(); else window.addEventListener('pywebviewready', go);"
+            % json.dumps(smoke_url))
+    webview.start(gui="edgechromium")  # IE 엔진으로 넘어가지 않게 WebView2만 허용
+    print("UI: WebView2 창 종료", flush=True)
+
+
+def main():
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows에서 출력을 파일로 돌려도 한글이 깨지지 않게
+    args = sys.argv[1:]
+    if args[:1] == ["--smoke-gui"]:
+        gui(args[1])
+    elif args:
+        scan(args[0])
+    else:
+        gui()  # ponytail: WebView2 실패 시 로컬 서버+기본 브라우저 예비 경로는 todo/06에서 추가
 
 
 if __name__ == "__main__":

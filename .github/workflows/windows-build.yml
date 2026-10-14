@@ -20,13 +20,21 @@ jobs:
       - name: exe 빌드 (onedir, UPX 끔)
         run: pyinstaller --noconfirm --onedir --noupx --name adguard app/main.py
 
+      - name: 빌드 크기
+        shell: pwsh
+        run: |
+          "{0:N1} MB (브라우저 제외)" -f ((Get-ChildItem dist\adguard -Recurse | Measure-Object Length -Sum).Sum / 1MB)
+          Get-ChildItem dist\adguard\_internal -Directory | Where-Object Name -match 'webview|pythonnet|clr|playwright' | ForEach-Object {
+            "{0}: {1:N1} MB" -f $_.Name, ((Get-ChildItem $_.FullName -Recurse | Measure-Object Length -Sum).Sum / 1MB) }
+
       - name: Chromium headless shell을 exe 옆 browsers 폴더에 설치
         env:
           PLAYWRIGHT_BROWSERS_PATH: dist\adguard\browsers
         run: python -m playwright install --only-shell chromium
 
-      - name: 한글·공백 경로로 복사해서 S0 사이트로 실행
+      - name: 한글·공백 경로로 복사해서 S0 사이트로 실행 (명령줄 + WebView2 창)
         shell: pwsh
+        timeout-minutes: 5
         run: |
           $dest = "C:\테스트 폴더\adguard"
           New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
@@ -37,6 +45,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "adguard.exe 실패: $LASTEXITCODE" }
           $out
           if (-not ($out -match "동봉 Chromium")) { throw "동봉 Chromium이 아닌 브라우저로 실행됨" }
+          Remove-Item "$dest\result.json"
+          $gui = & "$dest\adguard.exe" --smoke-gui "http://127.0.0.1:8100/"
+          $gui
+          if (-not ($gui -match "UI: WebView2") -or -not ($gui -match "동봉 Chromium")) { throw "WebView2 창 모드 실패" }
           Stop-Process -Id $srv.Id
           python -c "import json,sys; p=sys.argv[1]; b=open(p,'rb').read(); assert not b.startswith(b'\xef\xbb\xbf'), 'BOM'; d=json.loads(b.decode('utf-8')); assert set(d)=={'meta','findings'} and d['findings']==[] and d['meta']['topic']=='TOPIC', d; print('result.json OK', d['meta'])" "$dest\result.json"
 
