@@ -37,23 +37,30 @@ def scan(url, log=print):
     from detect import analyze
 
     started, t0 = datetime.now(KST), time.monotonic()
-    pages = asyncio.run(crawl(url, analyze, log=log))
-    findings = []
-    for pg in pages:
-        for f in pg["result"] or []:
-            findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
-                             "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
-                             "technique": f["technique"]})
-    meta = {
-        "topic": "TOPIC",
-        "entry_url": url,
-        "started_at": started.isoformat(timespec="seconds"),
-        "finished_at": datetime.now(KST).isoformat(timespec="seconds"),
-        "elapsed_sec": round(time.monotonic() - t0, 2),
-        "tool_version": VERSION,
-    }
-    out = os.path.join(base_dir(), "result.json")
-    write_json(out, {"meta": meta, "findings": findings})
+    pages = []
+    try:
+        pages = asyncio.run(crawl(url, analyze, log=log))
+    finally:  # 크롤이 죽어도 파싱 가능한 result.json은 남긴다 (파일이 없거나 깨지면 0점)
+        findings, seen = [], set()
+        for pg in pages:
+            for f in pg["result"] or []:
+                key = (pg["url"], f["location"], f["technique"])  # 채점 단위. 같은 조합은 1건
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
+                                 "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
+                                 "technique": f["technique"]})
+        meta = {
+            "topic": "TOPIC",
+            "entry_url": url,
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.now(KST).isoformat(timespec="seconds"),
+            "elapsed_sec": round(time.monotonic() - t0, 2),
+            "tool_version": VERSION,
+        }
+        out = os.path.join(base_dir(), "result.json")
+        write_json(out, {"meta": meta, "findings": findings})
     log("탐지 완료: %d쪽, %d건 -> %s" % (len(pages), len(findings), out))
 
 

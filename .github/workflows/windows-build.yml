@@ -50,7 +50,9 @@ jobs:
           $gui
           if (-not ($gui -match "UI: WebView2") -or -not ($gui -match "동봉 Chromium")) { throw "WebView2 창 모드 실패" }
           Stop-Process -Id $srv.Id
-          python -c "import json,sys; p=sys.argv[1]; b=open(p,'rb').read(); assert not b.startswith(b'\xef\xbb\xbf'), 'BOM'; d=json.loads(b.decode('utf-8')); assert set(d)=={'meta','findings'} and d['findings']==[] and d['meta']['topic']=='TOPIC', d; print('result.json OK', d['meta'])" "$dest\result.json"
+          python eval/validate.py "$dest\result.json"
+          if ($LASTEXITCODE -ne 0) { throw "result.json 스키마 위반" }
+          python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert d['findings']==[], d" "$dest\result.json"
 
       - uses: actions/upload-artifact@v4
         with:
