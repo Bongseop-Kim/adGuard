@@ -34,9 +34,16 @@ def scan(url, log=print):
     if os.path.isdir(browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers  # PC에 같은 환경변수가 있어도 동봉본을 쓴다
     from crawler import crawl
+    from detect import analyze
 
     started, t0 = datetime.now(KST), time.monotonic()
-    pages = asyncio.run(crawl(url, log=log))  # ponytail: 탐지(analyze)는 todo/04에서 붙인다
+    pages = asyncio.run(crawl(url, analyze, log=log))
+    findings = []
+    for pg in pages:
+        for f in pg["result"] or []:
+            findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
+                             "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
+                             "technique": f["technique"]})
     meta = {
         "topic": "TOPIC",
         "entry_url": url,
@@ -46,8 +53,8 @@ def scan(url, log=print):
         "tool_version": VERSION,
     }
     out = os.path.join(base_dir(), "result.json")
-    write_json(out, {"meta": meta, "findings": []})
-    log("탐지 완료: %d쪽 -> %s" % (len(pages), out))
+    write_json(out, {"meta": meta, "findings": findings})
+    log("탐지 완료: %d쪽, %d건 -> %s" % (len(pages), len(findings), out))
 
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8"><title>adGuard</title>

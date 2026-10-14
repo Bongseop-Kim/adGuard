@@ -730,6 +730,32 @@
         "O03"
       ],
       "note": "메뉴에 없는 옛 게시판. sitemap.xml·robots Disallow·index 주석으로만 도달"
+    },
+    {
+      "id": "a_062",
+      "url": "http://127.0.0.1:8120/cop/bbs/selectArticleDetail.do?bbsId=BBSMSTR_11&nttId=1064",
+      "location": "div.view-cont > p.cont-txt:nth-of-type(1)",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｍｅｇａ－ＢＥＴ 신규 첫충 30％ 지급에 대하여 다음과 같이 알려드립니다.",
+      "covers": [
+        "P02",
+        "P06",
+        "H01"
+      ],
+      "note": "상세 본문 템플릿이 변형된 제목을 그대로 반복한다(제목과 같은 광고 문구). 규칙상 같은 기법의 별도 요소라 정답으로 추가(todo/04에서 발견)"
+    },
+    {
+      "id": "a_063",
+      "url": "http://127.0.0.1:8120/cop/bbs/selectArticleDetail.do?bbsId=BBSMSTR_11&nttId=1058",
+      "location": "div.view-cont > p.cont-txt:nth-of-type(1)",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "Саѕіnо VIP 첫충 50％ 상담에 대하여 다음과 같이 알려드립니다.",
+      "covers": [
+        "P02",
+        "P06",
+        "H02"
+      ],
+      "note": "상세 본문 템플릿이 변형된 제목을 그대로 반복한다(제목과 같은 광고 문구). 규칙상 같은 기법의 별도 요소라 정답으로 추가(todo/04에서 발견)"
     }
   ],
   "decoys": [

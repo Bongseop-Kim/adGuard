@@ -1,0 +1,309 @@
+{
+  "scenario": "S5",
+  "entry_url": "http://127.0.0.1:8150/",
+  "answers": [
+    {
+      "id": "a_001",
+      "url": "http://127.0.0.1:8150/c/zero-auto.html",
+      "location": "div.seo-box > a.seo-lnk",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카지노 사이트 바로가기 @test_seo01",
+      "covers": [
+        "R1",
+        "O07"
+      ],
+      "note": "크기 0 + overflow:auto 상자 (client 0×0, scroll 영역만 있음). 스크롤 확장보다 크기 0 검사가 먼저 (09 §1, Securelist 실사례)"
+    },
+    {
+      "id": "a_002",
+      "url": "http://127.0.0.1:8150/c/diff.html",
+      "location": "div.g-white > p.gw-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "바카라 환전 24시 @test_grad01",
+      "covers": [
+        "R3",
+        "T10"
+      ],
+      "note": "흰→흰 그라데이션 위 흰 글자. 계산 불가 → 스크린샷 차분 (09 §3)"
+    },
+    {
+      "id": "a_003",
+      "url": "http://127.0.0.1:8150/c/diff.html",
+      "location": "div.g-gray > p.gg-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "슬롯 첫충 가입 @test_grad02",
+      "covers": [
+        "R3",
+        "T10"
+      ],
+      "note": "#eee 그라데이션 위 #eee 글자 (안티앨리어싱 차이 1 → 임계값 비교 필요)"
+    },
+    {
+      "id": "a_004",
+      "url": "http://127.0.0.1:8150/c/marquee.html",
+      "location": "marquee.mq-fast",
+      "technique": "OFFSCREEN",
+      "evidence_text": "슬롯 첫충 30% 지급 @test_mq01",
+      "covers": [
+        "R4"
+      ],
+      "note": "scrollamount=99999: 위치는 계속 바뀌지만 상자 안에 안 들어옴 (09 §4)"
+    },
+    {
+      "id": "a_005",
+      "url": "http://127.0.0.1:8150/c/marquee.html",
+      "location": "marquee.mq-stop",
+      "technique": "OFFSCREEN",
+      "evidence_text": "바카라 가입코드 TESTMQ2",
+      "covers": [
+        "R4"
+      ],
+      "note": "scrolldelay 9999999: 시작 위치(상자 밖)에 멈춤"
+    },
+    {
+      "id": "a_006",
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-salt",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카xq지zz노 @test_salt01",
+      "covers": [
+        "R5",
+        "O01"
+      ],
+      "note": "숨긴 문단 안 salting(font-size:0 'xq', display:none 'zz'). 숨긴 조각을 빼야 '카지노' (09 §5)"
+    },
+    {
+      "id": "a_007",
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-bidi",
+      "technique": "OFFSCREEN",
+      "evidence_text": "노지카 @test_bidi01",
+      "covers": [
+        "R5",
+        "O03"
+      ],
+      "note": "bidi-override rtl로 '노지카'를 '카지노'로 보이게"
+    },
+    {
+      "id": "a_008",
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-rlo",
+      "technique": "OFFSCREEN",
+      "evidence_text": "‮노지카‬ 가입 @test_rlo01",
+      "covers": [
+        "R5",
+        "O04"
+      ],
+      "note": "U+202E로 뒤집은 '노지카'"
+    },
+    {
+      "id": "a_009",
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-before",
+      "technique": "TRANSPARENT",
+      "evidence_text": "가입 @test_before01",
+      "covers": [
+        "R5",
+        "T07"
+      ],
+      "note": "키워드가 ::before content에만 있음. opacity:0"
+    },
+    {
+      "id": "a_010",
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "div.v-flex",
+      "technique": "OFFSCREEN",
+      "evidence_text": "노카지 @test_flex01",
+      "covers": [
+        "R5",
+        "O03"
+      ],
+      "note": "flex order로 '노카지'를 '카지노'로 배치"
+    },
+    {
+      "id": "a_011",
+      "url": "http://127.0.0.1:8150/c/norm.html",
+      "location": "p.n-dot",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카ㆍ지ㆍ노 첫충 @test_dot01",
+      "covers": [
+        "R6",
+        "O01"
+      ],
+      "note": "ㆍ(U+318D) 구분자 '카ㆍ지ㆍ노'. ㆍ는 자모로 세지 않음 (09 §7.1)"
+    },
+    {
+      "id": "a_012",
+      "url": "http://127.0.0.1:8150/c/norm.html",
+      "location": "p.n-kk",
+      "technique": "JAMO",
+      "evidence_text": "77ㅗㅇ머니 지급 @test_kk01",
+      "covers": [
+        "R6",
+        "J03"
+      ],
+      "note": "korcen 다중 글자 77→ㄲ: '77ㅗㅇ머니' (09 §7.2)"
+    },
+    {
+      "id": "a_013",
+      "url": "http://127.0.0.1:8150/c/norm.html",
+      "location": "p.n-kk",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "77ㅗㅇ머니 지급 @test_kk01",
+      "covers": [
+        "R6",
+        "H08"
+      ],
+      "note": "같은 요소의 77(숫자)→ㄲ 닮은꼴"
+    },
+    {
+      "id": "a_014",
+      "url": "http://127.0.0.1:8150/c/norm.html",
+      "location": "p.n-mn",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "c̀ásínó 첫충 @test_mn01",
+      "covers": [
+        "R6"
+      ],
+      "note": "결합 부호 c̀ásínó (09 §7.3)"
+    },
+    {
+      "id": "a_015",
+      "url": "http://127.0.0.1:8150/c/svg.html",
+      "location": "svg.svg-ad > text.svg-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "홀덤 환전 @test_svg01",
+      "covers": [
+        "R7",
+        "T01"
+      ],
+      "note": "SVG text fill #fff (color는 검정으로 계산됨) (09 §8)"
+    },
+    {
+      "id": "a_016",
+      "url": "http://127.0.0.1:8150/c/svg.html",
+      "location": "svg.svg-fo > text.svg-fo-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "파워볼 가입 @test_svg02",
+      "covers": [
+        "R7",
+        "T05"
+      ],
+      "note": "SVG fill-opacity 0"
+    },
+    {
+      "id": "a_017",
+      "url": "http://127.0.0.1:8150/c/svg.html",
+      "location": "form.srch > input.inp-ad",
+      "technique": "TRANSPARENT",
+      "evidence_text": "토토 가입 @test_input01",
+      "covers": [
+        "R7",
+        "T01"
+      ],
+      "note": "input value 흰 글자 흰 배경 (텍스트 노드 아님)"
+    }
+  ],
+  "decoys": [
+    {
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-visible > span.salt",
+      "covers": [
+        "R5",
+        "D08"
+      ],
+      "note": "salting용 font-size:0 조각 'xq': 숨김이지만 광고 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/norm.html",
+      "location": "p.n-gov",
+      "covers": [
+        "R6",
+        "D03"
+      ],
+      "note": "공문서 가운뎃점 ㆍ"
+    }
+  ],
+  "extra": [
+    {
+      "url": "http://127.0.0.1:8150/c/zero-auto.html",
+      "location": "div.scroll-box > p.scroll-ad",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R1",
+        "D07"
+      ],
+      "note": "overflow:auto 상자 아래쪽: 스크롤하면 보임"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/clamp.html",
+      "location": "ul.list > li > p.preview",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R2",
+        "D07"
+      ],
+      "note": "-webkit-line-clamp:2 미리보기 긴 본문 (면적 비율로 보면 0.04 → 오탐) (09 §2)"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/clamp.html",
+      "location": "p.tit2",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R2",
+        "D07"
+      ],
+      "note": "text-overflow:ellipsis로 잘린 제목"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/diff.html",
+      "location": "h3.g-title",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R3",
+        "D07"
+      ],
+      "note": "background-clip:text 그라데이션 글자: fill은 투명이지만 보임 (09 §3)"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/diff.html",
+      "location": "div.g-dark > p.gd-txt",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R3",
+        "D07"
+      ],
+      "note": "그라데이션 위 #333 글자: 보임"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/marquee.html",
+      "location": "marquee.mq-normal",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R4",
+        "D07"
+      ],
+      "note": "보통 속도로 흐르는 marquee: 보임"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/svg.html",
+      "location": "svg.svg-chart > text.svg-lbl",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R7",
+        "D07"
+      ],
+      "note": "SVG fill #333: 보임"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-visible",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "R5",
+        "D07"
+      ],
+      "note": "보이는 문장의 salting: 4종 아님 (09 §5, ETC SALTED_TEXT 후보)"
+    }
+  ]
+}

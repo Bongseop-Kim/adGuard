@@ -13,7 +13,8 @@ eval/
 │   ├── S1-baseline/       ← 모집요강 예시 재현형
 │   ├── S2-realistic/      ← 실전 공공 누리집형
 │   ├── S3-stress/         ← 시간 측정용 대형 사이트
-│   └── S4-dynamic/        ← 클릭·외부 JS로만 닿는 위치 회귀 세트
+│   ├── S4-dynamic/        ← 클릭·외부 JS로만 닿는 위치 회귀 세트
+│   └── S5-detect/         ← 탐지 규칙 보완(research/09) 회귀 세트
 ├── blind/                 ← 블라인드 세트 (개발 중 열람 금지)
 └── scorer/                ← 채점기 (todo/02에서 구현)
 ```
@@ -42,6 +43,7 @@ SX-name/
 | S2 | 8120 | 8121 |
 | S3 | 8130 | 8131 |
 | S4 | 8140 | 8141 |
+| S5 | 8150 | 8151 |
 | blind | 8190 | 8191 |
 
 ## 테스트용 광고 문구 방침
@@ -192,6 +194,17 @@ SX-name/
 | F12 | `ㅋr지노`처럼 JAMO+HOMOGLYPH → 2건 |
 | F13 | 숨김 + HOMOGLYPH가 한 요소에 → 2건 |
 | F14 | 해시 클래스명 등 불안정한 클래스가 있는 요소 |
+
+### 탐지 보완 회귀 (R, S5, research/09)
+| ID | 내용 |
+|---|---|
+| R1 | 크기 0 + `overflow:auto` 상자 (§1) |
+| R2 | line-clamp 미리보기·말줄임 제목은 보임 (§2) |
+| R3 | 그라데이션 배경·글자: 스크린샷 차분 (§3) |
+| R4 | marquee 은닉 (§4) |
+| R5 | 보이는 글자열 재구성: salting, bidi, U+202E, ::before, flex order (§5) |
+| R6 | 정규화: ㆍ 구분자, 77→ㄲ, 결합 부호 (§7) |
+| R7 | SVG fill·fill-opacity, input value (§8) |
 
 ### 미끼 (D)
 | ID | 미끼 |

@@ -18,7 +18,7 @@ jobs:
         run: pip install -r requirements.txt -r requirements-build.txt
 
       - name: exe 빌드 (onedir, UPX 끔)
-        run: pyinstaller --noconfirm --onedir --noupx --name adguard app/main.py
+        run: pyinstaller --noconfirm --onedir --noupx --name adguard --add-data "app/data;data" app/main.py
 
       - name: 빌드 크기
         shell: pwsh
