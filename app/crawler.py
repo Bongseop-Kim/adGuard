@@ -219,6 +219,9 @@ class Crawler:
         self.js_seen = set()
         self.dropped = 0
 
+    def stop(self):  # 화면의 "중단": 새 페이지를 꺼내지 않고, 진행 중인 페이지만 마친 뒤 모은 결과를 돌려준다
+        self.deadline = 0
+
     def in_scope(self, u):
         s = urllib.parse.urlsplit(u)
         host = (s.hostname or "").lower()
@@ -519,10 +522,14 @@ class Crawler:
         self.push(u, depth, body if method == "POST" and body else None)
 
 
-async def crawl(entry, analyze=None, workers=None, time_limit=20 * 60, log=print):
+async def crawl(entry, analyze=None, workers=None, time_limit=20 * 60, log=print, ctl=None):
     """analyze(page, url)는 페이지가 다 그려진 뒤 탭을 넘겨받아 분석 결과를 돌려준다.
-    반환: [{"url": 출력용 URL, "result": analyze 결과}] (같은 내용 페이지는 1개)"""
-    return await Crawler(entry, analyze, workers, time_limit, log).run()
+    반환: [{"url": 출력용 URL, "result": analyze 결과}] (같은 내용 페이지는 1개)
+    ctl(dict)을 넘기면 ctl["crawler"]로 진행 상황(visited, heap, results)을 읽고 stop()으로 중단할 수 있다"""
+    c = Crawler(entry, analyze, workers, time_limit, log)
+    if ctl is not None:
+        ctl["crawler"] = c
+    return await c.run()
 
 
 if __name__ == "__main__":  # python app/crawler.py <URL>

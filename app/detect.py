@@ -268,6 +268,18 @@ window.__adg = { C: [], collect, signals, locate, hideText, marqueeSeen, frameSe
 """
 
 
+STYLE_JS = r"""
+i => {
+  const e = window.__adg.C[i], s = getComputedStyle(e), out = {};
+  for (const k of ['display', 'visibility', 'opacity', 'position', 'left', 'top', 'font-size', 'color',
+                   'background-color', 'overflow', 'clip', 'clip-path', 'transform', 'text-indent', 'width', 'height'])
+    out[k] = s.getPropertyValue(k);
+  const h = e.outerHTML;
+  return { html: h.length > 800 ? h.slice(0, 800) + ' …' : h, style: out };
+}
+"""
+
+
 async def ev(target, js, arg=None, sec=10):
     try:
         return await asyncio.wait_for(target.evaluate(js, arg), sec)
@@ -389,9 +401,12 @@ async def analyze(page, url):
         loc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["i"])
         if not loc:
             return {}
+        # 보고서 근거(R5)용: HTML 조각과 숨김에 관계된 계산된 스타일. result.json에는 안 들어간다
+        more = await ev(frame, STYLE_JS, c["i"]) or {}
         mine = {}
         for k, why in tech.items():
-            mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why}
+            mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why,
+                       "norm": t["norm"], "kw": t["kw"], **more}
             found.append(mine[k])
         # 숨김 루트가 광고만 감싸고 있으면 루트도 낸다 (04 §4.3)
         if c["root"] is not None and "OFFSCREEN" in tech:

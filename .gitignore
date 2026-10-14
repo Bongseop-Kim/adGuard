@@ -7,3 +7,6 @@ dist/
 *.spec
 result.json
 result_extra.json
+report.html
+result.csv
+history.json

@@ -45,10 +45,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "adguard.exe 실패: $LASTEXITCODE" }
           $out
           if (-not ($out -match "동봉 Chromium")) { throw "동봉 Chromium이 아닌 브라우저로 실행됨" }
-          Remove-Item "$dest\result.json"
+          foreach ($f in "report.html", "result.csv") { if (-not (Test-Path "$dest\$f")) { throw "$f 없음" } }
+          Remove-Item "$dest\result.json", "$dest\report.html"
           $gui = & "$dest\adguard.exe" --smoke-gui "http://127.0.0.1:8100/"
           $gui
           if (-not ($gui -match "UI: WebView2") -or -not ($gui -match "동봉 Chromium")) { throw "WebView2 창 모드 실패" }
+          if (-not ($gui -match "보고서 저장") -or -not (Test-Path "$dest\report.html")) { throw "창 모드 보고서 실패" }
           Stop-Process -Id $srv.Id
           python eval/validate.py "$dest\result.json"
           if ($LASTEXITCODE -ne 0) { throw "result.json 스키마 위반" }
