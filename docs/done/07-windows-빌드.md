@@ -5,3 +5,7 @@
 - 완료 조건: 새 PC에서 압축 풀고 바로 실행됨
 
 - 이어받은 확인: GitHub Actions artifact(`adguard-windows`)를 실제 Windows 11 PC에서 압축 풀고 실행 (SmartScreen 경고, 백신 검사, Python 미설치 PC, 한글·공백 경로 포함). 빌드 자체는 매 push마다 Actions가 수행
+
+## 결과 (2026-10-14)
+
+- 실제 Windows 11 PC에서 Actions artifact(`adguard-windows`)를 압축 풀고 실행 성공
