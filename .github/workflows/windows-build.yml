@@ -1,0 +1,44 @@
+name: windows-build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt -r requirements-build.txt
+
+      - name: exe 빌드 (onedir, UPX 끔)
+        run: pyinstaller --noconfirm --onedir --noupx --name adguard app/main.py
+
+      - name: Chromium headless shell을 exe 옆 browsers 폴더에 설치
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: dist\adguard\browsers
+        run: python -m playwright install --only-shell chromium
+
+      - name: 한글·공백 경로로 복사해서 S0 사이트로 실행
+        shell: pwsh
+        run: |
+          $dest = "C:\테스트 폴더\adguard"
+          New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+          Copy-Item -Recurse dist\adguard $dest
+          $srv = Start-Process python -ArgumentList "eval/scenarios/S0-empty/serve.py" -PassThru
+          Start-Sleep -Seconds 3
+          & "$dest\adguard.exe" "http://127.0.0.1:8100/"
+          if ($LASTEXITCODE -ne 0) { throw "adguard.exe 실패: $LASTEXITCODE" }
+          Stop-Process -Id $srv.Id
+          python -c "import json,sys; p=sys.argv[1]; b=open(p,'rb').read(); assert not b.startswith(b'\xef\xbb\xbf'), 'BOM'; d=json.loads(b.decode('utf-8')); assert set(d)=={'meta','findings'} and d['findings']==[] and d['meta']['topic']=='TOPIC', d; print('result.json OK', d['meta'])" "$dest\result.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adguard-windows
+          path: dist/adguard
