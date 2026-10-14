@@ -218,6 +218,7 @@ class Crawler:
         self.own = set()
         self.js_seen = set()
         self.dropped = 0
+        self.via = {}  # norm(URL) → (찾은 페이지 URL 또는 None, 찾은 방법). 보고서의 발견 경로
 
     def stop(self):  # 화면의 "중단": 새 페이지를 꺼내지 않고, 진행 중인 페이지만 마친 뒤 모은 결과를 돌려준다
         self.deadline = 0
@@ -227,7 +228,7 @@ class Crawler:
         host = (s.hostname or "").lower()
         return s.scheme in ("http", "https") and (s.netloc.lower() == self.netloc or host.endswith("." + self.base))
 
-    def push(self, url, depth, body=None):
+    def push(self, url, depth, body=None, via=(None, "링크")):
         post = (url, body) if body is not None else None  # POST로만 열리면 원래 action과 본문을 남겨 둔다
         url = minimize(url, body)
         if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path) or DANGER.search(url):
@@ -236,6 +237,7 @@ class Crawler:
         if key in self.seen:
             return
         self.seen.add(key)
+        self.via[key] = via
         sig, is_date = signature(url)
         self.sig_count[sig] = n = self.sig_count.get(sig, 0) + 1
         if n > (CAP_DATE if is_date else CAP_PATTERN):
@@ -249,14 +251,17 @@ class Crawler:
         s = urllib.parse.urlsplit(self.entry)
         root = "%s://%s" % (s.scheme, s.netloc)
         sitemaps = [root + "/sitemap.xml"]
+        self.via[norm(root + "/robots.txt")] = (self.entry, "robots.txt 확인")
+        self.via[norm(sitemaps[0])] = (self.entry, "sitemap.xml 확인")
         txt = await self.fetch(ctx, root + "/robots.txt")
         for line in (txt or "").splitlines():
             k, _, v = line.partition(":")
             k, v = k.strip().lower(), v.split("#")[0].strip()
             if k == "sitemap" and v:
                 sitemaps.append(urllib.parse.urljoin(root, v))
+                self.via.setdefault(norm(sitemaps[-1]), (root + "/robots.txt", "robots.txt의 Sitemap"))
             elif k in ("allow", "disallow") and v.startswith("/") and v != "/":
-                self.push(root + re.split(r"[*$]", v)[0], 1)
+                self.push(root + re.split(r"[*$]", v)[0], 1, via=(root + "/robots.txt", "robots.txt"))
         done = set()
         while sitemaps and len(done) < 50:
             sm = sitemaps.pop(0)
@@ -267,8 +272,9 @@ class Crawler:
                 loc = loc.replace("&amp;", "&")
                 if re.search(r"\.xml(\.gz)?$", urllib.parse.urlsplit(loc).path, re.I):
                     sitemaps.append(loc)
+                    self.via.setdefault(norm(loc), (sm, "sitemap 색인"))
                 else:
-                    self.push(loc, 1)
+                    self.push(loc, 1, via=(sm, "sitemap"))
 
     async def fetch(self, ctx, url):
         try:
@@ -296,7 +302,7 @@ class Crawler:
                 await ctx.add_init_script(INIT)
                 ctx.on("page", self.on_popup)
                 ctxs.append(ctx)
-            self.push(self.entry, 0)
+            self.push(self.entry, 0, via=(None, "시작 주소"))
             await self.seed(ctxs[0])
             tasks = [asyncio.create_task(self.worker(c)) for c in ctxs]
             # 하드 데드라인: 시간이 다 되면 진행 중인 페이지도 끊고 모은 결과만 돌려준다
@@ -313,7 +319,7 @@ class Crawler:
         async def grab():  # window.open·target=_blank 새 창은 URL만 큐에 넣고 닫는다
             await with_timeout(page.wait_for_load_state("domcontentloaded"), 3)
             if page.url.startswith("http"):
-                self.push(page.url, 9)
+                self.push(page.url, 9, via=(None, "새 창(window.open)"))
             await with_timeout(page.close(), 2)
         async def later():
             await asyncio.sleep(0.2)
@@ -374,11 +380,13 @@ class Crawler:
         if not self.in_scope(final):
             return  # 리다이렉트로 범위 밖으로 나감
         self.seen.add(norm(final))
+        self.via.setdefault(norm(final), self.via.get(norm(url)))
         canon = await with_timeout(page.evaluate(
             "() => { const l = document.querySelector('link[rel=canonical]'); return l ? l.href : null }"), 3)
         if canon and self.in_scope(canon):
             final = minimize(canon)
             self.seen.add(norm(final))
+            self.via.setdefault(norm(final), self.via.get(norm(url)))
 
         text = await with_timeout(page.evaluate("() => document.documentElement.textContent"), 5) or ""
         h = hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()
@@ -428,26 +436,26 @@ class Crawler:
 
         await page.route("**/*", intercept)
         try:
-            await self.expand(page, act, depth)
+            await self.expand(page, act, depth, final)
             for f in page.frames:
                 got = await with_timeout(f.evaluate(LINKS_JS), 5) or {}
                 for u in got.get("links", []):
-                    self.push(u, depth + 1)
+                    self.push(u, depth + 1, via=(final, "링크"))
                 for js in got.get("scripts", []):
-                    await self.js_links(page, js, depth)
+                    await self.js_links(page, js, depth, final)
 
             result = None
             if self.analyze:
                 result = await self.analyze(page, final)
             self.hashes[h] = len(self.results)
-            self.results.append({"url": final, "result": result})
+            self.results.append({"url": final, "result": result, "path": self.path(url)})
             self.log("[%d] %s" % (len(self.results), final))
 
-            await self.clicks(page, url, act, depth)
+            await self.clicks(page, url, act, depth, final)
         finally:
             await with_timeout(page.unroute("**/*", intercept), 3)
 
-    async def expand(self, page, act, depth):
+    async def expand(self, page, act, depth, parent):
         """'더보기'·'댓글 더보기'처럼 같은 페이지에 내용을 덧붙이는 버튼을 내용이 안 늘 때까지 누른다 (research/03 §2).
         ponytail: 덧붙이는 방식만. 탭·댓글 쪽번호처럼 내용을 바꿔 끼우는 AJAX는 상태별 분석이 필요해서 안 함"""
         size = "() => document.documentElement.textContent.length"
@@ -460,7 +468,7 @@ class Crawler:
             for k in n:
                 got, reloaded = await act(page.main_frame.url, "(k) => { const e = document.querySelector('[data-adg-x=\"' + k + '\"]'); if (e) e.click(); }", k)
                 if got:
-                    self.add_request(got, depth + 1)
+                    self.add_request(got, depth + 1, (parent, "더보기 클릭"))
                 if reloaded:
                     return  # 더보기가 실제로는 이동이었다: 링크로만 쓴다
             await with_timeout(page.evaluate(SETTLE_JS), 4)
@@ -468,16 +476,16 @@ class Crawler:
                 break
         await with_timeout(page.evaluate("() => document.querySelectorAll('[data-adg-x]').forEach(e => e.removeAttribute('data-adg-x'))"), 3)
 
-    async def js_links(self, page, js, depth):
+    async def js_links(self, page, js, depth, parent):
         """같은 도메인 외부 .js 파일 속 따옴표 문자열 경로 (파일마다 1번)"""
         if js in self.js_seen or not self.in_scope(js):
             return
         self.js_seen.add(js)
         text = await self.fetch(page.context, js) or ""
         for m in re.finditer(r"[\"'`]((?:https?:)?/[^\"'`\s<>]*)[\"'`]", text):
-            self.push(urllib.parse.urljoin(page.url, m.group(1)), depth + 1)
+            self.push(urllib.parse.urljoin(page.url, m.group(1)), depth + 1, via=(parent, "스크립트 속 주소"))
 
-    async def clicks(self, page, url, act, depth):
+    async def clicks(self, page, url, act, depth, parent):
         """모든 프레임의 onclick·javascript: 링크를 눌러 상위 페이지 이동 요청을 가로챈다.
         함수마다 1번만 누르고 나머지는 인자 치환 (research/03 §3-4). 배운 템플릿은 같은 패턴 페이지에서 재사용"""
         sig = signature(url)[0]
@@ -513,13 +521,24 @@ class Crawler:
                         budget -= 1
                         r, _ = await act(furl, CLICK_JS, [CAND, i])
                     if r:
-                        self.add_request(r, depth + 1)
+                        self.add_request(r, depth + 1, (parent, "클릭(%s)" % name))
 
-    def add_request(self, req, depth):
+    def add_request(self, req, depth, via):
         method, u, body = req
         if not u.startswith("http"):
             return
-        self.push(u, depth, body if method == "POST" and body else None)
+        self.push(u, depth, body if method == "POST" and body else None, via)
+
+    def path(self, url):
+        """시작 주소부터 이 페이지까지 [[URL, 찾은 방법], ...]. 각 단계의 방법은 그 URL을 찾은 방법"""
+        out, key = [], norm(url)
+        for _ in range(15):  # ponytail: 깊이 15에서 자른다
+            parent, how = self.via.get(key) or (None, "")
+            out.append([url, how])
+            if not parent or norm(parent) in {norm(u) for u, _ in out}:
+                break
+            url, key = parent, norm(parent)
+        return out[::-1]
 
 
 async def crawl(entry, analyze=None, workers=None, time_limit=20 * 60, log=print, ctl=None):

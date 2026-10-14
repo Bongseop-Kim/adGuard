@@ -171,10 +171,6 @@ table.kv { background: var(--g0); border-top: 1px solid var(--g90); }
 table.kv td, table.kv th { border-bottom: 1px solid var(--g20); padding: 8px 12px; font-size: 15px; text-align: left; }
 table.kv th { background: var(--g5); font-weight: 700; width: 200px; }
 .chips span { display: inline-flex; height: 28px; align-items: center; background: var(--danger-5); color: var(--danger-60); border: 1px solid var(--danger-10); border-radius: 4px; padding: 0 10px; margin: 2px 4px 2px 0; font-size: 15px; font-weight: 500; }
-.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.shots figure { margin: 0; background: var(--g0); border: 1px solid var(--g20); border-radius: 8px; padding: 12px; }
-.shots img { max-width: 100%; display: block; border: 1px solid var(--g20); border-radius: 4px; }
-.shots figcaption { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .locs { margin: 0; padding: 0; list-style: none; }
 .locs li { margin: 0 0 8px; font-size: 15px; background: var(--g0); border: 1px solid var(--g20); border-radius: 8px; padding: 10px 14px; }
 .locs code { display: inline-block; margin-top: 4px; background: var(--g5); padding: 2px 8px; border-radius: 4px; word-break: break-all; }
@@ -199,6 +195,52 @@ table.ai th { background: var(--g5); width: 280px; }
 .limits li { margin: 6px 0; color: var(--g70); font-size: 15px; }
 footer { border-top: 1px solid var(--g20); margin-top: 64px; padding: 24px; color: var(--g70); font-size: 15px; text-align: center; }
 
+/* 발견 경로 */
+.path { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.path li { position: relative; padding: 0 0 14px 28px; font-size: 15px; word-break: break-all; }
+.path li::before { content: ""; position: absolute; left: 7px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--g0); border: 2px solid var(--primary); }
+.path li::after { content: ""; position: absolute; left: 12px; top: 22px; bottom: 0; width: 2px; background: var(--primary-10); }
+.path li:last-child { padding-bottom: 0; } .path li:last-child::after { display: none; }
+.path li:last-child::before { background: var(--danger); border-color: var(--danger); }
+.how { display: inline-flex; height: 24px; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 13px; font-weight: 700; margin-right: 6px; background: var(--g10); color: var(--g70); }
+.how.hid { background: var(--warning-5); color: var(--warning-60); border: 1px solid var(--warning-10); }
+
+/* 페이지 전체에서의 위치 */
+.pagefig { background: var(--g0); border: 1px solid var(--g20); border-radius: 8px; padding: 12px; }
+.pagefig .scroll { max-height: 520px; overflow: auto; border: 1px solid var(--g20); border-radius: 4px; }
+.pagefig .canvas { position: relative; }
+.pagefig .canvas img { display: block; width: 100%; }
+.marker { position: absolute; border: 3px solid var(--danger); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(19,20,22,.35); min-width: 14px; min-height: 14px; }
+.marker span { position: absolute; left: -3px; bottom: 100%; margin-bottom: 4px; background: var(--danger); color: #fff; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+
+/* 숨김 해제 전후 비교 슬라이더 */
+.cmp { background: var(--g0); border: 1px solid var(--g20); border-radius: 8px; padding: 12px; }
+.cmp .stage { position: relative; overflow: hidden; border: 1px solid var(--g20); border-radius: 4px; }
+.cmp .stage img { display: block; width: 100%; }
+.cmp .stage .top { position: absolute; inset: 0; }
+.cmp .stage .top img { width: 100%; }
+.cmp .line { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--primary); transform: translateX(-1.5px); pointer-events: none; }
+.cmp .lbls { display: flex; justify-content: space-between; font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.cmp .lbls span:last-child { color: var(--danger-60); }
+.cmp input[type=range] { width: 100%; height: 32px; padding: 0; border: 0; accent-color: var(--primary); margin-top: 8px; }
+.cmp .both { display: none; }
+.cmp .both img { width: 100%; border: 1px solid var(--g20); }
+video.replay { width: 100%; max-width: 960px; display: block; border-radius: 8px; border: 1px solid var(--g20); background: var(--g95); }
+
+/* 사이트 지도 */
+.hows { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.tree { border-top: 2px solid var(--g90); padding-top: 8px; }
+.tree ul { list-style: none; margin: 0; padding-left: 20px; border-left: 1px solid var(--g20); }
+.tree > ul { padding-left: 0; border-left: 0; }
+.tree summary { cursor: pointer; padding: 6px 0; font-weight: 700; }
+.tree li { padding: 3px 0; font-size: 15px; }
+.tree .pg { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; word-break: break-all; }
+.tree .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--g30); }
+.tree .hit .dot { background: var(--danger); }
+.tree .hit > .pg > a, .tree .hit > .pg > span.nm { color: var(--danger-60); font-weight: 700; }
+.tree .cnt { font-size: 13px; color: var(--g70); font-weight: 400; margin-left: 4px; }
+.tree .cnt.hit { color: var(--danger-60); font-weight: 700; }
+
 @media (max-width: 760px) {
   .top-in { padding: 0 16px; height: 60px; } .top-in .desc { display: none; }
   main { padding: 24px 16px 48px; }
@@ -206,12 +248,15 @@ footer { border-top: 1px solid var(--g20); margin-top: 64px; padding: 24px; colo
   #start .box, #progress .box { padding: 24px; }
   #start form { flex-direction: column; }
   .tiles, .stats { grid-template-columns: 1fr 1fr; }
-  .two, .shots { grid-template-columns: 1fr; }
+  .two { grid-template-columns: 1fr; }
   .cond { grid-template-columns: max-content 1fr; }
   .ev { max-width: 180px; }
 }
 @media print {
   header.top, .noprint, .filters, .steps { display: none !important; }
+  .cmp .stage, .cmp input, .cmp .lbls, video.replay { display: none !important; }
+  .cmp .both { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pagefig .scroll { max-height: none; overflow: visible; }
   .box, .tile, table.list tr { break-inside: avoid; }
 }
 </style>
@@ -305,6 +350,7 @@ const LIMITS = [
   '방문자·시간·접속 지역에 따라 다른 내용을 보여주는 페이지는 점검 시점의 화면만 반영합니다.',
   '판정은 키워드·연락처 패턴과 화면 렌더링 규칙에 따른 것으로, 최종 위반 여부는 담당자가 확인해야 합니다.',
   '숨김 드러내기 캡처는 점검 뒤 페이지를 다시 열어 찍으므로, 그사이 내용이 바뀌면 캡처가 없을 수 있습니다.',
+  '재현 영상은 심각 등급을 먼저, 모자라면 위험 등급으로 채워 최대 5건만 만듭니다. 페이지 전체 캡처는 위에서 6000px까지만 찍습니다.',
 ];
 
 // 앱(pywebview 또는 예비 서버)에서 Python 부르기
@@ -446,6 +492,12 @@ function renderReport(D) {
     fill();
   }
 
+  // 사이트 지도
+  if ((D.pages || []).length) {
+    root.append(h('h2', {}, '사이트 지도 ', h('span', { class: 'muted' }, '살펴본 ' + D.pages.length + '쪽. 노란 꼬리표는 메뉴 링크가 아닌 방법(sitemap, 클릭, 스크립트 등)으로 찾은 페이지')));
+    root.append(h('div', {}, siteMap(D)));
+  }
+
   // R7 조치 안내 (전체)
   root.append(h('h2', {}, '조치 안내'));
   root.append(h('div', { class: 'acc' }, Object.entries(D.guide).map(([k, v]) =>
@@ -465,6 +517,91 @@ function renderReport(D) {
   root.append(h('footer', {}, 'adGuard ' + m.tool_version + ' · 보고서 생성 ' + fmtTime(m.report_at)));
 }
 
+const isData = (src, type) => typeof src === 'string' && src.startsWith('data:' + type);
+// 사람이 일반 링크로는 못 가는 경로 (메뉴에 없는 페이지를 찾은 방법)
+const HIDDEN_HOW = how => /sitemap|robots|스크립트|클릭|더보기|새 창/.test(how || '');
+
+// 숨김 해제 전(위)·후(아래) 두 장을 겹쳐 놓고 막대로 경계를 옮긴다. 인쇄할 때는 두 장을 나란히
+function compare(before, after, hidden) {
+  const top = h('div', { class: 'top' }, h('img', { src: before, alt: '이용자에게 보이는 화면' }));
+  const line = h('i', { class: 'line' });
+  const set = v => { top.style.clipPath = 'inset(0 ' + (100 - v) + '% 0 0)'; line.style.left = v + '%'; };
+  const range = h('input', { type: 'range', min: 0, max: 100, value: 100, 'aria-label': '전후 비교 위치', oninput: e => { stop = true; set(+e.target.value); } });
+  range.onclick = e => e.stopPropagation();
+  set(100);
+  // 처음 보일 때 막대를 오른쪽 끝에서 왼쪽 끝으로 한 번 쓸어서 숨김이 풀리는 모습을 보여 준다
+  let stop = false;
+  const sweep = () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { range.value = 0; return set(0); }
+    const t0 = performance.now() + 500;
+    const step = t => { if (stop) return; const k = Math.min(1, Math.max(0, (t - t0) / 1400)), v = 100 * (1 - k * k * (3 - 2 * k));
+      range.value = v; set(v); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  };
+  const base = h('img', { src: after, alt: hidden ? '숨김을 해제한 화면' : '광고 위치 표시', onload: sweep });
+  return h('div', { class: 'cmp' },
+    h('div', { class: 'lbls' }, h('span', {}, '◀ 이용자에게 보이는 화면'), h('span', {}, (hidden ? '숨김 해제' : '광고 표시') + ' (빨간 테두리) ▶')),
+    h('div', { class: 'stage' }, base, top, line),
+    range,
+    h('div', { class: 'both' }, h('img', { src: before, alt: '' }), h('img', { src: after, alt: '' })));
+}
+
+// 페이지 전체 캡처 위에 광고 위치를 표시하고, 열면 그 위치로 스크롤
+function pageFig(pos, shots) {
+  const shot = pos && shots[pos.url];
+  if (!shot || !isData(shot.img, 'image/')) return null;
+  const head = h('h3', {}, '페이지 전체에서의 위치');
+  if (pos.y > shot.h) return [head, h('div', { class: 'muted' }, '페이지가 길어 캡처 범위(위에서 ' + shot.h + 'px) 아래에 있습니다.')];
+  const pct = (v, t) => Math.max(0, Math.min(100, v / t * 100)) + '%';
+  const mk = h('div', { class: 'marker', style: 'left:' + pct(pos.x, shot.w) + ';top:' + pct(pos.y, shot.h) + ';width:' + pct(pos.w, shot.w) + ';height:' + pct(pos.h, shot.h) }, h('span', {}, '광고'));
+  const sc = h('div', { class: 'scroll' }, h('div', { class: 'canvas' }, h('img', { src: shot.img, alt: '페이지 전체 화면', onload: () => sc.scrollTop = mk.offsetTop - 120 }), mk));
+  return [head, h('div', { class: 'pagefig' }, sc, h('div', { class: 'hint' }, pos.url + ' · 회색으로 덮이지 않은 빨간 상자가 광고 위치'))];
+}
+
+function pathList(path) {
+  return h('ol', { class: 'path' }, path.map(([u, how], i) => h('li', {},
+    how ? h('span', { class: 'how' + (HIDDEN_HOW(how) ? ' hid' : '') }, how) : null,
+    /^https?:/i.test(u) ? h('a', { href: u, target: '_blank', rel: 'noopener noreferrer' }, u) : u,
+    i === path.length - 1 ? h('b', { style: 'color:var(--danger-60)' }, ' ← 광고 발견') : null)));
+}
+
+// 사이트 지도: 방문한 페이지를 주소 경로로 묶은 나무. 검출이 있는 페이지는 빨간 점
+function siteMap(D) {
+  const cnt = {};
+  for (const g of D.groups) for (const i of g.items) cnt[i.url] = (cnt[i.url] || 0) + 1;
+  const node = name => ({ name, kids: new Map(), pages: [], total: 0, hits: 0 });
+  const hosts = new Map();
+  for (const p of D.pages) {
+    let u; try { u = new URL(p.url); } catch (e) { continue; }
+    const segs = u.pathname.split('/').filter(Boolean), leaf = (segs.pop() || '/') + u.search;
+    if (!hosts.has(u.host)) hosts.set(u.host, node(u.protocol + '//' + u.host));
+    let n = hosts.get(u.host);
+    for (const s of segs) { if (!n.kids.has(s)) n.kids.set(s, node(s + '/')); n = n.kids.get(s); }
+    n.pages.push({ name: leaf, url: p.url, n: cnt[p.url] || 0, how: (p.path.at(-1) || [])[1] });
+  }
+  const sum = n => { n.total = n.pages.length; n.hits = n.pages.reduce((a, p) => a + p.n, 0);
+    for (const k of n.kids.values()) { sum(k); n.total += k.total; n.hits += k.hits; } };
+  const draw = (n, open) => h('details', { open: open || n.hits > 0 || null },
+    h('summary', {}, n.name, h('span', { class: 'cnt' + (n.hits ? ' hit' : '') }, ' ' + n.total + '쪽' + (n.hits ? ' · 검출 ' + n.hits + '건' : ''))),
+    h('ul', {},
+      [...n.kids.values()].map(k => h('li', {}, draw(k, false))),
+      n.pages.filter(p => p.n).sort((a, b) => b.n - a.n).map(leaf),
+      clean(n.pages.filter(p => !p.n).sort((a, b) => a.name.localeCompare(b.name)))));
+  const leaf = p => h('li', { class: p.n ? 'hit' : '' },
+    h('div', { class: 'pg' }, h('i', { class: 'dot' }),
+      h('a', { href: p.url, target: '_blank', rel: 'noopener noreferrer' }, p.name),
+      p.n ? h('span', { class: 'badge b-심각' }, '검출 ' + p.n) : null,
+      HIDDEN_HOW(p.how) ? h('span', { class: 'how hid' }, p.how) : null));
+  // 검출 없는 페이지는 5쪽이 넘으면 접어 둔다
+  const clean = ps => ps.length > 5 ? h('li', {}, h('details', {}, h('summary', { class: 'cnt' }, '검출 없는 페이지 ' + ps.length + '쪽'), h('ul', {}, ps.map(leaf)))) : ps.map(leaf);
+  const hows = {};
+  for (const p of D.pages) { const k = ((p.path.at(-1) || [])[1] || '?').replace(/\(.*\)/, ''); hows[k] = (hows[k] || 0) + 1; }
+  return [
+    h('div', { class: 'hows' }, Object.entries(hows).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
+      h('span', { class: 'how' + (HIDDEN_HOW(k) ? ' hid' : '') }, k + ' ' + v + '쪽'))),
+    h('div', { class: 'tree' }, h('ul', {}, [...hosts.values()].map(n => { sum(n); return h('li', {}, draw(n, true)); })))];
+}
+
 // R5·R6·R7: 묶음 하나의 근거 상세
 function detail(g, D) {
   const odd = new Map(g.chars.map(([c, code, name]) => [c, code + ' ' + name]));
@@ -477,7 +614,6 @@ function detail(g, D) {
   if (buf) raw.append(buf);
   const hidden = g.technique === 'TRANSPARENT' || g.technique === 'OFFSCREEN';
   const sh = g.shot || {};
-  const img = src => typeof src === 'string' && src.startsWith('data:image/') ? h('img', { src, alt: '' }) : h('div', { class: 'muted' }, '이미지 없음');
   const copy = (t, b) => {
     const done = () => { b.textContent = '복사됨'; setTimeout(() => b.textContent = '복사', 1200); };
     if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, () => prompt('선택자', t));
@@ -486,6 +622,12 @@ function detail(g, D) {
   const styleRows = Object.entries(g.style || {}).filter(([, v]) => v && v !== 'none' && v !== 'auto' && v !== 'normal');
   return h('div', { class: 'det' },
     h('div', { class: 'summary' }, g.summary),
+    isData(g.video, 'video/webm') ? [h('h3', {}, '재현 영상 (페이지 열기 → 광고 위치로 이동 → ' + (hidden ? '숨김 해제)' : '광고 표시)')),
+      h('video', { class: 'replay', src: g.video, controls: true, muted: true, playsinline: true, preload: 'metadata' })] : null,
+    h('h3', {}, hidden ? '숨김 드러내기 (막대를 움직여 비교)' : '광고 위치 (막대를 움직여 비교)'),
+    isData(sh.before, 'image/') ? compare(sh.before, sh.after, hidden) : h('div', { class: 'muted' }, sh.error || '캡처 없음'),
+    pageFig(sh.pos, D.shots || {}),
+    g.items[0].path && g.items[0].path.length ? [h('h3', {}, '발견 경로 (시작 주소에서 이 페이지까지 찾아간 과정)'), pathList(g.items[0].path)] : null,
     h('h3', {}, '광고 원문 (수집한 그대로, 표시된 글자는 마우스를 올리면 문자 정보)'), raw,
     g.chars.length ? [h('h3', {}, '변형·특수 글자'), h('table', { class: 'kv' },
       h('tr', {}, h('th', {}, '글자'), h('th', {}, '코드'), h('th', {}, '이름')),
@@ -496,11 +638,6 @@ function detail(g, D) {
     h('div', { class: 'muted' }, TECH_DESC[g.technique]),
     hidden && styleRows.length ? [h('h3', {}, '계산된 스타일 (브라우저가 실제로 적용한 값)'),
       h('table', { class: 'kv' }, styleRows.map(([k, v]) => h('tr', {}, h('th', {}, k), h('td', {}, v))))] : null,
-    h('h3', {}, hidden ? '숨김 드러내기' : '광고 위치'),
-    sh.before ? h('div', { class: 'shots' },
-      h('figure', {}, h('figcaption', {}, hidden ? '① 이용자에게 보이는 화면' : '① 이용자에게 보이는 화면'), img(sh.before)),
-      h('figure', {}, h('figcaption', {}, hidden ? '② 숨김을 해제한 화면 (빨간 테두리가 광고)' : '② 광고 위치 표시 (빨간 테두리)'), img(sh.after)))
-      : h('div', { class: 'muted' }, sh.error || '캡처 없음'),
     g.html ? [h('h3', {}, 'HTML 조각'), h('pre', {}, g.html)] : null,
     h('h3', {}, '발견 위치 ' + g.items.length + '곳'),
     h('ul', { class: 'locs' }, g.items.map(i => {

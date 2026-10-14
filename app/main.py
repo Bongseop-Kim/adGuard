@@ -57,7 +57,7 @@ def scan(url, log=print, ctl=None, minutes=20):
                 findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
                                  "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
                                  "technique": f["technique"]})
-                items.append(dict(f, **findings[-1]))
+                items.append(dict(f, **findings[-1], path=pg.get("path") or []))
         meta = {
             "topic": "TOPIC",
             "entry_url": url,
@@ -81,7 +81,8 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
     if on_done:
         on_done(meta, items)
     c = ctl.get("crawler")
-    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log)
+    pages = [{"url": r["url"], "path": r.get("path") or []} for r in (c.results if c else [])]
+    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages)
 
 
 def ui_html():

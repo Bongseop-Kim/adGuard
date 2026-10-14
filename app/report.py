@@ -7,6 +7,7 @@
 - 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
 - 숨김 드러내기(R6): 페이지를 다시 열어 부모 영역을 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
+- 시각 자료: 페이지 전체 캡처(주소마다 1장, 절반 해상도) + 광고 위치 좌표, 재현 영상(심각 우선 최대 5개), 발견 경로, 사이트 지도
 """
 import asyncio
 import base64
@@ -31,6 +32,8 @@ HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
 SHOT_MAX, SHOT_SEC = 100, 240  # ponytail: 캡처 상한. 넘는 묶음은 "캡처 생략"으로 표시
+PAGE_MAX_H = 6000  # 페이지 전체 캡처 높이 상한(CSS px). 그 아래 광고는 위치 표시 없이 안내
+VIDEO_MAX, VIDEO_SEC = 5, 120
 
 REVEAL_JS = r"""
 (e, [step, hidden]) => {
@@ -120,7 +123,8 @@ def group(items, history, now):
             "first_seen": history.setdefault(fp, now), "summary": summary, "evidence_text": f["evidence_text"],
             "norm": f.get("norm", ""), "kw": kw, "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
             "html": f.get("html", ""), "style": f.get("style", {}),
-            "items": [{"id": x["id"], "url": x["url"], "location": x["location"]} for x in its],
+            "items": [{"id": x["id"], "url": x["url"], "location": x["location"], "path": x.get("path") or []}
+                      for x in its],
         })
     # 정렬: 위험도 → 영향 페이지 수 → 최초 발견일(신규 먼저) (research/10 §1-6)
     groups.sort(key=lambda g: g["first_seen"], reverse=True)
@@ -145,13 +149,21 @@ async def frame_scope(page, location):
     return frame, (css + " " + last).strip()
 
 
-async def shoot(page, url, location, hidden):
+MASK = '[class*="writer"], [class*="author"], [class*="nick"]'  # 작성자 칸은 가린다 (보고서가 외부로 나가므로)
+
+
+async def open_marked(page, url, location, hidden):
     await page.goto(url, wait_until="load", timeout=15000)
     await asyncio.sleep(0.8)  # 로드 뒤 JS가 넣는 광고
     scope, css = await frame_scope(page, location)
     loc, box = scope.locator(css).first, scope.locator("[data-adg-box]").first
     await loc.evaluate(REVEAL_JS, ["mark", hidden], timeout=4000)
-    mask = [page.locator('[class*="writer"], [class*="author"], [class*="nick"]')]  # 작성자 칸은 가린다 (보고서가 외부로 나가므로)
+    return loc, box
+
+
+async def shoot(page, url, location, hidden):
+    loc, box = await open_marked(page, url, location, hidden)
+    mask = [page.locator(MASK)]
 
     async def snap():
         b = await box.bounding_box(timeout=3000)
@@ -165,23 +177,79 @@ async def shoot(page, url, location, hidden):
                                     mask=mask, timeout=5000)
         return "data:image/jpeg;base64," + base64.b64encode(img).decode()
 
+    # 페이지 전체 캡처 위의 위치(CSS px, 문서 기준). 숨김 광고는 크기가 없어 부모 영역, 보이는 광고는 요소 자체
+    sy = await page.evaluate("() => [scrollX, scrollY]")
+    r = (not hidden and await loc.bounding_box(timeout=1000)) or await box.bounding_box(timeout=1000)
+    pos = r and {"url": url, "x": r["x"] + sy[0], "y": r["y"] + sy[1], "w": r["width"], "h": r["height"]}
     before = await snap()
     await loc.evaluate(REVEAL_JS, ["reveal", hidden], timeout=3000)
     await page.wait_for_timeout(100)
-    return {"before": before, "after": await snap()}
+    return {"before": before, "after": await snap(), "pos": pos}
+
+
+async def shoot_page(page, url):
+    """페이지 전체를 절반 해상도로 (device_scale_factor 0.5 컨텍스트). 반환: {img, w, h} (w·h는 CSS px)"""
+    await page.goto(url, wait_until="load", timeout=15000)
+    await asyncio.sleep(0.8)
+    w, h = await page.evaluate("() => [document.documentElement.clientWidth, document.documentElement.scrollHeight]")
+    h = min(h, PAGE_MAX_H)
+    img = await page.screenshot(full_page=True, clip={"x": 0, "y": 0, "width": w, "height": h}, type="jpeg", quality=55,
+                                animations="disabled", caret="hide", mask=[page.locator(MASK)], timeout=10000)
+    return {"img": "data:image/jpeg;base64," + base64.b64encode(img).decode(), "w": w, "h": h}
+
+
+CAPTION_JS = r"""t => { let c = document.getElementById('adg-cap');
+  if (!c) { c = document.createElement('div'); c.id = 'adg-cap'; document.documentElement.append(c);
+    c.style.cssText = 'position:fixed;left:16px;top:16px;z-index:2147483647;background:rgba(19,20,22,.88);color:#fff;' +
+      'font:700 20px/1.4 sans-serif;padding:10px 16px;border-radius:8px;pointer-events:none'; }
+  c.textContent = t; }"""
+
+
+async def record(browser, tmp, url, location, hidden):
+    """재현 영상: 페이지 열기 → 광고 위치로 스크롤 → 숨김 해제. 반환: data:video/webm"""
+    ctx = await browser.new_context(ignore_https_errors=True, service_workers="block", viewport={"width": 1280, "height": 720},
+                                    locale="ko-KR", record_video_dir=tmp, record_video_size={"width": 960, "height": 540})
+    from crawler import INIT
+    await ctx.add_init_script(INIT)
+    page = await ctx.new_page()
+    try:
+        loc, box = await open_marked(page, url, location, hidden)
+        await page.evaluate("() => scrollTo(0, 0)")
+        await page.evaluate(CAPTION_JS, "① 페이지를 엽니다")
+        await page.wait_for_timeout(1500)
+        await page.evaluate(CAPTION_JS, "② 광고가 있는 위치로 이동")
+        await box.evaluate("e => e.scrollIntoView({ behavior: 'smooth', block: 'center' })", timeout=3000)
+        await page.wait_for_timeout(1800)
+        await page.evaluate(CAPTION_JS, "③ 이용자에게 보이는 화면" if hidden else "③ 변형된 광고 문구")
+        await page.wait_for_timeout(1500)
+        await loc.evaluate(REVEAL_JS, ["reveal", hidden], timeout=3000)
+        await box.evaluate("e => e.scrollIntoView({ block: 'center' })", timeout=3000)
+        await page.evaluate(CAPTION_JS, "④ 숨김 해제: 빨간 테두리가 숨겨진 광고" if hidden else "④ 빨간 테두리가 광고")
+        await page.wait_for_timeout(2500)
+    finally:
+        await page.close()
+        path = await page.video.path()
+        await ctx.close()
+    with open(path, "rb") as f:
+        data = f.read()
+    os.remove(path)
+    return "data:video/webm;base64," + base64.b64encode(data).decode()
 
 
 async def capture(groups, log):
+    """묶음별 숨김 드러내기 + 위치, 주소별 페이지 전체 캡처, 재현 영상. 반환: {URL: 페이지 전체 캡처}"""
+    import tempfile
     from playwright.async_api import async_playwright
     from crawler import INIT, launch
 
-    t0 = time.monotonic()
+    t0, pages = time.monotonic(), {}
     async with async_playwright() as p:
         browser, _ = await launch(p)
-        ctx = await browser.new_context(ignore_https_errors=True, service_workers="block",
-                                        viewport={"width": 1280, "height": 720}, locale="ko-KR")
-        await ctx.add_init_script(INIT)
-        page = await ctx.new_page()
+        opts = dict(ignore_https_errors=True, service_workers="block", viewport={"width": 1280, "height": 720}, locale="ko-KR")
+        ctx, half = await browser.new_context(**opts), await browser.new_context(device_scale_factor=0.5, **opts)
+        for c in (ctx, half):
+            await c.add_init_script(INIT)
+        page, whole = await ctx.new_page(), await half.new_page()
         for n, g in enumerate(groups):
             if n >= SHOT_MAX or time.monotonic() - t0 > SHOT_SEC:
                 g["shot"] = {"error": "캡처 생략(보고서 크기·시간 상한)"}
@@ -195,8 +263,30 @@ async def capture(groups, log):
                     g["shot"] = {"error": "캡처 실패: 페이지를 다시 열었을 때 요소를 찾지 못함 (%s)" % type(e).__name__}
                     await page.close()
                     page = await ctx.new_page()
+            if g["shot"].get("pos") and it["url"] not in pages:
+                try:
+                    pages[it["url"]] = await asyncio.wait_for(shoot_page(whole, it["url"]), 25)
+                except Exception as e:
+                    log("페이지 전체 캡처 실패 %s: %r" % (it["url"], e))
+                    await whole.close()
+                    whole = await half.new_page()
             log("숨김 드러내기 캡처 %d/%d" % (n + 1, len(groups)))
+
+        # 재현 영상: 심각 우선, 모자라면 위험(숨김) 순으로 채운다
+        picks = [g for g in groups if g["risk"] == "심각"] + [g for g in groups if g["risk"] == "위험"]
+        t1 = time.monotonic()
+        with tempfile.TemporaryDirectory() as tmp:
+            for n, g in enumerate([g for g in picks if g["shot"].get("before")][:VIDEO_MAX]):
+                if time.monotonic() - t1 > VIDEO_SEC:
+                    break
+                it = g["items"][0]
+                try:
+                    g["video"] = await asyncio.wait_for(record(browser, tmp, it["url"], it["location"], g["technique"] in HIDDEN), 40)
+                except Exception as e:
+                    log("재현 영상 실패 %s: %r" % (g["fp"], e))
+                log("재현 영상 %d" % (n + 1))
         await browser.close()
+    return pages
 
 
 def html_report(data):
@@ -217,7 +307,7 @@ def write_csv(path, groups):
                             g["evidence_text"], g["reason"], g["fp"], g["first_seen"]])
 
 
-def make(meta, items, visited, stopped, minutes, log=print):
+def make(meta, items, visited, stopped, minutes, log=print, pages=None):
     base = main.base_dir()
     hist_path = os.path.join(base, "history.json")
     try:
@@ -227,15 +317,18 @@ def make(meta, items, visited, stopped, minutes, log=print):
         history = {}
     groups = group(items, history, meta["started_at"])
     main.write_json(hist_path, history)
+    shots = {}
     if groups:
         try:
-            asyncio.run(capture(groups, log))
+            shots = asyncio.run(capture(groups, log))
         except Exception as e:
             log("캡처 단계 오류(보고서는 캡처 없이 만듦): %r" % e)
     data = {
         "meta": dict(meta, visited=visited, stopped=stopped, minutes=minutes, findings=len(items),
                      report_at=datetime.now(main.KST).isoformat(timespec="seconds")),
         "groups": groups,
+        "pages": pages or [],  # 방문한 전체 페이지와 발견 경로 (사이트 지도)
+        "shots": shots,
         "guide": GUIDE,
         # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
         "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},
