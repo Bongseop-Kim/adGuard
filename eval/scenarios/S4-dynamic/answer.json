@@ -1,0 +1,77 @@
+{
+  "scenario": "S4",
+  "entry_url": "http://127.0.0.1:8140/",
+  "answers": [
+    {
+      "id": "a_001",
+      "url": "http://127.0.0.1:8140/board/view?id=1",
+      "location": "ul.cmt-list > li.cmt-new > span.cmt-hide",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카지노 첫충 이벤트 @test_ajax_01",
+      "covers": ["P14", "P03", "O03"],
+      "click": ["button.btn-more"],
+      "note": "[render_only] '댓글 더보기' 버튼을 1번 눌러야 fetch로 붙는 댓글. left:-9999px"
+    },
+    {
+      "id": "a_002",
+      "url": "http://127.0.0.1:8140/board/view?id=2",
+      "location": "ul.cmt-list > li.cmt-late > p.cmt-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "바카라 환전 가입코드 TESTAJ2",
+      "covers": ["P14", "P03", "T01"],
+      "click": ["a.cmt-more", "a.cmt-more"],
+      "note": "[render_only] href=\"#none\" '더보기' 링크를 2번 눌러야 나오는 댓글(3쪽). 흰 배경에 흰 글자"
+    },
+    {
+      "id": "a_003",
+      "url": "http://127.0.0.1:8140/news/view?no=3",
+      "location": "div.news-view > p.nv-note",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ ㅌㅗㅌㅗ @test_jamo_news",
+      "covers": ["P16", "J01"],
+      "note": "메인의 같은 도메인 iframe(/widget/news.html) 안 onclick이 top.location으로 여는 페이지. 어디에도 href 없음"
+    },
+    {
+      "id": "a_004",
+      "url": "http://127.0.0.1:8140/minwon/view?mwNo=21",
+      "location": "div.mw-view > p.mw-note",
+      "technique": "TRANSPARENT",
+      "evidence_text": "슬롯 토토 환전 010-0000-2121",
+      "covers": ["P16", "P06", "F08", "T07"],
+      "note": "iframe(/widget/minwon.html) 안 onclick이 target=_top 폼을 POST. 같은 파라미터 GET도 같은 글 → url은 GET. opacity:0"
+    },
+    {
+      "id": "a_005",
+      "url": "http://127.0.0.1:8140/archive/notice",
+      "location": "div.ar-view > p.ar-note",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ＣＡＳＩＮＯ 바카라 가입 @test_fw_ar",
+      "covers": ["P15", "P11", "H01"],
+      "note": "외부 /js/common.js의 객체 리터럴 문자열로만 알 수 있는 페이지. 전각 영문"
+    },
+    {
+      "id": "a_006",
+      "url": "http://127.0.0.1:8140/legacy/guide",
+      "location": "div.lg-view > p > span.lg-hide",
+      "technique": "OFFSCREEN",
+      "evidence_text": "먹튀 없는 토토사이트 @test_legacy",
+      "covers": ["P15", "P11", "O01", "F06"],
+      "note": "소개 페이지에서만 불러오는 하위 폴더 /js/sub/legacy.js 안 문자열로만 알 수 있는 페이지. display:none"
+    }
+  ],
+  "decoys": [
+    {
+      "url": "http://127.0.0.1:8140/board/view?id=1",
+      "location": "ul.cmt-list > li:nth-of-type(2) > p.cmt-txt",
+      "covers": ["D04"],
+      "note": "정상 자모 'ㅎㅎ' 댓글"
+    },
+    {
+      "url": "http://127.0.0.1:8140/board/view?id=2",
+      "location": "p.cmt-more-wrap > a.cmt-more",
+      "covers": ["D02"],
+      "note": "'더보기' 링크 자체 (마지막 쪽까지 누르면 display:none이 됨). 광고 아님"
+    }
+  ],
+  "extra": []
+}

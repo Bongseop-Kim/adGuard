@@ -249,7 +249,7 @@
     },
     {
       "id": "a_021",
-      "url": "http://127.0.0.1:8120/minwon/apply",
+      "url": "http://127.0.0.1:8120/minwon/apply-notice.html",
       "location": "div.apply-notice > p.an-hidden",
       "technique": "OFFSCREEN",
       "evidence_text": "토토 먹튀검증 안전놀이터 @test_toto_13",

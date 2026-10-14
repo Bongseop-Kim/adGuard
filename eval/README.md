@@ -12,7 +12,8 @@ eval/
 │   ├── S0-empty/          ← 광고 없는 사이트
 │   ├── S1-baseline/       ← 모집요강 예시 재현형
 │   ├── S2-realistic/      ← 실전 공공 누리집형
-│   └── S3-stress/         ← 시간 측정용 대형 사이트
+│   ├── S3-stress/         ← 시간 측정용 대형 사이트
+│   └── S4-dynamic/        ← 클릭·외부 JS로만 닿는 위치 회귀 세트
 ├── blind/                 ← 블라인드 세트 (개발 중 열람 금지)
 └── scorer/                ← 채점기 (todo/02에서 구현)
 ```
@@ -40,6 +41,7 @@ SX-name/
 | S1 | 8110 | 8111 |
 | S2 | 8120 | 8121 |
 | S3 | 8130 | 8131 |
+| S4 | 8140 | 8141 |
 | blind | 8190 | 8191 |
 
 ## 테스트용 광고 문구 방침
@@ -89,6 +91,7 @@ SX-name/
 - `answers`: `result.json`에 반드시 나와야 하는 항목이다. 판정은 url + location + technique이 모두 일치해야 정답이다.
 - `decoys`: `result.json`에 나오면 오탐이다.
 - `extra`: `result_extra.json`에만 나와야 하는 항목이다. `result.json`에 나오면 오탐이다.
+- `click`(선택): 채점기가 location을 찾기 전에 차례로 누를 선택자 목록. "댓글 더보기"처럼 눌러야 생기는 요소에 쓴다.
 - `location`은 모집요강 규칙으로 쓴다: 태그+클래스, ` > `, `:nth-of-type()`, 속성값 큰따옴표, iframe은 `iframe[src="절대URL"] >>> `.
 - 정답 location은 **렌더링 DOM과 원본 HTML 양쪽에서 정확히 1개 요소**를 가리켜야 한다.
 
@@ -112,6 +115,9 @@ SX-name/
 | P11 | 메뉴에 없는 옛 게시판 (sitemap·robots·숨김 링크·주석으로만 닿음) |
 | P12 | lazy iframe, srcdoc iframe |
 | P13 | Shadow DOM (open, closed) |
+| P14 | "더보기"를 눌러야 AJAX로 붙는 영역 (S4) |
+| P15 | 외부 `.js` 파일 속 문자열로만 닿는 페이지 (S4) |
+| P16 | iframe 안 onclick이 여는 상위 페이지 (GET, `target=_top` POST) (S4) |
 
 ### OFFSCREEN (O)
 | ID | 변형 |
@@ -229,6 +235,7 @@ python eval/scorer/score.py S2-realistic --self-test             # 채점기 자
 - 출력: 재현율·정밀도·시간, 모집요강 배점 환산 점수, 놓친 건(커버 ID 포함), 오탐 사유(미끼 ID, 기법 불일치, location이 0개·2개 이상, 정답·미끼에 없는 요소), 통과 기준 O/X
 - 점수 환산은 가정이다: 검출 개수 45 × 재현율, 정확도 35 × 정밀도, 시간 20은 목표 이하면 만점·30분 초과면 0·그 사이는 선형
 - 필요: `playwright` (requirements.txt)
+- 크롤러 도달 검사: `python eval/crawlcheck.py [시나리오…]` (크롤러가 분석하는 시점의 DOM에서 정답·extra location이 정확히 1개인지, blind는 개수만)
 
 ## 블라인드 규칙
 

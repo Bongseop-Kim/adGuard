@@ -96,8 +96,8 @@ def load_result(path):
 class Resolver:
     """url별로 한 번 렌더링하고, location을 (프레임 번호, 요소 번호)로 바꾼다."""
 
-    def __init__(self, ctx):
-        self.ctx, self.pages = ctx, {}
+    def __init__(self, ctx, clicks=None):
+        self.ctx, self.pages, self.clicks = ctx, {}, clicks or {}
 
     def page(self, url):
         key = norm_url(url)
@@ -107,6 +107,9 @@ class Resolver:
                 pg.goto(url, wait_until="load", timeout=30000)
                 pg.mouse.wheel(0, 400000)  # lazy iframe 로드
                 pg.wait_for_timeout(2500)  # 늦게 삽입되는 요소
+                for sel in self.clicks.get(key, []):  # 정답의 click: 눌러야 생기는 요소 (예: 댓글 더보기)
+                    pg.locator(sel).first.click(timeout=5000)
+                    pg.wait_for_timeout(1000)
             except Exception:
                 pass
             self.pages[key] = pg
@@ -163,7 +166,12 @@ def score(name, result_path, extra_path=None):
         b = p.chromium.launch()
         ctx = b.new_context(viewport={"width": 1920, "height": 1080})
         ctx.add_init_script(INIT)
-        R = Resolver(ctx)
+        clicks = {}
+        for a in ans["answers"]:
+            if a.get("click"):  # 같은 페이지에 click이 여러 정답에 있으면 가장 긴 것 (앞부분이 같다고 가정)
+                k = norm_url(a["url"])
+                clicks[k] = max(clicks.get(k, []), a["click"], key=len)
+        R = Resolver(ctx, clicks)
 
         def key_of(item):
             k, why = R.resolve(item["url"], item["location"])

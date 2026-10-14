@@ -4,6 +4,7 @@
 - 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
 - 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
 """
+import asyncio
 import json
 import os
 import sys
@@ -28,27 +29,14 @@ def write_json(path, data):
     os.replace(tmp, path)
 
 
-def launch(p):
-    try:
-        return p.chromium.launch(), "동봉 Chromium"
-    except Exception:
-        return p.chromium.launch(channel="msedge"), "Edge"  # 동봉 Chromium이 막히면 Edge로
-
-
 def scan(url, log=print):
     browsers = os.path.join(base_dir(), "browsers")
     if os.path.isdir(browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers  # PC에 같은 환경변수가 있어도 동봉본을 쓴다
-    from playwright.sync_api import sync_playwright
+    from crawler import crawl
 
     started, t0 = datetime.now(KST), time.monotonic()
-    with sync_playwright() as p:
-        browser, kind = launch(p)
-        log("브라우저: %s %s" % (kind, browser.version))
-        page = browser.new_page()
-        page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        title = page.title()
-        browser.close()
+    pages = asyncio.run(crawl(url, log=log))  # ponytail: 탐지(analyze)는 todo/04에서 붙인다
     meta = {
         "topic": "TOPIC",
         "entry_url": url,
@@ -59,7 +47,7 @@ def scan(url, log=print):
     }
     out = os.path.join(base_dir(), "result.json")
     write_json(out, {"meta": meta, "findings": []})
-    log("탐지 완료: %s -> %s" % (title, out))
+    log("탐지 완료: %d쪽 -> %s" % (len(pages), out))
 
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8"><title>adGuard</title>

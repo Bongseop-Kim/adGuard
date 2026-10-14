@@ -58,7 +58,7 @@ python serve.py
 | a_018 | `/intro/location.html` | `iframe[src="http://localhost:8121/map/embed.html"] >>> iframe[src="http://localhost:8121/map/poi.html"] >>> ul.poi-list > li:nth-of-type(3)` | JAMO | P07 F04 F05 F06 J01 | 2단 중첩 iframe. 안쪽 src 상대경로(poi.html)→바깥 프레임 기준 절대. 호환자모 나열 |
 | a_019 | `/info/facility.html` | `iframe[src="http://127.0.0.1:8120/widget/facility-cam.html"] >>> p.cam-ad` | TRANSPARENT | P07 T08 | 같은 도메인 iframe 안 p, filter:opacity(0) |
 | a_020 | `/info/faq.html` | `div.faq-item:nth-of-type(2) > dd.faq-a > span.sound_only` | OFFSCREEN | O11 F06 | 접힌 FAQ(display:none) 안에 .sound_only 추가 은닉(조상 display:none + 자기 sound_only). 접근성 클래스 재사용 |
-| a_021 | `/minwon/apply` | `div.apply-notice > p.an-hidden` | OFFSCREEN | F10 O03 | GET /minwon/apply 가 302로 /minwon/apply-notice.html 로 이동. 최종 URL 기준. position:fixed;top:-9999px |
+| a_021 | `/minwon/apply-notice.html` | `div.apply-notice > p.an-hidden` | OFFSCREEN | F10 O03 | GET /minwon/apply 가 302로 /minwon/apply-notice.html 로 이동. 최종 URL 기준. position:fixed;top:-9999px |
 | a_022 | `/cop/bbs/selectArticleList.do?bbsId=BBSMSTR_11` | `div.bbs-list > table.tbl tr:nth-of-type(8) > td.subject > a` | HOMOGLYPH | P01 H01 F07 | 목록 제목(전각 영숫자). 원본에 tbody 없는 표, 헤더 tr 포함 8번째 행 |
 | a_023 | `/cop/bbs/selectArticleDetail.do?bbsId=BBSMSTR_11&nttId=1064` | `div.bbs-view > h3.view-tit` | HOMOGLYPH | P02 P06 F08 | onclick POST(fn_egov_inqire_notice)로만 열리는 상세. GET 동일글 반환→url은 GET URL. 상세 제목 전각 |
 | a_024 | `/cop/bbs/selectArticleList.do?bbsId=BBSMSTR_11&pageIndex=2` | `div.bbs-list > table.tbl tr:nth-of-type(6) > td.subject > a` | HOMOGLYPH | P04 H02 | 목록 2쪽(POST paging)에만 있는 글 제목. 키릴 문자 혼합 |
