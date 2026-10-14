@@ -1060,14 +1060,6 @@
         "D02"
       ],
       "note": "접힌 GNB 하위메뉴"
-    },
-    {
-      "url": "http://127.0.0.1:8120/intro/organization.html",
-      "location": "p.hanja",
-      "covers": [
-        "D03"
-      ],
-      "note": "정상 한자·전각괄호(2회째)"
     }
   ],
   "extra": [

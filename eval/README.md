@@ -217,6 +217,19 @@ SX-name/
 - url·location·technique이 같은 항목이 여러 번 나오면 1건으로 합친다.
 - 스키마를 지키지 않은 항목은 오답이다. 파일 전체를 파싱할 수 없으면 0점이다.
 
+## 채점기 사용법
+
+```
+python eval/scorer/score.py S1-baseline result.json              # 채점 (서버가 없으면 자동으로 띄움)
+python eval/scorer/score.py S1-baseline result.json --extra result_extra.json --json report.json
+python eval/scorer/score.py blind result.json                    # 블라인드: 점수와 건수만 표시
+python eval/scorer/score.py S2-realistic --self-test             # 채점기 자체 검증
+```
+
+- 출력: 재현율·정밀도·시간, 모집요강 배점 환산 점수, 놓친 건(커버 ID 포함), 오탐 사유(미끼 ID, 기법 불일치, location이 0개·2개 이상, 정답·미끼에 없는 요소), 통과 기준 O/X
+- 점수 환산은 가정이다: 검출 개수 45 × 재현율, 정확도 35 × 정밀도, 시간 20은 목표 이하면 만점·30분 초과면 0·그 사이는 선형
+- 필요: `playwright` (requirements.txt)
+
 ## 블라인드 규칙
 
 - `blind/`는 이 README와 `docs/research/`만 보고 별도 에이전트가 만든다.
