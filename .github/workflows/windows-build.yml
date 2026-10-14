@@ -33,8 +33,10 @@ jobs:
           Copy-Item -Recurse dist\adguard $dest
           $srv = Start-Process python -ArgumentList "eval/scenarios/S0-empty/serve.py" -PassThru
           Start-Sleep -Seconds 3
-          & "$dest\adguard.exe" "http://127.0.0.1:8100/"
+          $out = & "$dest\adguard.exe" "http://127.0.0.1:8100/"
           if ($LASTEXITCODE -ne 0) { throw "adguard.exe 실패: $LASTEXITCODE" }
+          $out
+          if (-not ($out -match "동봉 Chromium")) { throw "동봉 Chromium이 아닌 브라우저로 실행됨" }
           Stop-Process -Id $srv.Id
           python -c "import json,sys; p=sys.argv[1]; b=open(p,'rb').read(); assert not b.startswith(b'\xef\xbb\xbf'), 'BOM'; d=json.loads(b.decode('utf-8')); assert set(d)=={'meta','findings'} and d['findings']==[] and d['meta']['topic']=='TOPIC', d; print('result.json OK', d['meta'])" "$dest\result.json"
 

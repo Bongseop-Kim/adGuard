@@ -24,9 +24,9 @@ def write_json(path, data):
 
 def launch(p):
     try:
-        return p.chromium.launch()
+        return p.chromium.launch(), "동봉 Chromium"
     except Exception:
-        return p.chromium.launch(channel="msedge")  # 동봉 Chromium이 막히면 Edge로
+        return p.chromium.launch(channel="msedge"), "Edge"  # 동봉 Chromium이 막히면 Edge로
 
 
 def main():
@@ -39,7 +39,8 @@ def main():
 
     started, t0 = datetime.now(KST), time.monotonic()
     with sync_playwright() as p:
-        browser = launch(p)
+        browser, kind = launch(p)
+        print("브라우저: %s %s" % (kind, browser.version))
         page = browser.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         title = page.title()
