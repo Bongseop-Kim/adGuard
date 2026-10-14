@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /old/
+Disallow: /admin/
+Disallow: /calendar/month?*day=
+Sitemap: http://127.0.0.1:8130/sitemap.xml

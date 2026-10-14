@@ -1,0 +1,12 @@
+.skip-nav{position:absolute;left:0;top:-60px;background:#003a70;color:#fff;padding:6px 12px;z-index:999}
+.skip-nav:focus{top:0}
+.sound_only,.blind{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(100%);border:0}
+.gnb .sub[aria-hidden="true"]{display:none}
+body{font-family:'Malgun Gothic',sans-serif;margin:0;color:#222;background:#fff}
+.wrap{max-width:960px;margin:0 auto;padding:20px}
+.board-list{width:100%;border-collapse:collapse}
+.board-list th,.board-list td{border-bottom:1px solid #e3e3e3;padding:8px}
+.ext-hidden{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+.grey-note{color:#9a9a9a}
+.print-only{display:none}
+@media print{.print-only{display:block}}

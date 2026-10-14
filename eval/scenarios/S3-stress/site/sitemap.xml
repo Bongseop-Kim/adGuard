@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://127.0.0.1:8130/</loc></url>
+  <url><loc>http://127.0.0.1:8130/intro/greeting</loc></url>
+  <url><loc>http://127.0.0.1:8130/intro/history</loc></url>
+  <url><loc>http://127.0.0.1:8130/intro/org</loc></url>
+  <url><loc>http://127.0.0.1:8130/intro/location</loc></url>
+  <url><loc>http://127.0.0.1:8130/board/notice/list</loc></url>
+  <url><loc>http://127.0.0.1:8130/egov/cop/bbs/selectArticleList.do?bbsId=BBSMSTR_000000000021</loc></url>
+  <url><loc>http://127.0.0.1:8130/calendar/month</loc></url>
+  <url><loc>http://127.0.0.1:8130/data/list</loc></url>
+  <url><loc>http://127.0.0.1:8130/stats/table</loc></url>
+  <url><loc>http://127.0.0.1:8130/civil/faq</loc></url>
+  <url><loc>http://127.0.0.1:8130/old/board/list.asp</loc></url>
+  <url><loc>http://127.0.0.1:8130/info/privacy_2019.do</loc></url>
+</urlset>

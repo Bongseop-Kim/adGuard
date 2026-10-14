@@ -1,0 +1,19 @@
+@charset "utf-8";
+.sound_only{position:absolute!important;width:0;height:0;overflow:hidden!important;font-size:0;line-height:0;margin:0!important;padding:0!important;border:0!important}
+.bo_list table{width:100%;border-collapse:collapse;border-top:2px solid #222}
+.bo_list td,.bo_list th{border-bottom:1px solid #e5e5e5;padding:9px 6px;text-align:center}
+.bo_list .td_subject{text-align:left}
+.pg_wrap{text-align:center;margin:20px 0}
+.pg_wrap a,.pg_wrap strong{display:inline-block;padding:4px 10px;border:1px solid #ddd;margin:0 2px}
+.pg_current{background:#333;color:#fff}
+.bo_v_tit{font-size:22px;margin:0;padding:12px 0;border-bottom:1px solid #ddd}
+.bo_v_info{color:#777;font-size:13px;padding:8px 0;border-bottom:1px solid #eee}
+.bo_v_con{padding:20px 0;min-height:150px}
+.bo_vc{margin-top:28px}
+.cmt-item{border-bottom:1px solid #eee;padding:10px 0}
+.cmt-item .member{font-weight:700;margin-right:8px}
+.cmt-date{color:#999;font-size:12px}
+.cmt_pg{text-align:center;margin:12px 0}
+.cmt_pg a,.cmt_pg strong{display:inline-block;padding:2px 9px;border:1px solid #ddd;margin:0 2px}
+.spamwrap{overflow:hidden;position:relative;height:0}
+.ls-tight{letter-spacing:-0.6em}

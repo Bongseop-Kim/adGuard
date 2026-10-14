@@ -1,0 +1,258 @@
+{
+  "scenario": "S0",
+  "entry_url": "http://127.0.0.1:8100/",
+  "answers": [],
+  "decoys": [
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "ul.skip-nav > li:nth-of-type(1) > a",
+      "covers": [
+        "D01"
+      ],
+      "note": "건너뛰기 링크 '본문 바로가기' (top:-200px)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "footer.footer > div.inner > ul.f-menu > li:nth-of-type(2) > a > span.blind",
+      "covers": [
+        "D01"
+      ],
+      "note": "외부 링크 '새창열림' (.blind)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "nav.gnb > ul.gnb-list > li.gnb-item:nth-of-type(1) > ul.sub-menu > li:nth-of-type(2) > a",
+      "covers": [
+        "D02"
+      ],
+      "note": "접힌 하위 메뉴 '연혁' (display:none)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "section.main-tabs > div.panel-press > ul.latest-list > li:nth-of-type(1) > a",
+      "covers": [
+        "D02",
+        "D05"
+      ],
+      "note": "닫힌 탭(hidden 속성)의 보도자료 제목 '불법 게시물 집중 점검' (광고 아님)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "div.layer-popup > div.pop-body > p.pop-txt",
+      "covers": [
+        "D02"
+      ],
+      "note": "닫힌 레이어 팝업 (display:none)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/",
+      "location": "form.top-search > fieldset > label.blind",
+      "covers": [
+        "D08"
+      ],
+      "note": "검색 폼 라벨 '검색어 입력'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/faq",
+      "location": "div.faq-list > div.faq-item:nth-of-type(3) > div.faq-a > p",
+      "covers": [
+        "D02",
+        "D05"
+      ],
+      "note": "닫힌 FAQ 답변 (hidden). 신고 안내라 도박 키워드가 있지만 광고 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8100/faq",
+      "location": "form.top-search > fieldset > legend.blind",
+      "covers": [
+        "D08"
+      ],
+      "note": "검색 폼 legend '통합검색'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/intro/greeting",
+      "location": "div.greeting > p:nth-of-type(1)",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 전각 괄호 '（재）'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/intro/greeting",
+      "location": "div.greeting > p:nth-of-type(2)",
+      "covers": [
+        "D03"
+      ],
+      "note": "한자 병기 '국민(國民)'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/intro/history",
+      "location": "ol.history-list > li:nth-of-type(1)",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 원숫자 ①②"
+    },
+    {
+      "url": "http://127.0.0.1:8100/intro/org",
+      "location": "ul.partner-list > li:nth-of-type(1)",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 한자 '株式會社'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/intro/org",
+      "location": "ul.partner-list > li:nth-of-type(2)",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 전각 회사명 'ＬＧ전자'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/list",
+      "location": "div.board-list > table.tbl-board tr:nth-of-type(3) > td.title > a",
+      "covers": [
+        "D05"
+      ],
+      "note": "'불법도박 예방 교육 안내' 정상 공지 제목 (원본에 tbody 없음)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=101",
+      "location": "div.board-view > div.view-head > h3.view-title",
+      "covers": [
+        "D05"
+      ],
+      "note": "'불법도박 예방 교육 안내' 정상 공지 제목"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=101",
+      "location": "div.article-body > p.list-jamo",
+      "covers": [
+        "D04"
+      ],
+      "note": "공문서 목록 기호 'ㄱ. ㄴ. ㄷ.'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=101",
+      "location": "div.article-body > p:nth-of-type(3)",
+      "covers": [
+        "D05"
+      ],
+      "note": "'카지노', '토토', '텔레그램' 키워드가 있는 정상 경고문 (보임)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=103",
+      "location": "div.article-body > p:nth-of-type(1)",
+      "covers": [
+        "D05"
+      ],
+      "note": "대포통장 광고 문구를 인용한 정상 경고문 (보임)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=103",
+      "location": "div.article-body > p:nth-of-type(3) > span.sound_only",
+      "covers": [
+        "D05",
+        "D08"
+      ],
+      "note": "숨겨진 '불법도박 신고 ☎1336' (.sound_only, 부정 문맥)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=102",
+      "location": "div.article-body > div.attach > a > span.blind",
+      "covers": [
+        "D01"
+      ],
+      "note": "첨부파일 '새창열림'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/notice/view?no=102",
+      "location": "div.article-body > p.update-info",
+      "covers": [
+        "D06"
+      ],
+      "note": "회색 #999 최종 수정일 (대비 2.85)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/qna/list",
+      "location": "div.board-list > table.tbl-board tr:nth-of-type(2) > td.title > span.blind",
+      "covers": [
+        "D01"
+      ],
+      "note": "비밀글 아이콘 대체 텍스트 '비밀글'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/qna/view?no=55",
+      "location": "div.article-body > p",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모 'ㅠㅠ'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/qna/view?no=55",
+      "location": "ul.comment-list > li:nth-of-type(2) > p.cmt-text",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모 'ㅋㅋ'"
+    },
+    {
+      "url": "http://127.0.0.1:8100/location",
+      "location": "div.loc-info > p.note-gray",
+      "covers": [
+        "D06"
+      ],
+      "note": "회색 #999 주차 안내"
+    },
+    {
+      "url": "http://127.0.0.1:8100/location",
+      "location": "div.loc-info > p.note-light",
+      "covers": [
+        "D06"
+      ],
+      "note": "연회색 #bbb 안내문 (대비 1.92, 1.25 이상이라 읽힘)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/location",
+      "location": "div.loc-info > p.print-only",
+      "covers": [
+        "D08"
+      ],
+      "note": "인쇄용 문구 (화면에서 display:none)"
+    }
+  ],
+  "extra": [
+    {
+      "url": "http://127.0.0.1:8100/qna/list",
+      "location": "div.board-list > table.tbl-board tr:nth-of-type(1) > td.title > a",
+      "extra_finding": "VISIBLE_AD",
+      "evidence_text": "카지노 첫충 20% 텔레그램 @test_abc_casino 가입코드 TESTACE77",
+      "covers": [
+        "D07"
+      ],
+      "note": "묻고 답하기에 올라온 스팸 글 제목. 숨김·변형 없이 보임 → result_extra.json에만"
+    },
+    {
+      "url": "http://127.0.0.1:8100/qna/view?no=57",
+      "location": "div.board-view > div.view-head > h3.view-title",
+      "extra_finding": "VISIBLE_AD",
+      "evidence_text": "카지노 첫충 20% 텔레그램 @test_abc_casino 가입코드 TESTACE77",
+      "covers": [
+        "D07"
+      ],
+      "note": "같은 스팸 글 상세 제목 (보임)"
+    },
+    {
+      "url": "http://127.0.0.1:8100/qna/view?no=57",
+      "location": "div.article-body > p",
+      "extra_finding": "VISIBLE_AD",
+      "evidence_text": "카지노 첫충 20% 텔레그램 @test_abc_casino 가입코드 TESTACE77 꽁머니 지급",
+      "covers": [
+        "D07"
+      ],
+      "note": "같은 스팸 글 본문 (보임)"
+    }
+  ]
+}

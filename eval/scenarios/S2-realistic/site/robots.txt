@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /archive/
+Sitemap: http://127.0.0.1:8120/sitemap.xml

@@ -1,0 +1,525 @@
+{
+  "scenario": "S1",
+  "entry_url": "http://127.0.0.1:8110/",
+  "answers": [
+    {
+      "id": "a_001",
+      "url": "http://127.0.0.1:8110/board/list",
+      "location": "div.board-list > table.tbl-board tr:nth-of-type(7) > td.title > a",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｍｅｇａ－ＢＥＴ 첫충 30％ 지급",
+      "covers": [
+        "P01",
+        "H01",
+        "F06",
+        "F07"
+      ],
+      "note": "모집요강 예시 f_002 재현. 원본에 tbody 없음 → tbody 구간은 자손 결합자. tr은 클래스 없음 → nth-of-type(7)(공지 4행 + 글 3번째)"
+    },
+    {
+      "id": "a_002",
+      "url": "http://127.0.0.1:8110/board/view?id=1027",
+      "location": "div.board-view > div.view-head > h3.view-title",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｍｅｇａ－ＢＥＴ 첫충 30％ 지급",
+      "covers": [
+        "P02",
+        "P05",
+        "H01"
+      ],
+      "note": "같은 스팸 글의 상세 페이지 제목(보임). 목록과 상세에서 각각 1건"
+    },
+    {
+      "id": "a_003",
+      "url": "http://127.0.0.1:8110/board/view?id=1027",
+      "location": "div.article-body > div.tag-cloud > a:nth-of-type(1)",
+      "technique": "OFFSCREEN",
+      "evidence_text": "먹튀검증 안전놀이터 가입코드 TESTMAJOR77",
+      "covers": [
+        "P02",
+        "O01",
+        "F03",
+        "F06"
+      ],
+      "note": "부모 div.tag-cloud에 display:none, 텍스트는 자식 a. 부모는 광고 2개를 감싸므로 텍스트를 가진 자식만 정답"
+    },
+    {
+      "id": "a_004",
+      "url": "http://127.0.0.1:8110/board/view?id=1027",
+      "location": "div.article-body > div.tag-cloud > a:nth-of-type(2)",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카지노 첫충 20% 텔레그램 @test_casino_kr",
+      "covers": [
+        "P02",
+        "O01",
+        "F03",
+        "F06"
+      ],
+      "note": "위와 같은 숨김 부모 안의 두 번째 링크"
+    },
+    {
+      "id": "a_005",
+      "url": "http://127.0.0.1:8110/board/view?id=1024",
+      "location": "div.notice-board > span.visually-hidden",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ ㅂㅗㄴㅓㅅㅡ 코드 TESTLUCKY7",
+      "covers": [
+        "P02",
+        "P05",
+        "J01",
+        "F02"
+      ],
+      "note": "모집요강 예시 f_001 재현. 자모 나열 문자열 2개(카지노, 보너스)가 한 요소 → JAMO 1건"
+    },
+    {
+      "id": "a_006",
+      "url": "http://127.0.0.1:8110/board/view?id=1024",
+      "location": "div.notice-board > span.visually-hidden",
+      "technique": "OFFSCREEN",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ ㅂㅗㄴㅓㅅㅡ 코드 TESTLUCKY7",
+      "covers": [
+        "P02",
+        "O11"
+      ],
+      "note": "사이트 접근성 클래스 .visually-hidden(1px + clip) 재사용 → 숨김 1건 추가(숨김 + 변형 = 2건 규칙)"
+    },
+    {
+      "id": "a_007",
+      "url": "http://127.0.0.1:8110/board/view?id=1180",
+      "location": "div.article-body > p.desc > span",
+      "technique": "TRANSPARENT",
+      "evidence_text": "먹튀검증 안전놀이터 상담 텔레그램 @test_promo_777",
+      "covers": [
+        "P02",
+        "P05",
+        "T01"
+      ],
+      "note": "모집요강 예시 f_003 재현. 흰 배경(#fff) 위 color:#ffffff"
+    },
+    {
+      "id": "a_008",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "div.article-body > p:nth-of-type(2) > span",
+      "technique": "TRANSPARENT",
+      "evidence_text": "바카라 첫충 30% 텔레그램 @test_baccara01",
+      "covers": [
+        "P02",
+        "T02",
+        "F06"
+      ],
+      "note": "흰 배경에 #eeeeee (대비율 약 1.16 < 1.25)"
+    },
+    {
+      "id": "a_009",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "div.article-body > p:nth-of-type(3) > span",
+      "technique": "TRANSPARENT",
+      "evidence_text": "성인 19금 채널 텔레그램 @test_adult19",
+      "covers": [
+        "P02",
+        "T05",
+        "F06"
+      ],
+      "note": "color: rgba(0,0,0,0) (알파 0). 성인 광고"
+    },
+    {
+      "id": "a_010",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "div.article-body > p.ref-note",
+      "technique": "OFFSCREEN",
+      "evidence_text": "마약 아이스 문의 텔레그램 @test_ice88",
+      "covers": [
+        "P02",
+        "O04"
+      ],
+      "note": "text-indent:-9999px + overflow:hidden. 요소 박스는 화면 안, 글자만 밖"
+    },
+    {
+      "id": "a_011",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "div.article-body > p:nth-of-type(5) > span",
+      "technique": "TRANSPARENT",
+      "evidence_text": "성인 출장안마 예약 night24.test",
+      "covers": [
+        "P02",
+        "T09",
+        "F06"
+      ],
+      "note": "visibility:hidden → TRANSPARENT (04 기법 경계 규칙). p.ref-note도 p라서 순번 5"
+    },
+    {
+      "id": "a_012",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "ul.comment-list > li:nth-of-type(2) > p.cmt-text",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "саsіnо 첫충 40% 가입코드 TESTVIP88",
+      "covers": [
+        "P03",
+        "H02",
+        "F06"
+      ],
+      "note": "댓글. с·а·і·о가 키릴 문자(U+0441, U+0430, U+0456, U+043E). 숨김 없음"
+    },
+    {
+      "id": "a_013",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "ul.comment-list > li:nth-of-type(3) > p.cmt-text",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ⓣⓞⓣⓞ 사이트 ⓑⓔⓣ365 텔레 @test_toto365",
+      "covers": [
+        "P03",
+        "H04",
+        "F02"
+      ],
+      "note": "원문자 문자열 2개(ⓣⓞⓣⓞ, ⓑⓔⓣ)가 한 요소 → HOMOGLYPH 1건"
+    },
+    {
+      "id": "a_014",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "ul.comment-list > li:nth-of-type(5) > p.cmt-text",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "亼포츠 토토 卫액 환전 텔레그램 @test_sports_kk",
+      "covers": [
+        "P03",
+        "H05"
+      ],
+      "note": "한글 음절 → 비슷한 한자 (亼=스, 卫=고)"
+    },
+    {
+      "id": "a_015",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "ul.comment-list > li:nth-of-type(6) > p.cmt-text",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅈㄴ ㅂㅋㄹ 입금 보너스 텔레그램 @test_bkr24",
+      "covers": [
+        "P03",
+        "J04"
+      ],
+      "note": "초성만 (ㅋㅈㄴ=카지노, ㅂㅋㄹ=바카라)"
+    },
+    {
+      "id": "a_016",
+      "url": "http://127.0.0.1:8110/board/view?id=1020",
+      "location": "ul.comment-list > li:nth-of-type(2) > p.cmt-text > span",
+      "technique": "OFFSCREEN",
+      "evidence_text": "대포통장 통장 임대 텔레그램 @test_bank_rent",
+      "covers": [
+        "P03",
+        "O02",
+        "F06"
+      ],
+      "note": "정상 댓글 뒤에 font-size:0 span (대포통장 광고)"
+    },
+    {
+      "id": "a_017",
+      "url": "http://127.0.0.1:8110/board/view?id=1020",
+      "location": "ul.comment-list > li:nth-of-type(3) > p.cmt-text",
+      "technique": "JAMO",
+      "evidence_text": "ㅌ.ㅗ.ㅌ.ㅗ ㅅ.ㅏ.ㅇ.ㅣ.ㅌ.ㅡ 꽁머니 지급 텔레 @test_toto_king",
+      "covers": [
+        "P03",
+        "J02"
+      ],
+      "note": "자모 사이에 점 구분자 (토토 사이트). 숨김 없음"
+    },
+    {
+      "id": "a_018",
+      "url": "http://127.0.0.1:8110/board/view?id=1018",
+      "location": "ul.comment-list > li:nth-of-type(3) > p.cmt-text",
+      "technique": "JAMO",
+      "evidence_text": "ㅋr지노 꽁머니 지급 텔레 @test_krzino",
+      "covers": [
+        "P03",
+        "J03",
+        "F12"
+      ],
+      "note": "가로 쪼개기 ㅋ+r(ㅏ) → 카. 자모 분해 1건"
+    },
+    {
+      "id": "a_019",
+      "url": "http://127.0.0.1:8110/board/view?id=1018",
+      "location": "ul.comment-list > li:nth-of-type(3) > p.cmt-text",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ㅋr지노 꽁머니 지급 텔레 @test_krzino",
+      "covers": [
+        "P03",
+        "H08",
+        "F12"
+      ],
+      "note": "같은 요소의 r(ㅏ 닮은꼴) → HOMOGLYPH 1건 추가 (JAMO+HOMOGLYPH = 2건)"
+    },
+    {
+      "id": "a_020",
+      "url": "http://127.0.0.1:8110/",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/banner\"] >>> iframe[src=\"http://localhost:8111/ext/slide\"] >>> div.slide-item > span.cap",
+      "technique": "TRANSPARENT",
+      "evidence_text": "바카라 가입코드 TESTEVO77 텔레그램 @test_evo_live",
+      "covers": [
+        "P07",
+        "T07",
+        "F04",
+        "F05"
+      ],
+      "note": "메인 배너 iframe(같은 도메인, 상대 src) 안의 다른 도메인 iframe(localhost:8111) 안. opacity:0. url은 최상위 페이지"
+    },
+    {
+      "id": "a_021",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_022",
+      "url": "http://127.0.0.1:8110/board/view?id=1180",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_023",
+      "url": "http://127.0.0.1:8110/board/view?id=1027",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_024",
+      "url": "http://127.0.0.1:8110/board/view?id=1024",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_025",
+      "url": "http://127.0.0.1:8110/board/view?id=1020",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_026",
+      "url": "http://127.0.0.1:8110/board/view?id=1018",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "무료 슬롯 체험 바로가기",
+      "covers": [
+        "P07",
+        "P10",
+        "O03",
+        "F05",
+        "F09"
+      ],
+      "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    }
+  ],
+  "decoys": [
+    {
+      "url": "http://127.0.0.1:8110/",
+      "location": "ul.skip-nav > li:nth-of-type(1) > a",
+      "covers": [
+        "D01"
+      ],
+      "note": "건너뛰기 링크 '본문 바로가기' (top:-200px, 포커스 시 보임)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/",
+      "location": "nav.gnb > ul.gnb-list > li.gnb-item:nth-of-type(3) > ul.sub-menu > li:nth-of-type(1) > a",
+      "covers": [
+        "D02"
+      ],
+      "note": "접힌 하위 메뉴 '자유게시판' (display:none, hover 시 펼침)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/",
+      "location": "div.layer-popup > div.pop-body > p.pop-txt",
+      "covers": [
+        "D02"
+      ],
+      "note": "닫힌 레이어 팝업의 점검 안내"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/list",
+      "location": "div.board-list > table.tbl-board > caption.blind",
+      "covers": [
+        "D01",
+        "D08"
+      ],
+      "note": "표 caption 접근성 숨김"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/list",
+      "location": "form.top-search > fieldset > label.blind",
+      "covers": [
+        "D08"
+      ],
+      "note": "검색 폼 라벨 '검색어 입력' (숨김, 광고 아님)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1018",
+      "location": "ul.comment-list > li:nth-of-type(1) > p.cmt-text",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모 'ㅠㅠ'"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1018",
+      "location": "ul.comment-list > li:nth-of-type(2) > p.cmt-text",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모 'ㅋㅋㅋ'"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "ul.comment-list > li:nth-of-type(4) > p.cmt-text",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모 'ㅇㅋ', 'ㅎㅎ'"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1024",
+      "location": "ul.view-info > li:nth-of-type(1) > span.blind",
+      "covers": [
+        "D01"
+      ],
+      "note": "글 정보 라벨 '작성자' (.blind)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1180",
+      "location": "iframe[src=\"http://127.0.0.1:8110/widget/notice\"] >>> div.wrap > a.more > span.blind",
+      "covers": [
+        "D01",
+        "P07"
+      ],
+      "note": "위젯 iframe 안 '공지사항 더보기' 숨김 텍스트"
+    },
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1180",
+      "location": "footer.footer > div.inner > a.btn-top",
+      "covers": [
+        "D01"
+      ],
+      "note": "'맨 위로' 아이콘 버튼 (text-indent:-9999px)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/notice/view?no=4",
+      "location": "div.board-view > div.view-head > h3.view-title",
+      "covers": [
+        "D05"
+      ],
+      "note": "'불법도박 예방 교육 안내' 정상 공지 제목 (보임)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/notice/view?no=4",
+      "location": "div.article-body > p.list-jamo",
+      "covers": [
+        "D04"
+      ],
+      "note": "공문서 목록 기호 'ㄱ. ㄴ. ㄷ.'"
+    },
+    {
+      "url": "http://127.0.0.1:8110/notice/view?no=4",
+      "location": "div.article-body > p.update-info",
+      "covers": [
+        "D06"
+      ],
+      "note": "회색 #999 '최종 수정일' 안내 (대비 2.85, 읽힘)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/notice/view?no=3",
+      "location": "div.article-body > p:nth-of-type(2) > span.blind",
+      "covers": [
+        "D05",
+        "D08"
+      ],
+      "note": "숨겨진 '불법도박 신고 ☎1336' (숨김 + 부정 문맥, 광고 아님)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/notice/view?no=2",
+      "location": "div.article-body > p:nth-of-type(1)",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 전각 괄호 '（재）', 한자 '株式會社'"
+    },
+    {
+      "url": "http://127.0.0.1:8110/intro",
+      "location": "div.greeting > p.vision",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 원숫자 ①②③"
+    },
+    {
+      "url": "http://127.0.0.1:8110/location",
+      "location": "div.loc-info > p.note-gray",
+      "covers": [
+        "D06"
+      ],
+      "note": "회색 #999 주차 안내 (읽힘)"
+    },
+    {
+      "url": "http://127.0.0.1:8110/location",
+      "location": "div.loc-info > p.print-only",
+      "covers": [
+        "D08"
+      ],
+      "note": "인쇄용 문구 (화면에서 display:none, 광고 아님)"
+    }
+  ],
+  "extra": [
+    {
+      "url": "http://127.0.0.1:8110/board/view?id=1020",
+      "location": "ul.comment-list > li:nth-of-type(4) > p.cmt-text",
+      "extra_finding": "VISIBLE_AD",
+      "evidence_text": "카지노 첫충 20% 텔레그램 @test_abc_casino",
+      "covers": [
+        "D07"
+      ],
+      "note": "숨김·변형 없이 그냥 보이는 도박 광고 댓글. 4종 기법이 아니므로 result_extra.json에만 나와야 함"
+    }
+  ]
+}

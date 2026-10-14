@@ -1,0 +1,55 @@
+@charset "utf-8";
+/* 가온시설관리공단 누리집 공통 스타일 */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#ffffff;color:#222;font-family:"Malgun Gothic","맑은 고딕",AppleSDGothicNeo,sans-serif;font-size:15px;line-height:1.6}
+a{color:#222;text-decoration:none}
+ul,ol{list-style:none}
+table{border-collapse:collapse;width:100%}
+/* 접근성 숨김 클래스 */
+.blind,.sound_only{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;margin:-1px!important;white-space:nowrap}
+#skip a.skip-nav{position:absolute;left:0;top:-60px;z-index:999;background:#003a8c;color:#fff;padding:10px 20px}
+#skip a.skip-nav:focus{top:0}
+.header{border-bottom:1px solid #d9d9d9;background:#fff}
+.header .util{max-width:1200px;margin:0 auto;padding:6px 20px;text-align:right;font-size:13px}
+.header .util a{margin-left:12px;color:#555}
+.header .top{max-width:1200px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.logo a{font-size:24px;font-weight:700;color:#003a8c}
+.top-search input{border:1px solid #ccc;padding:6px 10px;width:220px}
+.top-search button{padding:6px 12px;background:#003a8c;color:#fff;border:0}
+.gnb{background:#003a8c}
+.gnb > ul{max-width:1200px;margin:0 auto;display:flex}
+.gnb > ul > li{position:relative;flex:1;text-align:center}
+.gnb > ul > li > a{display:block;padding:14px 0;color:#fff;font-weight:700}
+.gnb ul.depth2{display:none;position:absolute;left:0;top:100%;width:100%;background:#fff;border:1px solid #003a8c;z-index:50}
+.gnb ul.depth2 li a{display:block;padding:8px;font-size:14px}
+.gnb > ul > li:hover ul.depth2,.gnb > ul > li.on ul.depth2{display:block}
+#container{max-width:1200px;margin:0 auto;padding:30px 20px;min-height:500px}
+.location-bar{font-size:13px;color:#777;margin-bottom:10px}
+.sub-title{font-size:26px;border-bottom:2px solid #003a8c;padding-bottom:10px;margin-bottom:20px}
+.content p{margin-bottom:10px}
+.footer{background:#2b2f36;color:#c9ccd1;padding:30px 20px;font-size:13px}
+.footer .inner{max-width:1200px;margin:0 auto}
+.footer a{color:#c9ccd1}
+.footer .family{margin-bottom:15px}
+.footer .family-list{display:flex;flex-wrap:wrap;gap:6px 14px}
+.footer address{font-style:normal;margin:10px 0}
+.layer-popup{display:none;position:fixed;left:50%;top:120px;width:420px;margin-left:-210px;background:#fff;border:2px solid #003a8c;padding:20px;z-index:500}
+.layer-popup.open{display:block}
+.guide-txt{color:#8a8a8a;font-size:13px}
+.print-only{display:none}
+@media print{.print-only{display:block}}
+.btn{display:inline-block;padding:6px 14px;border:1px solid #999;background:#f7f7f7;font-size:13px}
+.tab-menu{display:flex;border-bottom:1px solid #003a8c;margin-bottom:15px}
+.tab-menu li a{display:block;padding:8px 18px;border:1px solid #ccc;border-bottom:0}
+.tab-menu li.on a{background:#003a8c;color:#fff}
+.tab-cont .tab-panel{display:none}
+.tab-cont .tab-panel.on{display:block}
+.faq-list dd{display:none;padding:10px;background:#f6f8fb}
+.faq-list dd.open{display:block}
+.main-visual{height:220px;background:#e7eef8;padding:60px 40px;margin-bottom:30px}
+.main-visual h2{font-size:30px;color:#003a8c}
+.main-row{display:flex;gap:30px;margin-bottom:30px}
+.main-row > section{flex:1;border:1px solid #ddd;padding:15px}
+.main-row h3{font-size:18px;margin-bottom:10px}
+.latest li{display:flex;justify-content:space-between;border-bottom:1px dotted #ddd;padding:4px 0}
+.latest li span{color:#888;font-size:13px}

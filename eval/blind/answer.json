@@ -1,0 +1,667 @@
+{
+  "scenario": "blind",
+  "entry_url": "http://127.0.0.1:8190/",
+  "answers": [
+    {
+      "id": "a_001",
+      "url": "http://127.0.0.1:8190/",
+      "location": "footer.site-footer div.footer-ad > span.sound_only",
+      "technique": "OFFSCREEN",
+      "evidence_text": "토토 먹튀검증 @test_promo_01",
+      "covers": [
+        "O11",
+        "P10"
+      ],
+      "note": "푸터 공통영역, 사이트 접근성 숨김 클래스 재사용"
+    },
+    {
+      "id": "a_002",
+      "url": "http://127.0.0.1:8190/",
+      "location": "iframe[src=\"http://127.0.0.1:8190/notice-widget\"] >>> div.wrap > span.hidden-link",
+      "technique": "OFFSCREEN",
+      "evidence_text": "카지노 바카라 win.example",
+      "covers": [
+        "O01",
+        "P07"
+      ],
+      "note": "같은 도메인 iframe 내부 display:none"
+    },
+    {
+      "id": "a_003",
+      "url": "http://127.0.0.1:8190/",
+      "location": "iframe[src=\"http://localhost:8191/ad_frame.html\"] >>> div.ad > p.op",
+      "technique": "TRANSPARENT",
+      "evidence_text": "성인 실시간영상 @test_vod_7",
+      "covers": [
+        "T07",
+        "P07"
+      ],
+      "note": "다른 도메인 iframe 내부 opacity:0"
+    },
+    {
+      "id": "a_004",
+      "url": "http://127.0.0.1:8190/about",
+      "location": "footer.site-footer div.footer-ad > span.ti",
+      "technique": "OFFSCREEN",
+      "evidence_text": "대포통장 법인통장 삽니다 010-0000-1234",
+      "covers": [
+        "O04",
+        "P10"
+      ],
+      "note": "푸터 공통영역 text-indent 음수"
+    },
+    {
+      "id": "a_005",
+      "url": "http://127.0.0.1:8190/org",
+      "location": "main#content div.org-desc p > span.brand",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "土土 먹튀 bet-win.test",
+      "covers": [
+        "H05",
+        "NEW:한글음절→한자(연구표에 없는 매핑 土/巴/上)"
+      ],
+      "note": "보이는 한자 닮은꼴"
+    },
+    {
+      "id": "a_006",
+      "url": "http://127.0.0.1:8190/org",
+      "location": "main#content section.org img.logo",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "саѕіnо 토토 @test_promo_02",
+      "covers": [
+        "H02",
+        "NEW:img alt 속성 텍스트를 location으로"
+      ],
+      "note": "이미지 alt 속성 키릴 닮은꼴"
+    },
+    {
+      "id": "a_007",
+      "url": "http://127.0.0.1:8190/board/notice",
+      "location": "table.board-list > tbody > tr:nth-of-type(5) > td.subject > a.hgl",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｍｅｇａ 토토 첫충 @test_promo_03",
+      "covers": [
+        "H01",
+        "P01"
+      ],
+      "note": "목록 제목 전각 문자"
+    },
+    {
+      "id": "a_008",
+      "url": "http://127.0.0.1:8190/board/notice?page=2",
+      "location": "table.board-list > tbody > tr:nth-of-type(3) > td.subject > a.hgl",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅈㄴ 먹튀",
+      "covers": [
+        "J04",
+        "P04",
+        "P01"
+      ],
+      "note": "목록 2쪽, 초성 축약"
+    },
+    {
+      "id": "a_009",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1024",
+      "location": "article.bbs-view div.view-body > p.jamo",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ 바카라 @test_promo_05",
+      "covers": [
+        "J01",
+        "P02"
+      ],
+      "note": "본문 자모 나열"
+    },
+    {
+      "id": "a_010",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1024",
+      "location": "article.bbs-view ul.comment-list > li:nth-of-type(2) > p.cmt-text",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "саѕіnо slot win.example",
+      "covers": [
+        "H02",
+        "P03"
+      ],
+      "note": "댓글 키릴 닮은꼴"
+    },
+    {
+      "id": "a_011",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1180",
+      "location": "article.bbs-view div.view-body > span.wm",
+      "technique": "TRANSPARENT",
+      "evidence_text": "대포통장 통장임대 @test_promo_06",
+      "covers": [
+        "T01",
+        "P02"
+      ],
+      "note": "글자색=배경색(흰색)"
+    },
+    {
+      "id": "a_012",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1180",
+      "location": "article.bbs-view div.view-body > p.ad-note",
+      "technique": "OFFSCREEN",
+      "evidence_text": "ⓣⓞⓣⓞ 환전 @test_promo_07",
+      "covers": [
+        "O09",
+        "F13",
+        "P02"
+      ],
+      "note": "clip으로 숨김 + 같은 요소 원문자 닮은꼴(2건 중 숨김)"
+    },
+    {
+      "id": "a_013",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1180",
+      "location": "article.bbs-view div.view-body > p.ad-note",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ⓣⓞⓣⓞ 환전 @test_promo_07",
+      "covers": [
+        "H04",
+        "F13",
+        "P02"
+      ],
+      "note": "같은 요소 원문자 닮은꼴(2건 중 닮은꼴)"
+    },
+    {
+      "id": "a_014",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1205",
+      "location": "article.bbs-view div.view-body > p.mix",
+      "technique": "JAMO",
+      "evidence_text": "ㅋr지노 바카라 @test_promo_08",
+      "covers": [
+        "J03",
+        "F12",
+        "P02"
+      ],
+      "note": "가로 쪼개기+닮은꼴 혼합 문자열(2건 중 자모)"
+    },
+    {
+      "id": "a_015",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1205",
+      "location": "article.bbs-view div.view-body > p.mix",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ㅋr지노 바카라 @test_promo_08",
+      "covers": [
+        "H08",
+        "F12",
+        "P02"
+      ],
+      "note": "가로 쪼개기+닮은꼴 혼합 문자열(2건 중 닮은꼴)"
+    },
+    {
+      "id": "a_016",
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1210",
+      "location": "article.bbs-view div.view-body div.collapse-ad > p",
+      "technique": "OFFSCREEN",
+      "evidence_text": "슬롯 무료쿠폰 @test_promo_09",
+      "covers": [
+        "F10",
+        "P02",
+        "NEW:CSS translate 속성으로 화면 밖"
+      ],
+      "note": "리다이렉트 최종 URL, CSS translate 속성"
+    },
+    {
+      "id": "a_017",
+      "url": "http://127.0.0.1:8190/board/free",
+      "location": "table.board-list > tbody > tr:nth-of-type(8) > td.subject > span.hid",
+      "technique": "OFFSCREEN",
+      "evidence_text": "성인 실시간 @test_vod_2",
+      "covers": [
+        "P01",
+        "NEW:vw 단위로 화면 밖(left:210vw)"
+      ],
+      "note": "목록 행 vw 단위 화면 밖"
+    },
+    {
+      "id": "a_018",
+      "url": "http://127.0.0.1:8190/board/free?page=2",
+      "location": "table.board-list > tbody > tr:nth-of-type(2) > td.subject > a.tp",
+      "technique": "TRANSPARENT",
+      "evidence_text": "불법대출 당일 010-0000-5678",
+      "covers": [
+        "T05",
+        "P04",
+        "P01"
+      ],
+      "note": "2쪽 목록, color:transparent"
+    },
+    {
+      "id": "a_019",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3001",
+      "location": "article.bbs-view div.view-body > span.fz",
+      "technique": "OFFSCREEN",
+      "evidence_text": "환전 통장임대 @test_promo_10",
+      "covers": [
+        "O02",
+        "P02"
+      ],
+      "note": "font-size:0"
+    },
+    {
+      "id": "a_020",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3001",
+      "location": "article.bbs-view ul.comment-list > li:nth-of-type(1) > p.cmt-text",
+      "technique": "JAMO",
+      "evidence_text": "ㅌ﻿ㅗ﻿ㅌ﻿ㅗ 먹튀",
+      "covers": [
+        "J08",
+        "P03",
+        "NEW:자모 사이 U+FEFF 삽입"
+      ],
+      "note": "자모 사이 보이지 않는 문자"
+    },
+    {
+      "id": "a_021",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3007",
+      "location": "article.bbs-view div.view-body > p.tf",
+      "technique": "TRANSPARENT",
+      "evidence_text": "카지노 바카라 @test_promo_11",
+      "covers": [
+        "T06",
+        "P02"
+      ],
+      "note": "-webkit-text-fill-color:transparent"
+    },
+    {
+      "id": "a_022",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3007",
+      "location": "article.bbs-view div.view-body > p.ls",
+      "technique": "OFFSCREEN",
+      "evidence_text": "토토 먹튀검증 @test_promo_12",
+      "covers": [
+        "O10",
+        "P02"
+      ],
+      "note": "letter-spacing 큰 음수"
+    },
+    {
+      "id": "a_023",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3007",
+      "location": "article.bbs-view div.view-body > p.leet",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "slօt bet @test_promo_13",
+      "covers": [
+        "P02",
+        "NEW:아르메니아 문자 닮은꼴"
+      ],
+      "note": "아르메니아 닮은꼴"
+    },
+    {
+      "id": "a_024",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3012",
+      "location": "article.bbs-view div.view-body > p.math",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "𝐬𝐥𝐨𝐭 𝐛𝐞𝐭 win.example",
+      "covers": [
+        "H03",
+        "P02"
+      ],
+      "note": "수학용 영숫자"
+    },
+    {
+      "id": "a_025",
+      "url": "http://127.0.0.1:8190/board/free/view?id=3012",
+      "location": "article.bbs-view ul.comment-list > li:nth-of-type(1) > p.cmt-text",
+      "technique": "JAMO",
+      "evidence_text": "토­토­ 먹튀 @test_promo_14",
+      "covers": [
+        "P03",
+        "NEW:음절 사이 soft hyphen(U+00AD)"
+      ],
+      "note": "보이지 않는 soft hyphen 삽입"
+    },
+    {
+      "id": "a_026",
+      "url": "http://127.0.0.1:8190/board/data",
+      "location": "main#content div.data-list > p.ext-hidden",
+      "technique": "OFFSCREEN",
+      "evidence_text": "대포통장 법인통장 @test_promo_15",
+      "covers": [
+        "O13",
+        "P02"
+      ],
+      "note": "외부 CSS 파일로 적용한 숨김"
+    },
+    {
+      "id": "a_027",
+      "url": "http://127.0.0.1:8190/board/data/view?id=5002",
+      "location": "article.bbs-view div.view-body > span.vh",
+      "technique": "TRANSPARENT",
+      "evidence_text": "성인 영상 @test_vod_9",
+      "covers": [
+        "P02",
+        "F11",
+        "NEW:visibility:collapse"
+      ],
+      "note": "visibility:collapse (중복 URL은 1건)"
+    },
+    {
+      "id": "a_028",
+      "url": "http://127.0.0.1:8190/board/data/view?id=5002",
+      "location": "article.bbs-view div.view-body > span.wh",
+      "technique": "OFFSCREEN",
+      "evidence_text": "바카라 카지노 @test_promo_16",
+      "covers": [
+        "P02",
+        "NEW:clip-path circle(0)"
+      ],
+      "note": "clip-path circle(0)로 숨김"
+    },
+    {
+      "id": "a_029",
+      "url": "http://127.0.0.1:8190/board/data/view?id=5002",
+      "location": "article.bbs-view div.view-body > span.cv",
+      "technique": "OFFSCREEN",
+      "evidence_text": "토토 안전놀이터 @test_promo_17",
+      "covers": [
+        "P02",
+        "NEW:content-visibility:hidden"
+      ],
+      "note": "content-visibility:hidden"
+    },
+    {
+      "id": "a_030",
+      "url": "http://127.0.0.1:8190/board/arch/view?id=130155",
+      "location": "article.bbs-view div.view-body > p.para",
+      "technique": "JAMO",
+      "evidence_text": "ㅅㅡㄹㄹㅗㅅ 카지노 @test_promo_18",
+      "covers": [
+        "J01",
+        "P06",
+        "F08"
+      ],
+      "note": "onclick POST로만 열리는 글(GET URL 표기)"
+    },
+    {
+      "id": "a_031",
+      "url": "http://127.0.0.1:8190/board/old/view?id=77",
+      "location": "article.bbs-view div.view-body > p.fg",
+      "technique": "JAMO",
+      "evidence_text": "카지노 먹튀 @test_promo_19",
+      "covers": [
+        "J05",
+        "P11"
+      ],
+      "note": "메뉴에 없는 옛 게시판, 첫가끝 자모"
+    },
+    {
+      "id": "a_032",
+      "url": "http://127.0.0.1:8190/board/old/view?id=77",
+      "location": "article.bbs-view div.view-body > font.legacy",
+      "technique": "TRANSPARENT",
+      "evidence_text": "토토 바카라 win.example",
+      "covers": [
+        "T03",
+        "P11"
+      ],
+      "note": "레거시 <font color=#ffffff>"
+    },
+    {
+      "id": "a_033",
+      "url": "http://127.0.0.1:8190/community",
+      "location": "iframe[src=\"http://127.0.0.1:8190/frames/outer\"] >>> iframe[src=\"http://127.0.0.1:8190/frames/inner\"] >>> div.inner > p.ad",
+      "technique": "JAMO",
+      "evidence_text": "ㅋ⁠ㅏ⁠ㅈ⁠ㅣ⁠ㄴ⁠ㅗ 환전 @test_promo_21",
+      "covers": [
+        "P07",
+        "F04",
+        "NEW:자모 사이 U+2060 word joiner"
+      ],
+      "note": "중첩 iframe, 자모 사이 word joiner"
+    },
+    {
+      "id": "a_034",
+      "url": "http://127.0.0.1:8190/community",
+      "location": "iframe[src=\"http://127.0.0.1:8190/frames/hidden\"] >>> div.h > p.ad",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｃａｓｉｎｏ 토토 @test_promo_22",
+      "covers": [
+        "H01",
+        "P08"
+      ],
+      "note": "숨겨진 iframe(display:none) 내부 전각"
+    },
+    {
+      "id": "a_035",
+      "url": "http://127.0.0.1:8190/community",
+      "location": "iframe.srcdoc-promo >>> div.box > p.ad",
+      "technique": "JAMO",
+      "evidence_text": "토토 먹튀 @test_promo_20",
+      "covers": [
+        "J05",
+        "P12",
+        "F05"
+      ],
+      "note": "srcdoc iframe, 첫가끝 자모"
+    },
+    {
+      "id": "a_036",
+      "url": "http://127.0.0.1:8190/community",
+      "location": "iframe[src=\"http://127.0.0.1:8190/frames/lazy\"] >>> div.g > p.ad",
+      "technique": "TRANSPARENT",
+      "evidence_text": "바카라 슬롯 @test_promo_23",
+      "covers": [
+        "T10",
+        "P12"
+      ],
+      "note": "lazy iframe, 그라데이션/단색 배경 위 같은 색 글자"
+    },
+    {
+      "id": "a_037",
+      "url": "http://127.0.0.1:8190/shadow",
+      "location": "div#host-open >>> div.card > span.sh",
+      "technique": "OFFSCREEN",
+      "evidence_text": "토토 카지노 @test_promo_24",
+      "covers": [
+        "O05",
+        "P13"
+      ],
+      "note": "open Shadow DOM 내부 transform:scale(0) (렌더링 기준)"
+    },
+    {
+      "id": "a_038",
+      "url": "http://127.0.0.1:8190/slow",
+      "location": "main#content div.dark-box > span.same",
+      "technique": "TRANSPARENT",
+      "evidence_text": "환전 먹튀 @test_promo_25",
+      "covers": [
+        "T04"
+      ],
+      "note": "느린 응답 페이지, 배경색이 조상에서 옴(검은 배경에 검은 글자)"
+    },
+    {
+      "id": "a_039",
+      "url": "http://127.0.0.1:8190/gz",
+      "location": "main#content p.gz-ad",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "토토 먹튀 @test_promo_26 (ロト ヌノ)",
+      "covers": [
+        "NEW:한글자모→가나/한자 혼용(ロ ヌ 등)"
+      ],
+      "note": "gzip 인코딩 페이지, 가나/한자 닮은꼴"
+    }
+  ],
+  "decoys": [
+    {
+      "url": "http://127.0.0.1:8190/",
+      "location": "a.skip-nav",
+      "covers": [
+        "D01"
+      ],
+      "note": "본문 바로가기 접근성 링크"
+    },
+    {
+      "url": "http://127.0.0.1:8190/",
+      "location": "nav.gnb li.has-sub ul.sub",
+      "covers": [
+        "D02"
+      ],
+      "note": "접힌 하위 메뉴(display:none)"
+    },
+    {
+      "url": "http://127.0.0.1:8190/about",
+      "location": "main#content section.greeting p.grey-note",
+      "covers": [
+        "D06"
+      ],
+      "note": "저대비 회색이나 읽히는 안내"
+    },
+    {
+      "url": "http://127.0.0.1:8190/about",
+      "location": "main#content section.greeting p.print-only",
+      "covers": [
+        "D08",
+        "O01"
+      ],
+      "note": "인쇄용 숨김, 광고 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8190/org",
+      "location": "main#content section.org p.legal",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 전각/한자/원문자"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice",
+      "location": "table.board-list > tbody > tr:nth-of-type(4) > td.subject > a",
+      "covers": [
+        "D05"
+      ],
+      "note": "키워드 있으나 정상 공지(변형/숨김 없음)"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1024",
+      "location": "article.bbs-view ul.comment-list > li:nth-of-type(1) > p.cmt-text",
+      "covers": [
+        "D08"
+      ],
+      "note": "정상 댓글, 광고 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/data",
+      "location": "main#content img.list-banner",
+      "covers": [
+        "D08"
+      ],
+      "note": "정상 배너 alt, 광고 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8190/about",
+      "location": "main#content section.greeting p.emoji",
+      "covers": [
+        "D04"
+      ],
+      "note": "정상 자모(ㅋㅋ/ㅠㅠ/ㄱ.ㄴ.ㄷ.)"
+    },
+    {
+      "url": "http://127.0.0.1:8190/about",
+      "location": "a.skip-nav",
+      "covers": [
+        "D01"
+      ],
+      "note": "본문 바로가기"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice",
+      "location": "a.skip-nav",
+      "covers": [
+        "D01"
+      ],
+      "note": "본문 바로가기"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/free",
+      "location": "a.skip-nav",
+      "covers": [
+        "D01"
+      ],
+      "note": "본문 바로가기"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice",
+      "location": "nav.gnb li.has-sub ul.sub",
+      "covers": [
+        "D02"
+      ],
+      "note": "접힌 하위 메뉴"
+    },
+    {
+      "url": "http://127.0.0.1:8190/community",
+      "location": "nav.gnb li.has-sub ul.sub",
+      "covers": [
+        "D02"
+      ],
+      "note": "접힌 하위 메뉴"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1024",
+      "location": "header.site-header p.loc-ir span.sound_only",
+      "covers": [
+        "D01"
+      ],
+      "note": "현재 위치 접근성 텍스트"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/free/view?id=3007",
+      "location": "footer.site-footer div.foot-util span.sound_only",
+      "covers": [
+        "D01"
+      ],
+      "note": "푸터 접근성 텍스트(광고 아님)"
+    },
+    {
+      "url": "http://127.0.0.1:8190/org",
+      "location": "footer.site-footer p.copy",
+      "covers": [
+        "D03"
+      ],
+      "note": "정상 전각/한자(（주）/株式會社)"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/data/view?id=5002",
+      "location": "header.site-header p.loc-ir span.sound_only",
+      "covers": [
+        "D01"
+      ],
+      "note": "현재 위치 접근성 텍스트"
+    },
+    {
+      "url": "http://127.0.0.1:8190/board/notice/view?id=1024",
+      "location": "article.bbs-view ul.comment-list > li:nth-of-type(3) > p.cmt-text",
+      "covers": [
+        "D08"
+      ],
+      "note": "정상 댓글"
+    },
+    {
+      "url": "http://127.0.0.1:8190/",
+      "location": "header.site-header p.loc-ir span.sound_only",
+      "covers": [
+        "D01"
+      ],
+      "note": "현재 위치 접근성 텍스트"
+    }
+  ],
+  "extra": [
+    {
+      "url": "http://127.0.0.1:8190/board/free/view?id=3001",
+      "location": "article.bbs-view div.view-body p.para > a.visible-banner",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "D07"
+      ],
+      "note": "숨김/변형 없이 그냥 보이는 광고 → result_extra"
+    },
+    {
+      "url": "http://127.0.0.1:8190/community",
+      "location": "main#content section.s1 p.open-ad",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "D07"
+      ],
+      "note": "숨김/변형 없이 그냥 보이는 광고 → result_extra"
+    }
+  ]
+}

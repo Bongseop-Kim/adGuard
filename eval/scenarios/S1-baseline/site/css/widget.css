@@ -1,0 +1,10 @@
+@charset "utf-8";
+body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:14px;color:#222;background:#fff}
+a{color:inherit;text-decoration:none}
+ul{list-style:none;margin:0;padding:0}
+.wrap{position:relative;padding:14px}
+.w-title{font-size:16px;margin:0 0 8px;color:#0b4f8a}
+.w-list li{padding:6px 0;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{display:inline-block;margin-top:8px;color:#666}
+.blind{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0)}
+.bn-wrap iframe{width:100%;height:140px;border:0}
