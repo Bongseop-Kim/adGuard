@@ -228,7 +228,6 @@ footer { border-top: 1px solid var(--g20); margin-top: 64px; padding: 24px; colo
 .cmp input[type=range] { width: 100%; height: 32px; padding: 0; border: 0; accent-color: var(--primary); margin-top: 8px; }
 .cmp .both { display: none; }
 .cmp .both img { width: 100%; border: 1px solid var(--g20); }
-video.replay { width: 100%; max-width: 960px; display: block; border-radius: 8px; border: 1px solid var(--g20); background: var(--g95); }
 
 /* 사이트 지도 */
 .hows { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -257,7 +256,7 @@ video.replay { width: 100%; max-width: 960px; display: block; border-radius: 8px
 }
 @media print {
   header.top, .noprint, .filters, .steps { display: none !important; }
-  .cmp .stage, .cmp input, .cmp .lbls, video.replay { display: none !important; }
+  .cmp .stage, .cmp input, .cmp .lbls { display: none !important; }
   .cmp .both { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
   .pagefig .scroll { max-height: none; overflow: visible; }
   .box, .tile, table.list tr { break-inside: avoid; }
@@ -353,7 +352,7 @@ const LIMITS = [
   '방문자·시간·접속 지역에 따라 다른 내용을 보여주는 페이지는 점검 시점의 화면만 반영합니다.',
   '판정은 키워드·연락처 패턴과 화면 렌더링 규칙에 따른 것으로, 최종 위반 여부는 담당자가 확인해야 합니다.',
   '숨김 드러내기 캡처는 점검 뒤 페이지를 다시 열어 찍으므로, 그사이 내용이 바뀌면 캡처가 없을 수 있습니다.',
-  '재현 영상은 심각 등급을 먼저, 모자라면 위험 등급으로 채워 최대 5건만 만듭니다. 페이지 전체 캡처는 위에서 6000px까지만 찍습니다.',
+  '페이지 전체 캡처는 위에서 6000px까지만 찍습니다. 그 아래 광고는 위치 표시 없이 안내만 나옵니다.',
 ];
 
 // 앱(pywebview 또는 예비 서버)에서 Python 부르기
@@ -630,8 +629,6 @@ function detail(g, D) {
   const styleRows = Object.entries(g.style || {}).filter(([, v]) => v && v !== 'none' && v !== 'auto' && v !== 'normal');
   return h('div', { class: 'det' },
     h('div', { class: 'summary' }, g.summary),
-    isData(g.video, 'video/webm') ? [h('h3', {}, '재현 영상 (페이지 열기 → 광고 위치로 이동 → ' + (hidden ? '숨김 해제)' : '광고 표시)')),
-      h('video', { class: 'replay', src: g.video, controls: true, muted: true, playsinline: true, preload: 'metadata' })] : null,
     h('h3', {}, hidden ? '숨김 드러내기 (막대를 움직여 비교)' : '광고 위치 (막대를 움직여 비교)'),
     isData(sh.before, 'image/') ? compare(sh.before, sh.after, hidden) : h('div', { class: 'muted' }, sh.error || '캡처 없음'),
     pageFig(sh.pos, D.shots || {}),

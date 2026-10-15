@@ -7,7 +7,7 @@
 - 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
 - 숨김 드러내기(R6): 페이지를 다시 열어 부모 영역을 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
-- 시각 자료: 페이지 전체 캡처(주소마다 1장, 절반 해상도) + 광고 위치 좌표, 재현 영상(심각 우선 최대 5개), 발견 경로, 사이트 지도
+- 시각 자료: 페이지 전체 캡처(주소마다 1장, 절반 해상도) + 광고 위치 좌표, 발견 경로, 사이트 지도
 """
 import asyncio
 import base64
@@ -33,7 +33,6 @@ RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
 SHOT_MAX, SHOT_SEC = 100, 240  # ponytail: 캡처 상한. 넘는 묶음은 "캡처 생략"으로 표시
 PAGE_MAX_H = 6000  # 페이지 전체 캡처 높이 상한(CSS px). 그 아래 광고는 위치 표시 없이 안내
-VIDEO_MAX, VIDEO_SEC = 5, 120
 
 REVEAL_JS = r"""
 (e, [step, hidden]) => {
@@ -198,47 +197,8 @@ async def shoot_page(page, url):
     return {"img": "data:image/jpeg;base64," + base64.b64encode(img).decode(), "w": w, "h": h}
 
 
-CAPTION_JS = r"""t => { let c = document.getElementById('adg-cap');
-  if (!c) { c = document.createElement('div'); c.id = 'adg-cap'; document.documentElement.append(c);
-    c.style.cssText = 'position:fixed;left:16px;top:16px;z-index:2147483647;background:rgba(19,20,22,.88);color:#fff;' +
-      'font:700 20px/1.4 sans-serif;padding:10px 16px;border-radius:8px;pointer-events:none'; }
-  c.textContent = t; }"""
-
-
-async def record(browser, tmp, url, location, hidden):
-    """재현 영상: 페이지 열기 → 광고 위치로 스크롤 → 숨김 해제. 반환: data:video/webm"""
-    ctx = await browser.new_context(ignore_https_errors=True, service_workers="block", viewport={"width": 1280, "height": 720},
-                                    locale="ko-KR", record_video_dir=tmp, record_video_size={"width": 960, "height": 540})
-    from crawler import INIT
-    await ctx.add_init_script(INIT)
-    page = await ctx.new_page()
-    try:
-        loc, box = await open_marked(page, url, location, hidden)
-        await page.evaluate("() => scrollTo(0, 0)")
-        await page.evaluate(CAPTION_JS, "① 페이지를 엽니다")
-        await page.wait_for_timeout(1500)
-        await page.evaluate(CAPTION_JS, "② 광고가 있는 위치로 이동")
-        await box.evaluate("e => e.scrollIntoView({ behavior: 'smooth', block: 'center' })", timeout=3000)
-        await page.wait_for_timeout(1800)
-        await page.evaluate(CAPTION_JS, "③ 이용자에게 보이는 화면" if hidden else "③ 변형된 광고 문구")
-        await page.wait_for_timeout(1500)
-        await loc.evaluate(REVEAL_JS, ["reveal", hidden], timeout=3000)
-        await box.evaluate("e => e.scrollIntoView({ block: 'center' })", timeout=3000)
-        await page.evaluate(CAPTION_JS, "④ 숨김 해제: 빨간 테두리가 숨겨진 광고" if hidden else "④ 빨간 테두리가 광고")
-        await page.wait_for_timeout(2500)
-    finally:
-        await page.close()
-        path = await page.video.path()
-        await ctx.close()
-    with open(path, "rb") as f:
-        data = f.read()
-    os.remove(path)
-    return "data:video/webm;base64," + base64.b64encode(data).decode()
-
-
 async def capture(groups, log):
-    """묶음별 숨김 드러내기 + 위치, 주소별 페이지 전체 캡처, 재현 영상. 반환: {URL: 페이지 전체 캡처}"""
-    import tempfile
+    """묶음별 숨김 드러내기 + 위치, 주소별 페이지 전체 캡처. 반환: {URL: 페이지 전체 캡처}"""
     from playwright.async_api import async_playwright
     from crawler import INIT, launch
 
@@ -272,19 +232,6 @@ async def capture(groups, log):
                     whole = await half.new_page()
             log("숨김 드러내기 캡처 %d/%d" % (n + 1, len(groups)))
 
-        # 재현 영상: 심각 우선, 모자라면 위험(숨김) 순으로 채운다
-        picks = [g for g in groups if g["risk"] == "심각"] + [g for g in groups if g["risk"] == "위험"]
-        t1 = time.monotonic()
-        with tempfile.TemporaryDirectory() as tmp:
-            for n, g in enumerate([g for g in picks if g["shot"].get("before")][:VIDEO_MAX]):
-                if time.monotonic() - t1 > VIDEO_SEC:
-                    break
-                it = g["items"][0]
-                try:
-                    g["video"] = await asyncio.wait_for(record(browser, tmp, it["url"], it["location"], g["technique"] in HIDDEN), 40)
-                except Exception as e:
-                    log("재현 영상 실패 %s: %r" % (g["fp"], e))
-                log("재현 영상 %d" % (n + 1))
         await browser.close()
     return pages
 
