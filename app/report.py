@@ -78,7 +78,7 @@ GUIDE = {
            "웹셸 탐지 도구(KISA 휘슬 등)로 서버를 점검하고, 변조된 템플릿·공통 파일을 백업본으로 복구한 뒤 관리자 계정 비밀번호를 바꿉니다."],
     "검색엔진 흔적": ["삭제한 뒤에도 검색 결과에 광고 문구가 남을 수 있습니다.",
                  "Google Search Console '삭제' 도구, 네이버 서치어드바이저 '웹페이지 수집 요청/검색 제외'로 흔적을 지웁니다."],
-    "ISAP": ["사이트 내부 검색 결과 페이지가 검색엔진에 수집되지 않게 검색 결과 페이지에 noindex를 넣고 robots.txt로 차단합니다.",
+    "내부 검색 결과 악용": ["사이트 내부 검색 결과 페이지가 검색엔진에 수집되지 않게 검색 결과 페이지에 noindex를 넣고 robots.txt로 차단합니다.",
              "검색어를 GET 주소와 페이지 제목에 그대로 반사하지 않게 합니다 (결과 0건 페이지는 noindex)."],
 }
 
@@ -113,13 +113,9 @@ def group(items, history, now):
         tech = f["technique"]
         risk = "심각" if hack else "위험" if tech in HIDDEN else "참고"
         kw = f.get("kw") or []
-        summary = "[%s] %s · [광고 신호] %s · [영향] 페이지 %d개" % (
-            TECH[tech], f.get("reason") or "-", ", ".join(kw[:6]) or "-", len(urls))
-        if hack:
-            summary += " · 여러 페이지 같은 위치 → 해킹 삽입 의심"
         groups.append({
             "fp": fp, "technique": tech, "tech_label": TECH[tech], "risk": risk, "cause": HACK if hack else POST,
-            "first_seen": history.setdefault(fp, now), "summary": summary, "evidence_text": f["evidence_text"],
+            "first_seen": history.setdefault(fp, now), "evidence_text": f["evidence_text"],
             "norm": f.get("norm", ""), "kw": kw, "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
             "html": f.get("html", ""), "style": f.get("style", {}),
             "items": [{"id": x["id"], "url": x["url"], "location": x["location"], "path": x.get("path") or []}
