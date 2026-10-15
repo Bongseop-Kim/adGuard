@@ -62,7 +62,7 @@ LINKS_JS = r"""() => {
   const walk = root => {
     for (const e of root.querySelectorAll('a[href],area[href],[data-href],[data-url],form[action],meta[http-equiv],[onclick]')) {
       const t = e.tagName;
-      if (t === 'A' || t === 'AREA') add(e.getAttribute('href'));
+      if (t === 'A' || t === 'AREA') { if (!/^(ko|$)/i.test(e.getAttribute('hreflang') || '')) continue; add(e.getAttribute('href')); }
       else if (t === 'FORM') { if ((e.getAttribute('method') || 'get').toLowerCase() === 'get') add(e.getAttribute('action')); }
       else if (t === 'META') { const m = /url\s*=\s*['"]?([^'"]+)/i.exec(e.getAttribute('content') || ''); if (m) add(m[1]); }
       add(e.getAttribute('data-href')); add(e.getAttribute('data-url'));
@@ -105,8 +105,8 @@ CLICK_JS = "([sel, i]) => { const e = document.querySelectorAll(sel)[i]; if (e) 
 # 누르거나 방문하면 안 되는 것 (research/03 §1)
 # URL·onclick 코드는 영어 토큰으로, 버튼 글자는 이름 전체가 위험 단어일 때만 ("전입신고 안내"·"추천 도서"는 통과)
 DANGER = re.compile(r"delete|remove|update|write|insert|logout|logoff|signout|vote|print|modify|"
-                    r"act=disp\w*(?:delete|modify|write)|sns_send|sharer?\.php", re.I)
-DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|답글|로그아웃|탈퇴|추천|신고|스크랩|인쇄|delete|edit|write|"
+                    r"act=disp\w*(?:delete|modify|write|reply)|act=dispmember|sns_send|sharer?\.php", re.I)
+DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|답글|로그아웃|탈퇴|추천|신고|스크랩|인쇄|검색|delete|edit|write|"
                           r"logout|print)(?:하기)?\s*$", re.I)
 INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back", "forward", "go", "reload",
             "preventDefault", "stopPropagation", "return", "toggle", "toggleClass", "addClass", "removeClass", "scrollTo"}
@@ -114,9 +114,13 @@ INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back
 DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down", re.I)
 SKIP_EXT = re.compile(r"\.(pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|"
                       r"wmv|wav|css|js|json|xml|txt|exe|msi|apk|woff2?|ttf)$", re.I)
-# 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr·device, 전자정부 search*)
+# 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr·device, 전자정부 search*, XE·라이믹스)
 NOISE = {"device", "sca", "sfl", "stx", "sst", "sod", "sop", "spt", "searchcnd", "searchwrd", "searchkeyword", "searchcondition",
-         "searchtype", "searchword", "sort", "order", "orderby", "sortorder", "sortfield"}
+         "searchtype", "searchword", "sort", "order", "orderby", "sortorder", "sortfield",
+         "sort_index", "order_type", "liststyle", "search_target", "search_keyword"}
+# 세션 언어를 바꾸는 주소·버튼: 누르면 이후 페이지가 다른 언어로 나온다 (research/13 §5, 사이트 E doChangeLangType)
+LANG_URL = re.compile(r"[?&](?:lang|lang_type|locale|language)=(?!ko)", re.I)
+LANG_CODE = re.compile(r"lang|locale", re.I)
 PAGE_KEYS = {"page", "pageindex", "pageno", "pagenum", "currentpage", "curpage"}
 ID_KEYS = {"id", "wr_id", "nttid", "no", "idx", "seq", "document_srl", "articleno", "bno", "num", "p", "nttsn", "postid"}
 DATE_KEYS = {"ym", "yyyymm", "year", "month", "day", "date", "yy", "mm", "dd", "caldate", "sdate", "edate", "week"}
@@ -129,9 +133,11 @@ CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사
 
 
 def norm(u):
-    """중복 판정 키 (모집요강 12쪽 + ;jsessionid 제거)."""
+    """중복 판정 키 (모집요강 12쪽 + ;jsessionid 제거 + 쿼리가 있는 /index.php는 디렉터리와 같음)."""
     s = urllib.parse.urlsplit(u)
     path = re.sub(r";jsessionid=[^/?#]*", "", s.path, flags=re.I).rstrip("/") or "/"
+    if s.query and path.endswith("/index.php"):  # XE·라이믹스 /?mid=…와 /index.php?mid=…는 같은 페이지 (P7)
+        path = path[:-10] or "/"
     q = urllib.parse.urlencode(sorted(urllib.parse.parse_qsl(s.query, keep_blank_values=True)))
     return "%s%s%s" % (s.netloc.lower(), path, "?" + q if q else "")
 
@@ -227,6 +233,7 @@ class Crawler:
         self.heap, self.seq, self.active = [], 0, 0
         self.seen, self.sig_count = set(), {}
         self.hashes, self.results = {}, []  # 내용 해시 → results 인덱스
+        self.canons = set()  # 결과로 남긴 페이지의 대표 주소(norm)
         self.templates = {}  # (페이지 패턴, 함수명) → (요청, 인자) 또는 None(이동 없음)
         self.visited = 0
         self.errors = []
@@ -260,7 +267,10 @@ class Crawler:
         url = minimize(url, body)
         key = norm(url)
         if key != self.start:
-            if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path):
+            s = urllib.parse.urlsplit(url)
+            # 쿼리 값의 확장자도 본다: view_image.php?fn=a.jpg (P12)
+            if not self.in_scope(url) or SKIP_EXT.search(s.path) or LANG_URL.search(url) or \
+                    any(SKIP_EXT.search(v) for _, v in urllib.parse.parse_qsl(s.query)):
                 return
             if DANGER.search(url) or DOWNLOAD.search(url):
                 self.blocked += key not in self.seen
@@ -468,12 +478,17 @@ class Crawler:
             return
         if not self.in_scope(final):
             return  # 리다이렉트로 범위 밖으로 나감
+        if post is None and norm(final) in self.canons:
+            return  # 이미 기록한 페이지로 보내짐 ("잘못된 접근" 뒤 첫 화면 등)
         self.seen.add(norm(final))
         self.via.setdefault(norm(final), self.via.get(norm(url)))
         canon = await with_timeout(page.evaluate(
             "() => { const l = document.querySelector('link[rel=canonical]'); return l ? l.href : null }"), 3)
         if canon and self.in_scope(canon):
             final = minimize(canon)
+            cs = urllib.parse.urlsplit(final)
+            if norm(final) in self.canons and (cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path)):
+                return  # canonical이 같으면 같은 페이지 (P7). 모든 쪽이 첫 화면을 가리키는 잘못된 설정은 믿지 않는다
             self.seen.add(norm(final))
             self.via.setdefault(norm(final), self.via.get(norm(url)))
 
@@ -537,6 +552,7 @@ class Crawler:
             if self.analyze:
                 result = await self.analyze(page, final)
             self.hashes[h] = len(self.results)
+            self.canons.add(norm(final))
             self.results.append({"url": final, "result": result, "path": self.path(url), "mobile": mobile})
             self.log("[%d] %s" % (len(self.results), final))
 
@@ -584,9 +600,11 @@ class Crawler:
             cands = f and await with_timeout(f.evaluate(CANDS_JS, CAND), 5) or []
             groups = {}
             for i, (code, text) in enumerate(cands):
-                if DANGER.search(code) or DANGER_LABEL.match(text):
+                if DANGER.search(code) or DANGER_LABEL.match(text) or LANG_CODE.search(code):
                     continue
                 name, args = call_of(code)
+                if name and not args and "search" in name.lower():
+                    continue  # 빈 검색 버튼: "검색어를 입력하세요" 경고만 뜬다. 인자가 있으면 쪽 이동일 수 있어 누른다
                 if name:
                     groups.setdefault(name, []).append((i, args))
             for name, members in groups.items():
