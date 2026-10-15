@@ -122,6 +122,8 @@ ID_KEYS = {"id", "wr_id", "nttid", "no", "idx", "seq", "document_srl", "articlen
 DATE_KEYS = {"ym", "yyyymm", "year", "month", "day", "date", "yy", "mm", "dd", "caldate", "sdate", "edate", "week"}
 DATE_VAL = re.compile(r"^\d{4}[-./]?\d{2}(?:[-./]?\d{2})?$")
 MOBILE_ONLY = re.compile(r"모바일|mobile|스마트폰", re.I)
+# 원본 HTML의 meta refresh: 0초 이동은 분석 도중 페이지를 바꿔 DOM에서 못 읽을 수 있다
+META_REFRESH = re.compile(r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh[^>]*content\s*=\s*[\"']?\s*\d*\s*;?\s*url\s*=\s*([^\"'>]+)", re.I)
 NET_ERR = re.compile(r"Timeout|net::ERR_")
 CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사이트에서 모자라면 조정
 
@@ -236,6 +238,10 @@ class Crawler:
         self.limit, self.fails, self.oks = self.workers, 0, 0  # 지금 쓰는 병렬 수, 연속 실패·성공 수
         self.dialogs = []  # (URL, 경고창 문구)
         self.via = {}  # norm(URL) → (찾은 페이지 URL 또는 None, 찾은 방법). 보고서의 발견 경로
+        # 사용자가 직접 넣은 시작 주소는 명시적 의도라 위험·내려받기 필터를 건너뛴다 (research/13 §5, RFC 9110 GET은 안전)
+        self.start = norm(minimize(entry))
+        self.blocked = 0  # 위험·내려받기 주소라 큐에 넣지 않은 수
+        self.start_fail = None  # 시작 주소가 열렸지만 점검할 웹 페이지가 아닐 때 그 사유
 
     def stop(self):  # 화면의 "중단": 새 페이지를 꺼내지 않고, 진행 중인 페이지만 마친 뒤 모은 결과를 돌려준다
         self.deadline = 0
@@ -252,9 +258,14 @@ class Crawler:
     def push(self, url, depth, body=None, via=(None, "링크")):
         post = (url, body) if body is not None else None  # POST로만 열리면 원래 action과 본문을 남겨 둔다
         url = minimize(url, body)
-        if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path) or DANGER.search(url) or DOWNLOAD.search(url):
-            return
         key = norm(url)
+        if key != self.start:
+            if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path):
+                return
+            if DANGER.search(url) or DOWNLOAD.search(url):
+                self.blocked += key not in self.seen
+                self.seen.add(key)
+                return
         if key in self.seen:
             return
         self.seen.add(key)
@@ -328,8 +339,8 @@ class Crawler:
                 t.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
             await browser.close()
-        self.log("크롤 완료: 렌더링 %d쪽, 결과 페이지 %d개, 상한으로 제외 %d개, %.1f초"
-                 % (self.visited, len(self.results), self.dropped, time.monotonic() - t0))
+        self.log("크롤 완료: 렌더링 %d쪽, 결과 페이지 %d개, 상한으로 제외 %d개, 위험·내려받기 주소라 제외 %d개, %.1f초"
+                 % (self.visited, len(self.results), self.dropped, self.blocked, time.monotonic() - t0))
         return self.results
 
     def on_popup(self, page):
@@ -350,7 +361,7 @@ class Crawler:
         await ctx.add_init_script(INIT)
         ctx.on("page", self.on_popup)
         # 공유·위험 주소는 클릭으로 나가는 요청(새 창 포함)도 막는다. 끝나지 않는 요청이 PHP 세션을 잠그면 같은 쿠키의 모든 요청이 멈춘다
-        await ctx.route(DANGER, lambda route: route.abort())
+        await ctx.route(DANGER, lambda route: route.continue_() if norm(minimize(route.request.url)) == self.start else route.abort())
         return ctx
 
     async def worker(self, ctx, n):
@@ -436,8 +447,14 @@ class Crawler:
         page.adg_dialogs.clear()
         resp = await self.open(page, url, post)
         self.visited += 1
-        if resp is None or resp.status >= 400 or "html" not in (resp.headers.get("content-type") or "html"):
+        ctype = resp.headers.get("content-type") or "html" if resp else ""
+        if resp is None or resp.status >= 400 or "html" not in ctype:
+            if norm(url) == self.start and resp is not None:
+                self.start_fail = "HTTP %d" % resp.status if resp.status >= 400 else "웹 페이지가 아닌 파일(%s)" % ctype.split(";")[0]
             return
+        m = META_REFRESH.search(await with_timeout(resp.text(), 5) or "")
+        if m:
+            self.push(urllib.parse.urljoin(resp.url, m.group(1).strip()), depth + 1, via=(url, "자동 이동(meta refresh)"))
         await with_timeout(page.wait_for_load_state("load"), 5)
         await with_timeout(page.evaluate(SETTLE_JS), 4)
         await with_timeout(asyncio.gather(*[f.wait_for_load_state("load") for f in page.frames]), 3)

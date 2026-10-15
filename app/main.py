@@ -86,7 +86,9 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
     error = None
     if not pages:  # 한 쪽도 못 열었으면 "광고 없음"이 아니라 점검 실패
         error = "시작 주소를 열지 못했습니다. 주소가 맞는지, 사이트가 켜져 있는지, 이 PC에서 접속되는지 확인하세요."
-        if c and c.errors:
+        if c and c.start_fail:  # 열리긴 했지만 오류 응답이거나 웹 페이지가 아님
+            error = "시작 주소가 점검할 수 있는 웹 페이지가 아닙니다 (%s). 누리집이나 게시판 페이지 주소를 넣으세요." % c.start_fail
+        elif c and c.errors:
             m = re.search(r"net::\w+|Timeout[^\\]*", c.errors[0][1])
             error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
         log("점검 실패: " + error)
