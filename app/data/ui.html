@@ -108,6 +108,9 @@ input.err { border-color: var(--danger); }
 .banner .t { font-size: 19px; font-weight: 700; color: var(--success-60); display: flex; gap: 8px; align-items: center; }
 .banner.stop { background: var(--warning-5); border-color: var(--warning-10); }
 .banner.stop .t { color: var(--warning-60); }
+.banner.fail { background: var(--danger-5); border-color: var(--danger-10); }
+.banner.fail .t { color: var(--danger-60); }
+.banner .t svg { width: 22px; height: 22px; }
 .alert { display: flex; gap: 12px; border-radius: 12px; padding: 20px 24px; margin-top: 16px; background: var(--danger-5); border: 1px solid var(--danger-10); color: var(--g90); }
 .alert b { color: var(--danger-60); }
 .alert svg { flex: none; width: 24px; height: 24px; color: var(--danger); }
@@ -419,8 +422,11 @@ function renderReport(D) {
     h('button', { onclick: () => api('open', 'folder') }, '결과 폴더'),
     h('button', { onclick: () => { $('#go').disabled = false; show('start'); } }, '새 점검')) : null;
   root.append(h('h1', {}, '점검 결과'), h('p', { class: 'lead' }, m.entry_url));
-  root.append(h('div', { class: 'banner' + (m.stopped ? ' stop' : '') },
-    h('span', { class: 't' }, (m.stopped ? '■ 중단됨 — 중단 시점까지의 결과' : '✔ 탐지 완료') + ' · 소요 ' + fmtSec(m.elapsed_sec)), actions));
+  root.append(m.error
+    ? h('div', { class: 'banner fail', role: 'alert' }, h('span', { class: 't' }, ICON_WARN(), '점검하지 못했습니다'), actions)
+    : h('div', { class: 'banner' + (m.stopped ? ' stop' : '') },
+      h('span', { class: 't' }, (m.stopped ? '■ 중단됨 — 중단 시점까지의 결과' : '✔ 탐지 완료') + ' · 소요 ' + fmtSec(m.elapsed_sec)), actions));
+  if (m.error) root.append(h('div', { class: 'alert' }, h('div', {}, h('b', {}, '페이지를 한 쪽도 열지 못해 불법광고 여부를 판단할 수 없습니다.'), h('div', {}, m.error))));
   const hackN = G.filter(g => g.cause === '해킹 삽입 의심').length;
   if (hackN) root.append(h('div', { class: 'alert', role: 'alert' }, ICON_WARN(),
     h('div', {}, h('b', {}, '해킹 삽입 의심 ' + hackN + '건'), h('div', {}, '여러 페이지의 같은 위치에 같은 광고가 있습니다. 게시물 삭제만으로는 다시 생길 수 있으니 서버 점검이 필요합니다.'))));
@@ -435,7 +441,9 @@ function renderReport(D) {
 
   // R3 요약
   root.append(h('h2', {}, '요약'));
-  if (!G.length) {
+  if (m.error) {
+    root.append(h('div', { class: 'panel clean' }, h('b', { style: 'color:var(--danger-60)' }, '점검 실패'), h('span', { class: 'muted' }, '접속 문제를 해결한 뒤 다시 점검하세요.')));
+  } else if (!G.length) {
     root.append(h('div', { class: 'panel clean' }, h('b', {}, '불법광고가 발견되지 않았습니다'),
       h('span', { class: 'muted' }, m.visited + '쪽을 살펴봤습니다. 아래 "점검하지 않는 범위"를 함께 확인하세요.')));
   } else {

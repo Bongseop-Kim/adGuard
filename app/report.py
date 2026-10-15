@@ -307,7 +307,7 @@ def write_csv(path, groups):
                             g["evidence_text"], g["reason"], g["fp"], g["first_seen"]])
 
 
-def make(meta, items, visited, stopped, minutes, log=print, pages=None):
+def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None):
     base = main.base_dir()
     hist_path = os.path.join(base, "history.json")
     try:
@@ -324,7 +324,7 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None):
         except Exception as e:
             log("캡처 단계 오류(보고서는 캡처 없이 만듦): %r" % e)
     data = {
-        "meta": dict(meta, visited=visited, stopped=stopped, minutes=minutes, findings=len(items),
+        "meta": dict(meta, visited=visited, stopped=stopped, minutes=minutes, findings=len(items), error=error,
                      report_at=datetime.now(main.KST).isoformat(timespec="seconds")),
         "groups": groups,
         "pages": pages or [],  # 방문한 전체 페이지와 발견 경로 (사이트 지도)

@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import pathlib
+import re
 import sys
 import threading
 import time
@@ -82,7 +83,14 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
         on_done(meta, items)
     c = ctl.get("crawler")
     pages = [{"url": r["url"], "path": r.get("path") or []} for r in (c.results if c else [])]
-    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages)
+    error = None
+    if not pages:  # 한 쪽도 못 열었으면 "광고 없음"이 아니라 점검 실패
+        error = "시작 주소를 열지 못했습니다. 주소가 맞는지, 사이트가 켜져 있는지, 이 PC에서 접속되는지 확인하세요."
+        if c and c.errors:
+            m = re.search(r"net::\w+|Timeout[^\\]*", c.errors[0][1])
+            error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
+        log("점검 실패: " + error)
+    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error)
 
 
 def ui_html():
