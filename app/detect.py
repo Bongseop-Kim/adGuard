@@ -213,6 +213,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
   const visit = root => { for (const e of root.querySelectorAll('*')) { all.push(e); if (e.shadowRoot) visit(e.shadowRoot); } };
   visit(document);
   const C = window.__adg.C = [], out = [];
+  const shown = new Map();  // 요소 → 숨김 신호 없음 (보이는 글자열을 만들 때 쓴다)
   const odd = /[^\x00-\x7f가-힣\s -¿‐-‧‰-⁞　-〿]|[a-z][0-9]|[0-9][a-z]/i;
   for (const e of all) {
     if (SKIP.has(e.tagName) || e.closest('script,style,template,noscript,head')) continue;
@@ -221,6 +222,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
     if (!own.trim()) continue;
     const raw = (e.tagName === 'INPUT' ? e.value : e.textContent).replace(/\s+/g, ' ').trim();
     const sg = signals(e, false);
+    shown.set(e, !sg.off.length && !sg.tr.length && !sg.diff);
     if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw)) continue;
     const vt = vtext(e).replace(/\s+/g, ' ').trim();
     const i = C.push(e) - 1;
@@ -230,6 +232,18 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
     let rootSame = null;
     if (sg.root && sg.root !== e && sg.root.textContent.replace(/\s+/g, '') === e.textContent.replace(/\s+/g, '')) rootSame = C.push(sg.root) - 1;
     out.push({ i, anc, raw: raw.slice(0, 500), text: vt.slice(0, 500), off: sg.off, tr: sg.tr, diff: sg.diff, marquee: sg.marquee, root: rootSame });
+  }
+  // 숨긴 글이 같은 페이지에 그대로 보이면 광고를 감추려는 숨김이 아니다: 접근성 제목(그누보드 #hd_h1), 댓글 수정 폼 등 (research/13 §1)
+  // ponytail: 보이는 쪽 글만 본다. 화면 어디에도 없는 sr-only 광고는 그대로 검출. iframe이 숨겨져 있으면(all_) 따지지 않음
+  if (!all_) {
+    let vis = '';
+    const w = document.createTreeWalker(document, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) { const p = w.currentNode.parentElement; if (p && shown.get(p)) vis += w.currentNode.nodeValue; }
+    vis = vis.replace(/\s+/g, '');
+    for (const o of out) {  // 제목 형식("글 제목 > 게시판 | 사이트")이면 조각마다 본다
+      const parts = o.raw.split(/\s[>|·:\-–—]\s/).map(x => x.replace(/\s+/g, '')).filter(Boolean);
+      if ((o.off.length || o.tr.length) && parts.join('').length >= 6 && parts.every(x => vis.includes(x))) o.dup = true;
+    }
   }
   return out;
 }
@@ -374,7 +388,7 @@ async def analyze(page, url):
 
     async def judge(frame, prefix, inherit, c):
         t = textcheck.check(c["text"])
-        if not t["ad"]:
+        if not t["ad"] or c.get("dup"):  # dup: 같은 글이 화면에 보인다. 보이는 쪽에서 판정한다
             return {}
         tech = {}
         off, tr = c["off"] + inherit["OFFSCREEN"], c["tr"] + inherit["TRANSPARENT"]

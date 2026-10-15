@@ -205,6 +205,7 @@ SX-name/
 | R5 | 보이는 글자열 재구성: salting, bidi, U+202E, ::before, flex order (§5) |
 | R6 | 정규화: ㆍ 구분자, 77→ㄲ, 결합 부호 (§7) |
 | R7 | SVG fill·fill-opacity, input value (§8) |
+| R8 | 보이는 곳에 같은 글이 있는 숨김(접근성 제목·수정 폼)은 제외, 화면에 없는 sr-only 광고는 검출 (research/13 §1) |
 
 ### 미끼 (D)
 | ID | 미끼 |
