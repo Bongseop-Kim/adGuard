@@ -6,7 +6,7 @@
 - 원인 유형(R14): 게시판 영역 밖에서 같은 지문이 2개 이상 페이지의 같은 위치에 숨겨져 있으면 해킹 삽입 의심, 아니면 게시물형
 - 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
-- 숨김 드러내기(R6): 페이지를 다시 열어 광고 위아래 WIN px을 원래 해상도로 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
+- 숨김 드러내기(R6): 페이지를 다시 열어 광고 둘레 PAD_X·PAD_Y px을 원래 해상도로 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
 - 시각 자료: 위 전·후 캡처 + 광고 위치 좌표, 발견 경로, 사이트 지도
 """
 import asyncio
@@ -33,7 +33,7 @@ HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
 SHOT_MAX, SHOT_SEC = 100, 240  # ponytail: 캡처 상한. 넘는 묶음은 "캡처 생략"으로 표시
-WIN = 1500  # ponytail: 광고 위아래로 찍는 범위(CSS px). 페이지 전체는 용량이 커서 안 찍는다
+PAD_X, PAD_Y = 240, 160  # 광고 둘레로 찍는 범위(CSS px). 화면(ui.html shotFig)이 보여 주는 범위와 같다
 
 REVEAL_JS = r"""
 (e, [step, hidden]) => {
@@ -182,17 +182,18 @@ async def open_marked(page, url, location, hidden):
 
 
 async def shoot(page, url, location, hidden):
-    """광고 위아래 WIN px을 원래 해상도로 숨김 해제 전·후 두 장. pos는 캡처 안 좌표(CSS px)"""
+    """광고 둘레 PAD_X·PAD_Y px을 원래 해상도로 숨김 해제 전·후 두 장. pos는 캡처 안 좌표(CSS px)"""
     loc, box = await open_marked(page, url, location, hidden)
     # 숨김 광고는 크기가 없어 부모 영역, 보이는 광고는 요소 자체
     r = (not hidden and await loc.bounding_box(timeout=1000)) or await box.bounding_box(timeout=3000)
     if not r or r["width"] < 1 or r["height"] < 1:
         raise RuntimeError("부모 영역 크기 0")
-    sx, sy, w, dh = await page.evaluate(
-        "() => [scrollX, scrollY, document.documentElement.clientWidth, document.documentElement.scrollHeight]")
-    ay = r["y"] + sy
-    y0 = max(0, ay - WIN)
-    clip = {"x": 0, "y": y0, "width": w, "height": max(1, min(dh, ay + r["height"] + WIN) - y0)}
+    sx, sy, dw, dh = await page.evaluate(
+        "() => [scrollX, scrollY, document.documentElement.scrollWidth, document.documentElement.scrollHeight]")
+    ax, ay = r["x"] + sx, r["y"] + sy
+    x0, y0 = max(0, ax - PAD_X), max(0, ay - PAD_Y)
+    clip = {"x": x0, "y": y0, "width": max(1, min(dw, ax + r["width"] + PAD_X) - x0),
+            "height": max(1, min(dh, ay + r["height"] + PAD_Y) - y0)}
 
     async def snap():
         img = await page.screenshot(full_page=True, clip=clip, type="jpeg", quality=80, animations="disabled",
@@ -202,8 +203,8 @@ async def shoot(page, url, location, hidden):
     before = await snap()
     await loc.evaluate(REVEAL_JS, ["reveal", hidden], timeout=3000)
     await page.wait_for_timeout(100)
-    return {"before": before, "after": await snap(), "url": url, "w": w, "h": clip["height"],
-            "pos": {"x": r["x"] + sx, "y": ay - y0, "w": r["width"], "h": r["height"]}}
+    return {"before": before, "after": await snap(), "url": url, "w": clip["width"], "h": clip["height"],
+            "pos": {"x": ax - x0, "y": ay - y0, "w": r["width"], "h": r["height"]}}
 
 
 async def capture(groups, log, ctl=None):
@@ -255,14 +256,16 @@ def html_report(data):
                         '<script type="application/json" id="data">%s</script>' % blob, 1)
 
 
-def save_record(base, data, page):
+def save_record(base, data):
     """점검 기록: records/<시작 시각>.html(그때 보고서 사본) + records/index.json(목록 요약, 최신이 앞)"""
     d = os.path.join(base, "records")
     os.makedirs(d, exist_ok=True)
     m = data["meta"]
     name = re.sub(r"\D", "", m["started_at"])[:14] + ".html"
+    # 사본에는 캡처를 넣지 않는다: 기록이 쌓여도 디스크를 덜 쓴다 (P9). 캡처는 그때의 report.html에만
+    lite = dict(data, groups=[dict(g, shot={"error": "점검 기록 사본에는 캡처를 넣지 않습니다"}) for g in data["groups"]])
     with open(os.path.join(d, name), "w", encoding="utf-8") as f:
-        f.write(page)
+        f.write(html_report(lite))
     idx = [e for e in records(base) if e["file"] != name]
     idx.insert(0, {"file": name, "entry_url": m["entry_url"], "finished_at": m["finished_at"], "elapsed_sec": m["elapsed_sec"],
                    "visited": m["visited"], "findings": m["findings"], "kinds": len(data["groups"]),
@@ -324,7 +327,7 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
     page = html_report(data)
     with open(os.path.join(base, "report.html"), "w", encoding="utf-8") as f:
         f.write(page)
-    save_record(base, data, page)
+    save_record(base, data)
     write_csv(os.path.join(base, "result.csv"), groups)
     log("보고서 저장: report.html, result.csv")
     return data

@@ -110,8 +110,8 @@ DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|
                           r"logout|print)(?:하기)?\s*$", re.I)
 INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back", "forward", "go", "reload",
             "preventDefault", "stopPropagation", "return", "toggle", "toggleClass", "addClass", "removeClass", "scrollTo"}
-# 첨부파일 내려받기 주소 (그누보드 download.php, 전자정부 FileDown.do 등): 페이지가 아니다
-DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down", re.I)
+# 첨부파일 내려받기 주소 (그누보드 download.php, 전자정부 FileDown.do 등)와 외부 링크 중계(그누보드 bbs/link.php): 페이지가 아니다
+DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down|bbs/link\.php", re.I)
 SKIP_EXT = re.compile(r"\.(pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|"
                       r"wmv|wav|css|js|json|xml|txt|exe|msi|apk|woff2?|ttf)$", re.I)
 # 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr·device, 전자정부 search*, XE·라이믹스)
@@ -129,6 +129,8 @@ MOBILE_ONLY = re.compile(r"모바일|mobile|스마트폰", re.I)
 # 원본 HTML의 meta refresh: 0초 이동은 분석 도중 페이지를 바꿔 DOM에서 못 읽을 수 있다
 META_REFRESH = re.compile(r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh[^>]*content\s*=\s*[\"']?\s*\d*\s*;?\s*url\s*=\s*([^\"'>]+)", re.I)
 NET_ERR = re.compile(r"Timeout|net::ERR_")
+# 서버가 버거워서 생긴 실패가 아닌 것: 다른 호스트로 보내진 뒤 DNS·인증서 실패, 차단한 요청 (P11)
+NOT_SERVER = re.compile(r"ERR_NAME_NOT_RESOLVED|ERR_CERT|ERR_ABORTED|ERR_BLOCKED|ERR_UNKNOWN_URL_SCHEME|ERR_INVALID")
 CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사이트에서 모자라면 조정
 
 
@@ -396,15 +398,18 @@ class Crawler:
                 await asyncio.wait_for(self.visit(page, url, post, depth, mobile), 60)
                 self.ok()
             except Exception as e:
-                self.errors.append((url, repr(e)[:200]))
+                r = repr(e)
+                self.errors.append((url, r[:200]))
+                m = re.search(r"net::\w+|Timeout", r)
+                self.log("열지 못함(%s): %s" % (m.group(0) if m else type(e).__name__, url))
                 await with_timeout(page.close(), 3)
-                if NET_ERR.search(repr(e)):
+                if NET_ERR.search(r) and not NOT_SERVER.search(r):
                     # 끝나지 않는 요청이 서버 세션을 잠갔을 수 있다: 쿠키가 새로운 컨텍스트로 바꾼다
                     await with_timeout(ctx.close(), 5)
                     ctx = await self.new_ctx(mobile)
                     self.fail()
                     # 서버 전체가 힘든 때(연결 실패, 연속 실패)만 나중에 1번 더. 혼자 멈추는 함정 페이지는 다시 기다리지 않는다
-                    if ("net::ERR_" in repr(e) or self.fails >= 2) and norm(url) not in self.retried:
+                    if ("net::ERR_" in r or self.fails >= 2) and norm(url) not in self.retried:
                         self.retried.add(norm(url))
                         self.requeue(url, post, depth, prio + 10)
                 tabs[mobile] = (ctx, await self.new_page(ctx))  # 멈춘 탭은 버리고 새로 연다
