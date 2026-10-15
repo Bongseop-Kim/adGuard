@@ -3,7 +3,7 @@
     data = make(meta, items, visited, stopped, minutes, log)   # report.html·result.csv도 쓴다
 
 - 묶음: 지문 = 기법 + 원문(공백 정리). 같은 지문의 위치별 검출이 한 행 (research/10 §1-2)
-- 원인 유형(R14): 같은 지문이 2개 이상 페이지의 같은 위치에 있으면 해킹 삽입 의심, 아니면 게시물형
+- 원인 유형(R14): 게시판 영역 밖에서 같은 지문이 2개 이상 페이지의 같은 위치에 숨겨져 있으면 해킹 삽입 의심, 아니면 게시물형
 - 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
 - 숨김 드러내기(R6): 페이지를 다시 열어 광고 위아래 WIN px을 원래 해상도로 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
@@ -18,6 +18,7 @@ import os
 import re
 import time
 import unicodedata
+import urllib.parse
 from datetime import datetime
 
 import main
@@ -98,7 +99,29 @@ def odd_chars(raw):
     return [[c] + v for c, v in out.items()]
 
 
+# 게시판 글·댓글이 들어가는 영역 (그누보드·XE·라이믹스·전자정부 등): 여러 쪽에 반복돼도 게시물이다 (research/13 §2)
+USER_AREA = re.compile(r"bo_v|cmt|comment|reply|xe_content|rd_body|view_?con|board_?view|bbs_?view|article|answer|"
+                       r"btn_(?:prv|next)|prev|next|latest|lt_", re.I)
+HREF = re.compile(r"""^<a\s[^>]*href\s*=\s*["']?([^"'\s>]+)""", re.I)
+
+
+def user_area(location):
+    return bool(USER_AREA.search(location))
+
+
+def own_link(f):
+    """같은 사이트 글로 가는 링크(이전·다음 글, 최근 글 위젯, 목록 제목)면 그 글의 제목이 반복된 것이다"""
+    m = HREF.search(f.get("html") or "")
+    if not m or m.group(1).lower().startswith(("javascript:", "#", "mailto:")):
+        return False
+    host = urllib.parse.urlsplit(urllib.parse.urljoin(f["url"], m.group(1))).hostname or ""
+    return host.removeprefix("www.") == (urllib.parse.urlsplit(f["url"]).hostname or "").removeprefix("www.")
+
+
 def group(items, history, now):
+    """원인 유형(R14): 해킹 삽입 의심 = 게시판 영역 밖에서 같은 문구가 2개 이상 페이지의 같은 위치에 '숨겨져' 반복되고,
+    같은 사이트 글로 가는 링크가 아닐 때. 보이는 변형·글 제목·이웃 글 링크는 템플릿 반복일 뿐이다 (research/13 §2)"""
+    hidden = {(x["url"], x["location"]) for x in items if x["technique"] in HIDDEN}
     by = {}
     for it in items:
         by.setdefault(fingerprint(it["technique"], it["evidence_text"]), []).append(it)
@@ -109,7 +132,8 @@ def group(items, history, now):
         locs = {}
         for x in its:
             locs.setdefault(x["location"], set()).add(x["url"])
-        hack = len(urls) >= 2 and max(len(u) for u in locs.values()) >= 2
+        rep = [loc for loc, u in locs.items() if len(u) >= 2]  # 2개 이상 페이지에 같은 위치로 반복
+        hack = any(not user_area(loc) and all((u, loc) in hidden for u in locs[loc]) for loc in rep) and not own_link(f)
         tech = f["technique"]
         risk = "심각" if hack else "위험" if tech in HIDDEN else "참고"
         kw = f.get("kw") or []
@@ -312,6 +336,14 @@ if __name__ == "__main__":  # 자체 확인: python app/report.py
                 it("f_3", "a", "td", "JAMO", "ㅋㅏㅈㅣㄴㅗ"), it("f_4", "a", "p", "TRANSPARENT", "토토"),
                 it("f_5", "b", "li", "TRANSPARENT", "토토")], {}, "t")
     assert [(g["risk"], g["cause"], len(g["items"])) for g in gs] == [("심각", HACK, 2), ("위험", POST, 2), ("참고", POST, 1)], gs
+    # 보이는 변형, 게시판 영역, 같은 사이트 글 링크는 반복돼도 게시물형
+    gs = group([it("f_1", "http://s/a", "p", "JAMO", "ㅋr지노"), it("f_2", "http://s/b", "p", "JAMO", "ㅋr지노"),
+                it("f_3", "http://s/a", "div#bo_v_con > p", "OFFSCREEN", "토토"), it("f_4", "http://s/b", "div#bo_v_con > p", "OFFSCREEN", "토토"),
+                dict(it("f_5", "http://s/a", "li > a", "OFFSCREEN", "바카라"), html='<a href="/bbs?id=3">'),
+                dict(it("f_6", "http://s/b", "li > a", "OFFSCREEN", "바카라"), html='<a href="/bbs?id=3">'),
+                dict(it("f_7", "http://s/a", "ul > a", "OFFSCREEN", "슬롯"), html='<a href="http://spam.test/">'),
+                dict(it("f_8", "http://s/b", "ul > a", "OFFSCREEN", "슬롯"), html='<a href="http://spam.test/">')], {}, "t")
+    assert [g["evidence_text"] for g in gs if g["cause"] == HACK] == ["슬롯"], gs
     assert odd_chars("саsino ㅋ가") == [["с", "U+0441", "CYRILLIC SMALL LETTER ES"], ["а", "U+0430", "CYRILLIC SMALL LETTER A"],
                                        ["ㅋ", "U+314B", "HANGUL LETTER KHIEUKH"]]
     page = html_report({"x": "</script><script>alert(1)</script>"})
