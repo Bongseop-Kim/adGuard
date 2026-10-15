@@ -10,6 +10,8 @@
 - 정규화: 모집요강 12쪽(#·끝 / 무시, 쿼리 순서 무시) + `;jsessionid` 제거 + 정렬·검색 꼬리표 제거
   + 글 ID가 있으면 목록 쪽번호 제거 + 내용이 같은 페이지는 1번만(대표 URL은 짧은 것)
 - 함정: 패턴별 상한(날짜형 24, 그 밖 500), 쓰기·삭제·로그아웃 링크 차단, 페이지·프레임 타임아웃, 전체 시간 제한
+- 실제 사이트 대응: 경고창은 기록하고 닫음, "모바일 전용" 경고 뒤 다른 곳으로 보내면 모바일 화면으로 다시 엶,
+  연결 실패·타임아웃은 쿠키가 새로운 컨텍스트로 1번 더 시도, 실패가 이어지면 병렬 수를 줄이고 회복되면 늘림
 """
 import asyncio
 import gzip
@@ -103,20 +105,24 @@ CLICK_JS = "([sel, i]) => { const e = document.querySelectorAll(sel)[i]; if (e) 
 # 누르거나 방문하면 안 되는 것 (research/03 §1)
 # URL·onclick 코드는 영어 토큰으로, 버튼 글자는 이름 전체가 위험 단어일 때만 ("전입신고 안내"·"추천 도서"는 통과)
 DANGER = re.compile(r"delete|remove|update|write|insert|logout|logoff|signout|vote|print|modify|"
-                    r"act=disp\w*(?:delete|modify|write)", re.I)
+                    r"act=disp\w*(?:delete|modify|write)|sns_send|sharer?\.php", re.I)
 DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|답글|로그아웃|탈퇴|추천|신고|스크랩|인쇄|delete|edit|write|"
                           r"logout|print)(?:하기)?\s*$", re.I)
 INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back", "forward", "go", "reload",
             "preventDefault", "stopPropagation", "return", "toggle", "toggleClass", "addClass", "removeClass", "scrollTo"}
+# 첨부파일 내려받기 주소 (그누보드 download.php, 전자정부 FileDown.do 등): 페이지가 아니다
+DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down", re.I)
 SKIP_EXT = re.compile(r"\.(pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|"
                       r"wmv|wav|css|js|json|xml|txt|exe|msi|apk|woff2?|ttf)$", re.I)
-# 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr, 전자정부 search*)
-NOISE = {"sca", "sfl", "stx", "sst", "sod", "sop", "spt", "searchcnd", "searchwrd", "searchkeyword", "searchcondition",
+# 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr·device, 전자정부 search*)
+NOISE = {"device", "sca", "sfl", "stx", "sst", "sod", "sop", "spt", "searchcnd", "searchwrd", "searchkeyword", "searchcondition",
          "searchtype", "searchword", "sort", "order", "orderby", "sortorder", "sortfield"}
 PAGE_KEYS = {"page", "pageindex", "pageno", "pagenum", "currentpage", "curpage"}
 ID_KEYS = {"id", "wr_id", "nttid", "no", "idx", "seq", "document_srl", "articleno", "bno", "num", "p", "nttsn", "postid"}
 DATE_KEYS = {"ym", "yyyymm", "year", "month", "day", "date", "yy", "mm", "dd", "caldate", "sdate", "edate", "week"}
 DATE_VAL = re.compile(r"^\d{4}[-./]?\d{2}(?:[-./]?\d{2})?$")
+MOBILE_ONLY = re.compile(r"모바일|mobile|스마트폰", re.I)
+NET_ERR = re.compile(r"Timeout|net::ERR_")
 CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사이트에서 모자라면 조정
 
 
@@ -143,6 +149,13 @@ def minimize(u, extra=None):
     drop = NOISE | (PAGE_KEYS if keys & ID_KEYS else set())
     q = [(k, v) for k, v in q if k.lower() not in drop]
     return urllib.parse.urlunsplit((s.scheme, s.netloc, path, urllib.parse.urlencode(q), ""))
+
+
+def section(u):
+    """게시판 단위 키: 글 ID·쪽번호를 뺀 norm (같은 게시판 글은 같은 키)"""
+    s = urllib.parse.urlsplit(minimize(u))
+    q = [(k, v) for k, v in urllib.parse.parse_qsl(s.query, keep_blank_values=True) if k.lower() not in ID_KEYS | PAGE_KEYS]
+    return norm(urllib.parse.urlunsplit((s.scheme, s.netloc, s.path, urllib.parse.urlencode(q), "")))
 
 
 def signature(u):
@@ -218,6 +231,10 @@ class Crawler:
         self.own = set()
         self.js_seen = set()
         self.dropped = 0
+        self.mobile = set()  # 모바일 화면으로만 열리는 주소·게시판 (norm, section)
+        self.retried = set()
+        self.limit, self.fails, self.oks = self.workers, 0, 0  # 지금 쓰는 병렬 수, 연속 실패·성공 수
+        self.dialogs = []  # (URL, 경고창 문구)
         self.via = {}  # norm(URL) → (찾은 페이지 URL 또는 None, 찾은 방법). 보고서의 발견 경로
 
     def stop(self):  # 화면의 "중단": 새 페이지를 꺼내지 않고, 진행 중인 페이지만 마친 뒤 모은 결과를 돌려준다
@@ -228,10 +245,14 @@ class Crawler:
         host = (s.hostname or "").lower()
         return s.scheme in ("http", "https") and (s.netloc.lower() == self.netloc or host.endswith("." + self.base))
 
+    def requeue(self, url, post, depth, prio):
+        self.seq += 1
+        heapq.heappush(self.heap, (prio, depth, self.seq, url, post))
+
     def push(self, url, depth, body=None, via=(None, "링크")):
         post = (url, body) if body is not None else None  # POST로만 열리면 원래 action과 본문을 남겨 둔다
         url = minimize(url, body)
-        if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path) or DANGER.search(url):
+        if not self.in_scope(url) or SKIP_EXT.search(urllib.parse.urlsplit(url).path) or DANGER.search(url) or DOWNLOAD.search(url):
             return
         key = norm(url)
         if key in self.seen:
@@ -294,17 +315,13 @@ class Crawler:
         t0 = time.monotonic()
         async with async_playwright() as p:
             browser, kind = await launch(p)
+            self.phone = p.devices["iPhone 13"]
             self.log("브라우저: %s %s, 병렬 %d" % (kind, browser.version, self.workers))
-            ctxs = []
-            for _ in range(self.workers):
-                ctx = await browser.new_context(ignore_https_errors=True, service_workers="block",
-                                                viewport={"width": 1280, "height": 720}, locale="ko-KR")
-                await ctx.add_init_script(INIT)
-                ctx.on("page", self.on_popup)
-                ctxs.append(ctx)
+            self.browser = browser
+            ctxs = [await self.new_ctx() for _ in range(self.workers)]
             self.push(self.entry, 0, via=(None, "시작 주소"))
             await self.seed(ctxs[0])
-            tasks = [asyncio.create_task(self.worker(c)) for c in ctxs]
+            tasks = [asyncio.create_task(self.worker(c, i)) for i, c in enumerate(ctxs)]
             # 하드 데드라인: 시간이 다 되면 진행 중인 페이지도 끊고 모은 결과만 돌려준다
             _, pending = await asyncio.wait(tasks, timeout=max(1, self.deadline - time.monotonic()) + 30)
             for t in pending:
@@ -327,29 +344,78 @@ class Crawler:
                 await grab()
         asyncio.ensure_future(later())
 
-    async def worker(self, ctx):
-        page = await self.new_page(ctx)
+    async def new_ctx(self, mobile=False):
+        view = self.phone if mobile else {"viewport": {"width": 1280, "height": 720}}
+        ctx = await self.browser.new_context(ignore_https_errors=True, service_workers="block", locale="ko-KR", **view)
+        await ctx.add_init_script(INIT)
+        ctx.on("page", self.on_popup)
+        # 공유·위험 주소는 클릭으로 나가는 요청(새 창 포함)도 막는다. 끝나지 않는 요청이 PHP 세션을 잠그면 같은 쿠키의 모든 요청이 멈춘다
+        await ctx.route(DANGER, lambda route: route.abort())
+        return ctx
+
+    async def worker(self, ctx, n):
+        tabs = {False: (ctx, await self.new_page(ctx))}  # 모바일 탭은 필요할 때 만든다
         while time.monotonic() < self.deadline:
             if not self.heap:
                 if self.active == 0:
-                    return
+                    break
                 await asyncio.sleep(0.05)
                 continue
-            _, depth, _, url, post = heapq.heappop(self.heap)
+            if n >= self.limit:  # 서버가 버거워해서 쉬는 워커
+                await asyncio.sleep(0.5)
+                continue
+            prio, depth, _, url, post = heapq.heappop(self.heap)
+            mobile = norm(url) in self.mobile or section(url) in self.mobile
+            if mobile not in tabs:
+                c = await self.new_ctx(mobile)
+                tabs[mobile] = (c, await self.new_page(c))
+            ctx, page = tabs[mobile]
             self.active += 1
             try:
-                await asyncio.wait_for(self.visit(page, url, post, depth), 60)
+                await asyncio.wait_for(self.visit(page, url, post, depth, mobile), 60)
+                self.ok()
             except Exception as e:
                 self.errors.append((url, repr(e)[:200]))
                 await with_timeout(page.close(), 3)
-                page = await self.new_page(ctx)  # 멈춘 탭은 버리고 새로 연다
+                if NET_ERR.search(repr(e)):
+                    # 끝나지 않는 요청이 서버 세션을 잠갔을 수 있다: 쿠키가 새로운 컨텍스트로 바꾼다
+                    await with_timeout(ctx.close(), 5)
+                    ctx = await self.new_ctx(mobile)
+                    self.fail()
+                    # 서버 전체가 힘든 때(연결 실패, 연속 실패)만 나중에 1번 더. 혼자 멈추는 함정 페이지는 다시 기다리지 않는다
+                    if ("net::ERR_" in repr(e) or self.fails >= 2) and norm(url) not in self.retried:
+                        self.retried.add(norm(url))
+                        self.requeue(url, post, depth, prio + 10)
+                tabs[mobile] = (ctx, await self.new_page(ctx))  # 멈춘 탭은 버리고 새로 연다
             finally:
                 self.active -= 1
+        for c, _ in tabs.values():
+            await with_timeout(c.close(), 5)
+
+    def ok(self):
+        self.fails, self.oks = 0, self.oks + 1
+        if self.oks >= 10 and self.limit < self.workers:
+            self.limit, self.oks = self.limit + 1, 0
+
+    def fail(self):
+        self.oks, self.fails = 0, self.fails + 1
+        if self.fails >= 3 and self.limit > 1:  # ponytail: 연속 3번 실패면 절반으로. 서버별 학습은 하지 않는다
+            self.limit, self.fails = max(1, self.limit // 2), 0
+            self.log("서버 응답이 늦어 동시 접속을 %d개로 줄입니다" % self.limit)
 
     async def new_page(self, ctx):
         page = await ctx.new_page()
         self.own.add(page)
+        page.adg_dialogs = []
+        page.on("dialog", lambda d: self.on_dialog(page, d))
         return page
+
+    def on_dialog(self, page, d):
+        page.adg_dialogs.append(d.message)
+        if (page.url, d.message) not in self.dialogs:
+            self.dialogs.append((page.url, d.message))
+            self.log("경고창: %s (%s)" % (d.message.strip()[:60], page.url))
+        asyncio.ensure_future(with_timeout(d.dismiss(), 3))
 
     async def open(self, page, url, post):
         """GET으로 연다. POST로만 열리는 글은 같은 파라미터의 GET이 실패할 때만 POST로 연다 (research/03 §8)."""
@@ -366,7 +432,8 @@ class Crawler:
                 await page.unroute(action, as_post)
         return resp
 
-    async def visit(self, page, url, post, depth):
+    async def visit(self, page, url, post, depth, mobile=False):
+        page.adg_dialogs.clear()
         resp = await self.open(page, url, post)
         self.visited += 1
         if resp is None or resp.status >= 400 or "html" not in (resp.headers.get("content-type") or "html"):
@@ -377,6 +444,11 @@ class Crawler:
 
         # 리다이렉트 뒤 최종 URL. POST로만 열리는 글은 GET이 되면 GET 표기, 안 되면 action URL (research/03 §8)
         final = minimize(page.url) if page.url.startswith("http") else url
+        if not mobile and norm(final) != norm(url) and any(MOBILE_ONLY.search(m) for m in page.adg_dialogs):
+            # "모바일 전용입니다" 경고 뒤 다른 곳으로 보냄: 모바일 화면으로 다시 열고, 같은 게시판 글도 처음부터 모바일로
+            self.mobile |= {norm(url), section(url)}
+            self.requeue(url, post, depth, 0)
+            return
         if not self.in_scope(final):
             return  # 리다이렉트로 범위 밖으로 나감
         self.seen.add(norm(final))
@@ -448,7 +520,7 @@ class Crawler:
             if self.analyze:
                 result = await self.analyze(page, final)
             self.hashes[h] = len(self.results)
-            self.results.append({"url": final, "result": result, "path": self.path(url)})
+            self.results.append({"url": final, "result": result, "path": self.path(url), "mobile": mobile})
             self.log("[%d] %s" % (len(self.results), final))
 
             await self.clicks(page, url, act, depth, final)

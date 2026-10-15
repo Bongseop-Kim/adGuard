@@ -118,7 +118,8 @@ def group(items, history, now):
             "first_seen": history.setdefault(fp, now), "evidence_text": f["evidence_text"],
             "norm": f.get("norm", ""), "kw": kw, "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
             "html": f.get("html", ""), "style": f.get("style", {}),
-            "items": [{"id": x["id"], "url": x["url"], "location": x["location"], "path": x.get("path") or []}
+            "items": [{"id": x["id"], "url": x["url"], "location": x["location"], "path": x.get("path") or [],
+                       "mobile": x.get("mobile", False)}
                       for x in its],
         })
     # 정렬: 위험도 → 영향 페이지 수 → 최초 발견일(신규 먼저) (research/10 §1-6)
@@ -191,15 +192,22 @@ async def capture(groups, log, ctl=None):
     ctl["shot"] = [0, min(len(groups), SHOT_MAX)]  # 화면 진행 막대용 [끝난 수, 전체]
     async with async_playwright() as p:
         browser, _ = await launch(p)
-        ctx = await browser.new_context(ignore_https_errors=True, service_workers="block",
-                                        viewport={"width": 1280, "height": 720}, locale="ko-KR")
-        await ctx.add_init_script(INIT)
-        page = await ctx.new_page()
+        tabs = {}  # 모바일 전용 페이지는 크롤 때처럼 모바일 화면으로 연다
+
+        async def tab(mobile):
+            if mobile not in tabs:
+                view = p.devices["iPhone 13"] if mobile else {"viewport": {"width": 1280, "height": 720}}
+                c = await browser.new_context(ignore_https_errors=True, service_workers="block", locale="ko-KR", **view)
+                await c.add_init_script(INIT)
+                tabs[mobile] = (c, await c.new_page())
+            return tabs[mobile]
+
         for n, g in enumerate(groups):
             if n >= SHOT_MAX or time.monotonic() - t0 > SHOT_SEC:
                 g["shot"] = {"error": "캡처 생략(보고서 크기·시간 상한)"}
                 continue
             it = g["items"][0]
+            ctx, page = await tab(it.get("mobile", False))
             for _ in (0, 1):  # 실패하면 새 탭으로 한 번 더 (프레임 분리 등 일시적인 실패)
                 try:
                     g["shot"] = await asyncio.wait_for(shoot(page, it["url"], it["location"], g["technique"] in HIDDEN), 25)
@@ -208,6 +216,7 @@ async def capture(groups, log, ctl=None):
                     g["shot"] = {"error": "캡처 실패: 페이지를 다시 열었을 때 요소를 찾지 못함 (%s)" % type(e).__name__}
                     await page.close()
                     page = await ctx.new_page()
+                    tabs[it.get("mobile", False)] = (ctx, page)
             log("증거 캡처 %d/%d" % (n + 1, len(groups)))
             ctl["shot"][0] = min(n + 1, ctl["shot"][1])
 
@@ -220,6 +229,38 @@ def html_report(data):
     blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")  # 원문 속 </script>가 태그를 닫지 못하게
     return page.replace('<script type="application/json" id="data">null</script>',
                         '<script type="application/json" id="data">%s</script>' % blob, 1)
+
+
+def save_record(base, data, page):
+    """점검 기록: records/<시작 시각>.html(그때 보고서 사본) + records/index.json(목록 요약, 최신이 앞)"""
+    d = os.path.join(base, "records")
+    os.makedirs(d, exist_ok=True)
+    m = data["meta"]
+    name = re.sub(r"\D", "", m["started_at"])[:14] + ".html"
+    with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+        f.write(page)
+    idx = [e for e in records(base) if e["file"] != name]
+    idx.insert(0, {"file": name, "entry_url": m["entry_url"], "finished_at": m["finished_at"], "elapsed_sec": m["elapsed_sec"],
+                   "visited": m["visited"], "findings": m["findings"], "kinds": len(data["groups"]),
+                   "risk": {r: sum(g["risk"] == r for g in data["groups"]) for r in RISK},
+                   "stopped": m["stopped"], "error": m["error"]})
+    main.write_json(os.path.join(d, "index.json"), idx)
+
+
+def records(base):
+    try:
+        with open(os.path.join(base, "records", "index.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def read_record(base, name):
+    """기록 보고서에 내장된 결과 JSON. 목록에 있는 파일만 연다 (경로 조작 방지)"""
+    if name not in {e["file"] for e in records(base)}:
+        return None
+    with open(os.path.join(base, "records", name), encoding="utf-8") as f:
+        return json.loads(f.read().split('<script type="application/json" id="data">', 1)[1].split("</script>", 1)[0])
 
 
 def write_csv(path, groups):
@@ -256,8 +297,10 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
         "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},
     }
+    page = html_report(data)
     with open(os.path.join(base, "report.html"), "w", encoding="utf-8") as f:
-        f.write(html_report(data))
+        f.write(page)
+    save_record(base, data, page)
     write_csv(os.path.join(base, "result.csv"), groups)
     log("보고서 저장: report.html, result.csv")
     return data

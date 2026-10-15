@@ -3,7 +3,7 @@
 - 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다
 - 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
 - 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
-- 결과: exe 폴더에 result.json(채점용), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일)
+- 결과: exe 폴더에 result.json(채점용), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
 """
 import asyncio
 import json
@@ -58,7 +58,7 @@ def scan(url, log=print, ctl=None, minutes=20):
                 findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
                                  "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
                                  "technique": f["technique"]})
-                items.append(dict(f, **findings[-1], path=pg.get("path") or []))
+                items.append(dict(f, **findings[-1], path=pg.get("path") or [], mobile=pg.get("mobile", False)))
         meta = {
             "topic": "TOPIC",
             "entry_url": url,
@@ -138,6 +138,14 @@ class Api:
         name = {"report": "report.html", "csv": "result.csv", "json": "result.json", "folder": ""}[what]
         webbrowser.open(pathlib.Path(base_dir(), name).as_uri())
 
+    def records(self):
+        import report
+        return report.records(base_dir())
+
+    def record(self, name):
+        import report
+        return report.read_record(base_dir(), name)
+
     def _run(self, url, minutes):
         def log(msg):
             print(msg, flush=True)
@@ -178,7 +186,7 @@ def serve(api):
 
         def do_POST(self):
             name = self.path.rsplit("/", 1)[-1]
-            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open"):
+            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record"):
                 return self.send_error(404)
             args = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"[]")
             self.reply(json.dumps(getattr(api, name)(*args), ensure_ascii=False).encode("utf-8"), "application/json")
