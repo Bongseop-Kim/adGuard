@@ -6,8 +6,8 @@
 - 원인 유형(R14): 같은 지문이 2개 이상 페이지의 같은 위치에 있으면 해킹 삽입 의심, 아니면 게시물형
 - 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
-- 숨김 드러내기(R6): 페이지를 다시 열어 부모 영역을 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
-- 시각 자료: 페이지 전체 캡처(주소마다 1장, 절반 해상도) + 광고 위치 좌표, 발견 경로, 사이트 지도
+- 숨김 드러내기(R6): 페이지를 다시 열어 광고 위아래 WIN px을 원래 해상도로 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
+- 시각 자료: 위 전·후 캡처 + 광고 위치 좌표, 발견 경로, 사이트 지도
 """
 import asyncio
 import base64
@@ -32,7 +32,7 @@ HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
 SHOT_MAX, SHOT_SEC = 100, 240  # ponytail: 캡처 상한. 넘는 묶음은 "캡처 생략"으로 표시
-PAGE_MAX_H = 6000  # 페이지 전체 캡처 높이 상한(CSS px). 그 아래 광고는 위치 표시 없이 안내
+WIN = 1500  # ponytail: 광고 위아래로 찍는 범위(CSS px). 페이지 전체는 용량이 커서 안 찍는다
 
 REVEAL_JS = r"""
 (e, [step, hidden]) => {
@@ -161,55 +161,44 @@ async def open_marked(page, url, location, hidden):
 
 
 async def shoot(page, url, location, hidden):
+    """광고 위아래 WIN px을 원래 해상도로 숨김 해제 전·후 두 장. pos는 캡처 안 좌표(CSS px)"""
     loc, box = await open_marked(page, url, location, hidden)
-    mask = [page.locator(MASK)]
+    # 숨김 광고는 크기가 없어 부모 영역, 보이는 광고는 요소 자체
+    r = (not hidden and await loc.bounding_box(timeout=1000)) or await box.bounding_box(timeout=3000)
+    if not r or r["width"] < 1 or r["height"] < 1:
+        raise RuntimeError("부모 영역 크기 0")
+    sx, sy, w, dh = await page.evaluate(
+        "() => [scrollX, scrollY, document.documentElement.clientWidth, document.documentElement.scrollHeight]")
+    ay = r["y"] + sy
+    y0 = max(0, ay - WIN)
+    clip = {"x": 0, "y": y0, "width": w, "height": max(1, min(dh, ay + r["height"] + WIN) - y0)}
 
     async def snap():
-        b = await box.bounding_box(timeout=3000)
-        if not b or b["width"] < 1 or b["height"] < 1:
-            raise RuntimeError("부모 영역 크기 0")
-        y, e = b["y"], await loc.bounding_box(timeout=1000)
-        if b["height"] > 420 and e and b["y"] <= e["y"] <= b["y"] + b["height"]:  # 긴 표·본문: 광고 줄이 가운데 오게
-            y = min(max(b["y"], e["y"] + e["height"] / 2 - 210), b["y"] + b["height"] - 420)
-        clip = {"x": max(0, b["x"]), "y": max(0, y), "width": min(b["width"], 1000), "height": min(b["height"], 420)}
-        img = await page.screenshot(clip=clip, type="jpeg", quality=60, animations="disabled", caret="hide",
-                                    mask=mask, timeout=5000)
+        img = await page.screenshot(full_page=True, clip=clip, type="jpeg", quality=80, animations="disabled",
+                                    caret="hide", mask=[page.locator(MASK)], timeout=10000)
         return "data:image/jpeg;base64," + base64.b64encode(img).decode()
 
-    # 페이지 전체 캡처 위의 위치(CSS px, 문서 기준). 숨김 광고는 크기가 없어 부모 영역, 보이는 광고는 요소 자체
-    sy = await page.evaluate("() => [scrollX, scrollY]")
-    r = (not hidden and await loc.bounding_box(timeout=1000)) or await box.bounding_box(timeout=1000)
-    pos = r and {"url": url, "x": r["x"] + sy[0], "y": r["y"] + sy[1], "w": r["width"], "h": r["height"]}
     before = await snap()
     await loc.evaluate(REVEAL_JS, ["reveal", hidden], timeout=3000)
     await page.wait_for_timeout(100)
-    return {"before": before, "after": await snap(), "pos": pos}
+    return {"before": before, "after": await snap(), "url": url, "w": w, "h": clip["height"],
+            "pos": {"x": r["x"] + sx, "y": ay - y0, "w": r["width"], "h": r["height"]}}
 
 
-async def shoot_page(page, url):
-    """페이지 전체를 절반 해상도로 (device_scale_factor 0.5 컨텍스트). 반환: {img, w, h} (w·h는 CSS px)"""
-    await page.goto(url, wait_until="load", timeout=15000)
-    await asyncio.sleep(0.8)
-    w, h = await page.evaluate("() => [document.documentElement.clientWidth, document.documentElement.scrollHeight]")
-    h = min(h, PAGE_MAX_H)
-    img = await page.screenshot(full_page=True, clip={"x": 0, "y": 0, "width": w, "height": h}, type="jpeg", quality=55,
-                                animations="disabled", caret="hide", mask=[page.locator(MASK)], timeout=10000)
-    return {"img": "data:image/jpeg;base64," + base64.b64encode(img).decode(), "w": w, "h": h}
-
-
-async def capture(groups, log):
-    """묶음별 숨김 드러내기 + 위치, 주소별 페이지 전체 캡처. 반환: {URL: 페이지 전체 캡처}"""
+async def capture(groups, log, ctl=None):
+    """묶음별 숨김 해제 전·후 캡처를 g["shot"]에 넣는다"""
     from playwright.async_api import async_playwright
     from crawler import INIT, launch
 
-    t0, pages = time.monotonic(), {}
+    t0 = time.monotonic()
+    ctl = {} if ctl is None else ctl
+    ctl["shot"] = [0, min(len(groups), SHOT_MAX)]  # 화면 진행 막대용 [끝난 수, 전체]
     async with async_playwright() as p:
         browser, _ = await launch(p)
-        opts = dict(ignore_https_errors=True, service_workers="block", viewport={"width": 1280, "height": 720}, locale="ko-KR")
-        ctx, half = await browser.new_context(**opts), await browser.new_context(device_scale_factor=0.5, **opts)
-        for c in (ctx, half):
-            await c.add_init_script(INIT)
-        page, whole = await ctx.new_page(), await half.new_page()
+        ctx = await browser.new_context(ignore_https_errors=True, service_workers="block",
+                                        viewport={"width": 1280, "height": 720}, locale="ko-KR")
+        await ctx.add_init_script(INIT)
+        page = await ctx.new_page()
         for n, g in enumerate(groups):
             if n >= SHOT_MAX or time.monotonic() - t0 > SHOT_SEC:
                 g["shot"] = {"error": "캡처 생략(보고서 크기·시간 상한)"}
@@ -223,17 +212,10 @@ async def capture(groups, log):
                     g["shot"] = {"error": "캡처 실패: 페이지를 다시 열었을 때 요소를 찾지 못함 (%s)" % type(e).__name__}
                     await page.close()
                     page = await ctx.new_page()
-            if g["shot"].get("pos") and it["url"] not in pages:
-                try:
-                    pages[it["url"]] = await asyncio.wait_for(shoot_page(whole, it["url"]), 25)
-                except Exception as e:
-                    log("페이지 전체 캡처 실패 %s: %r" % (it["url"], e))
-                    await whole.close()
-                    whole = await half.new_page()
-            log("숨김 드러내기 캡처 %d/%d" % (n + 1, len(groups)))
+            log("증거 캡처 %d/%d" % (n + 1, len(groups)))
+            ctl["shot"][0] = min(n + 1, ctl["shot"][1])
 
         await browser.close()
-    return pages
 
 
 def html_report(data):
@@ -254,7 +236,7 @@ def write_csv(path, groups):
                             g["evidence_text"], g["reason"], g["fp"], g["first_seen"]])
 
 
-def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None):
+def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None):
     base = main.base_dir()
     hist_path = os.path.join(base, "history.json")
     try:
@@ -264,10 +246,9 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         history = {}
     groups = group(items, history, meta["started_at"])
     main.write_json(hist_path, history)
-    shots = {}
     if groups:
         try:
-            shots = asyncio.run(capture(groups, log))
+            asyncio.run(capture(groups, log, ctl))
         except Exception as e:
             log("캡처 단계 오류(보고서는 캡처 없이 만듦): %r" % e)
     data = {
@@ -275,7 +256,6 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
                      report_at=datetime.now(main.KST).isoformat(timespec="seconds")),
         "groups": groups,
         "pages": pages or [],  # 방문한 전체 페이지와 발견 경로 (사이트 지도)
-        "shots": shots,
         "guide": GUIDE,
         # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
         "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},

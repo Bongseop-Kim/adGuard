@@ -90,7 +90,7 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
             m = re.search(r"net::\w+|Timeout[^\\]*", c.errors[0][1])
             error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
         log("점검 실패: " + error)
-    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error)
+    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl)
 
 
 def ui_html():
@@ -126,8 +126,10 @@ class Api:
         out = {k: v for k, v in s.items() if k != "log"}
         out["log"] = s["log"][-200:]
         if c:
-            out.update(visited=c.visited, queue=len(c.heap), found=sum(len(r["result"] or []) for r in c.results))
-        if s["phase"] == "running":
+            out.update(visited=c.visited, queue=len(c.heap), found=sum(len(r["result"] or []) for r in c.results),
+                       current=c.results[-1]["url"] if c.results else None)
+        out["shot"] = self._ctl.get("shot")
+        if s["phase"] in ("running", "report"):
             out["elapsed"] = round(time.monotonic() - self._t0, 1)
         return out
 
@@ -144,7 +146,7 @@ class Api:
         try:
             # on_done이 "탐지 완료" 시점: 화면은 바로 완료를 표시하고 보고서는 뒤에서 만든다
             self._s["data"] = run_all(url, log, self._ctl, minutes, lambda meta, items: self._s.update(
-                phase="report", elapsed=meta["elapsed_sec"], found=len(items)))
+                phase="report", scan_sec=meta["elapsed_sec"], found=len(items)))
             self._s["phase"] = "ready"
         except Exception as e:
             log("오류: %r" % e)
