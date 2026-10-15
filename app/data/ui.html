@@ -88,6 +88,10 @@ label.lbl { display: block; font-size: 17px; font-weight: 700; margin-bottom: 8p
 input, select { font: inherit; font-size: 17px; height: 48px; border: 1px solid var(--krds-color-light-gray-50); border-radius: 6px; padding: 0 16px; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); }
 input:hover, select:hover { border-color: var(--krds-color-light-gray-70); }
 input:focus, select:focus { outline: 2px solid var(--krds-color-light-primary-50); outline-offset: 0; border-color: var(--krds-color-light-primary-50); }
+/* 셀렉트: 기본 화살표는 끝에 붙어 여백을 못 주므로 직접 그린다 (오른쪽 16px, 글자는 화살표 앞에서 말줄임) */
+select { -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 48px; text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23464c53' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; background-size: 20px; }
+:root[data-contrast="high"] select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cdd1d5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
 input.err { border-color: var(--krds-color-light-danger-50); }
 .hint { font-size: 15px; color: var(--krds-color-light-gray-70); margin-top: 8px; }
 .hint.err { color: var(--krds-color-light-danger-60); }
@@ -286,19 +290,27 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
 .marker { position: absolute; border: 3px solid var(--krds-color-light-danger-50); border-radius: 4px; min-width: 14px; min-height: 14px; pointer-events: none; }
 .marker span { position: absolute; left: -3px; bottom: 100%; margin-bottom: 4px; background: var(--krds-color-light-danger-50); color: #fff; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 
-/* 사이트 지도 */
-.hows { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
-.tree { border-top: 2px solid var(--krds-color-light-gray-90); padding-top: 8px; }
-.tree ul { list-style: none; margin: 0; padding-left: 20px; border-left: 1px solid var(--krds-color-light-gray-20); }
-.tree > ul { padding-left: 0; border-left: 0; }
-.tree summary { cursor: pointer; padding: 6px 0; font-weight: 700; }
-.tree li { padding: 3px 0; font-size: 15px; }
-.tree .pg { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; word-break: break-all; }
-.tree .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--krds-color-light-gray-30); }
-.tree .hit .dot { background: var(--krds-color-light-danger-50); }
-.tree .hit > .pg > a, .tree .hit > .pg > span.nm { color: var(--krds-color-light-danger-60); font-weight: 700; }
-.tree .cnt { font-size: 15px; color: var(--krds-color-light-gray-70); font-weight: 400; margin-left: 4px; }
-.tree .cnt.hit { color: var(--krds-color-light-danger-60); font-weight: 700; }
+/* 사이트 지도: 섹션(주소 폴더)마다 카드, 페이지 하나 = 점 하나 */
+.maplegend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--krds-color-light-gray-70); margin: 0 0 12px; }
+.maplegend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--krds-color-light-gray-20); }
+.secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.sec { border: 1px solid var(--krds-color-light-gray-20); border-radius: 10px; padding: 14px 16px; }
+.sec.심각 { --c: var(--krds-color-light-danger-50); --t: var(--krds-color-light-danger-60); } .sec.위험 { --c: var(--krds-color-light-warning-30); --t: var(--krds-color-light-warning-60); } .sec.참고 { --c: var(--krds-color-light-information-50); --t: var(--krds-color-light-information-60); }
+.sec h3 { font-size: 16px; margin: 0; display: flex; justify-content: space-between; gap: 8px; word-break: break-all; }
+.sec h3 span { flex: none; font-size: 14px; font-weight: 400; color: var(--krds-color-light-gray-70); }
+.sec .num { font-size: 26px; font-weight: 700; line-height: 1.1; margin-top: 6px; color: var(--t, var(--krds-color-light-gray-90)); font-variant-numeric: tabular-nums; }
+.sec .num small { font-size: 14px; font-weight: 400; color: var(--krds-color-light-gray-70); margin-left: 4px; }
+.sec .ratio { height: 6px; border-radius: 3px; background: var(--krds-color-light-gray-10); margin-top: 8px; overflow: hidden; }
+.sec .ratio i { display: block; height: 100%; background: var(--c, var(--krds-color-light-gray-30)); }
+.sec .rl { margin: 4px 0 0; font-size: 13px; color: var(--krds-color-light-gray-70); }
+.dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 10px; }
+.dots a, .maplegend i.d { display: block; width: 12px; height: 12px; border-radius: 2px; background: var(--krds-color-light-gray-20); }
+.dots .심각, .maplegend .심각 { background: var(--krds-color-light-danger-50); } .dots .위험, .maplegend .위험 { background: var(--krds-color-light-warning-30); } .dots .참고, .maplegend .참고 { background: var(--krds-color-light-information-50); }
+.dots .off, .maplegend .off { outline: 2px solid var(--krds-color-light-warning-30); outline-offset: -2px; }
+.dots a:focus-visible { outline: 2px solid var(--krds-color-light-primary-50); outline-offset: 1px; }
+.maptip { position: fixed; z-index: 20; pointer-events: none; max-width: 360px; padding: 6px 10px; border-radius: 6px; font-size: 14px; line-height: 1.4;
+  background: var(--krds-color-light-gray-90); color: var(--krds-color-light-gray-0); box-shadow: 0 4px 12px rgba(0,0,0,.2); word-break: break-all; }
+.printonly { display: none; }
 
 @media (max-width: 760px) {
   .top-in { padding: 0 16px; height: 60px; } .top-in .desc { display: none; }
@@ -323,6 +335,7 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
   header.top, .noprint, .toolbar, .applied, .toc, .steps { display: none !important; }
   .rwrap { display: block; }
   .cmp .view { display: none !important; }
+  .maptip { display: none; } .printonly { display: block; }
   .cmp .both { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
   .box, .card, .gi { break-inside: avoid; }
 }
@@ -606,7 +619,7 @@ function renderReport(D) {
 
   // 사이트 지도
   if ((D.pages || []).length) {
-    C.append(sec('s-map', '사이트 지도', '살펴본 ' + D.pages.length + '쪽. 노란 꼬리표는 메뉴 링크가 아닌 방법(sitemap, 클릭, 스크립트 등)으로 찾은 페이지'));
+    C.append(sec('s-map', '사이트 지도', '살펴본 ' + D.pages.length + '쪽 · 검출 있는 페이지 ' + new Set(G.flatMap(g => g.items.map(i => i.url))).size + '쪽'));
     C.append(h('div', {}, siteMap(D)));
   }
 
@@ -681,41 +694,43 @@ function shotFig(sh, hidden) {
     h('div', { class: 'both' }, h('img', { src: sh.before, alt: '' }), h('img', { src: sh.after, alt: '' })));
 }
 
-// 사이트 지도: 방문한 페이지를 주소 경로로 묶은 나무. 검출이 있는 페이지는 빨간 점
+// 사이트 지도: 주소 폴더(섹션)마다 카드, 페이지 하나를 점 하나로. 점 색은 그 페이지에서 가장 높은 위험도
 function siteMap(D) {
-  const cnt = {};
-  for (const g of D.groups) for (const i of g.items) cnt[i.url] = (cnt[i.url] || 0) + 1;
-  const node = name => ({ name, kids: new Map(), pages: [], total: 0, hits: 0 });
-  const hosts = new Map();
-  for (const p of D.pages) {
-    let u; try { u = new URL(p.url); } catch (e) { continue; }
-    const segs = u.pathname.split('/').filter(Boolean), leaf = (segs.pop() || '/') + u.search;
-    if (!hosts.has(u.host)) hosts.set(u.host, node(u.protocol + '//' + u.host));
-    let n = hosts.get(u.host);
-    for (const s of segs) { if (!n.kids.has(s)) n.kids.set(s, node(s + '/')); n = n.kids.get(s); }
-    n.pages.push({ name: leaf, url: p.url, n: cnt[p.url] || 0, how: (p.path.at(-1) || [])[1] });
+  const RISKS = ['심각', '위험', '참고'], per = {};
+  for (const g of D.groups) for (const i of g.items) {
+    const p = per[i.url] || (per[i.url] = { n: 0, risk: g.risk });
+    p.n++; if (RISKS.indexOf(g.risk) < RISKS.indexOf(p.risk)) p.risk = g.risk;
   }
-  const sum = n => { n.total = n.pages.length; n.hits = n.pages.reduce((a, p) => a + p.n, 0);
-    for (const k of n.kids.values()) { sum(k); n.total += k.total; n.hits += k.hits; } };
-  const draw = (n, open) => h('details', { open: open || n.hits > 0 || null },
-    h('summary', {}, n.name, h('span', { class: 'cnt' + (n.hits ? ' hit' : '') }, ' ' + n.total + '쪽' + (n.hits ? ' · 검출 ' + n.hits + '건' : ''))),
-    h('ul', {},
-      [...n.kids.values()].map(k => h('li', {}, draw(k, false))),
-      n.pages.filter(p => p.n).sort((a, b) => b.n - a.n).map(leaf),
-      clean(n.pages.filter(p => !p.n).sort((a, b) => a.name.localeCompare(b.name)))));
-  const leaf = p => h('li', { class: p.n ? 'hit' : '' },
-    h('div', { class: 'pg' }, h('i', { class: 'dot' }),
-      h('a', { href: p.url, target: '_blank', rel: 'noopener noreferrer' }, p.name),
-      p.n ? h('span', { class: 'badge b-심각' }, '검출 ' + p.n) : null,
-      HIDDEN_HOW(p.how) ? h('span', { class: 'how hid' }, p.how) : null));
-  // 검출 없는 페이지는 5쪽이 넘으면 접어 둔다
-  const clean = ps => ps.length > 5 ? h('li', {}, h('details', {}, h('summary', { class: 'cnt' }, '검출 없는 페이지 ' + ps.length + '쪽'), h('ul', {}, ps.map(leaf)))) : ps.map(leaf);
-  const hows = {};
-  for (const p of D.pages) { const k = ((p.path.at(-1) || [])[1] || '?').replace(/\(.*\)/, ''); hows[k] = (hows[k] || 0) + 1; }
+  const secOf = u => { try { const s = new URL(u).pathname.split('/').filter(Boolean); s.pop(); return '/' + s.join('/') + (s.length ? '/' : ''); } catch (e) { return '/'; } };
+  const short = u => { try { const x = new URL(u); return (x.pathname + x.search) || '/'; } catch (e) { return u; } };
+  const secs = new Map();
+  for (const p of D.pages) { const k = secOf(p.url); if (!secs.has(k)) secs.set(k, []); secs.get(k).push({ url: p.url, how: (p.path.at(-1) || [])[1] || '', ...(per[p.url] || { n: 0 }) }); }
+  const list = [...secs].map(([k, ps]) => ({ k, ps: ps.sort((a, b) => b.n - a.n), hits: ps.reduce((a, p) => a + p.n, 0), hp: ps.filter(p => p.n).length, worst: RISKS.find(r => ps.some(p => p.risk === r)) }))
+    .sort((a, b) => b.hits - a.hits || b.ps.length - a.ps.length);
+  // 점 위 도움말: 마우스를 따라다닌다 (키보드 초점이면 점 아래). 스크린 리더는 aria-label을 읽는다
+  const tip = $('.maptip') || document.body.appendChild(h('div', { class: 'maptip', hidden: true, 'aria-hidden': 'true' }));
+  const text = p => short(p.url) + (p.n ? ' — ' + p.risk + ' ' + p.n + '건' : ' — 검출 없음') + (HIDDEN_HOW(p.how) ? ' · ' + p.how + '(으)로 찾음' : '');
+  const place = (x, y) => { const w = tip.offsetWidth, hh = tip.offsetHeight;
+    tip.style.left = Math.min(x + 14, innerWidth - w - 8) + 'px'; tip.style.top = (y + 18 + hh > innerHeight ? y - hh - 10 : y + 18) + 'px'; };
+  const show = (p, x, y) => { tip.textContent = text(p); tip.hidden = false; place(x, y); };
+  const hide = () => { tip.hidden = true; };
+  const dot = p => h('a', { href: p.url, target: '_blank', rel: 'noopener noreferrer', class: [p.risk, HIDDEN_HOW(p.how) && 'off'].filter(Boolean).join(' '),
+    'aria-label': text(p),
+    onmouseenter: e => show(p, e.clientX, e.clientY), onmousemove: e => place(e.clientX, e.clientY), onmouseleave: hide,
+    onfocus: e => { const b = e.target.getBoundingClientRect(); show(p, b.left, b.bottom - 8); }, onblur: hide });
+  const hits = list.flatMap(s => s.ps.filter(p => p.n));
   return [
-    h('div', { class: 'hows' }, Object.entries(hows).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
-      h('span', { class: 'how' + (HIDDEN_HOW(k) ? ' hid' : '') }, k + ' ' + v + '쪽'))),
-    h('div', { class: 'tree' }, h('ul', {}, [...hosts.values()].map(n => { sum(n); return h('li', {}, draw(n, true)); })))];
+    h('div', { class: 'maplegend' }, RISKS.map(r => h('span', {}, h('i', { class: r }), r)), h('span', {}, h('i'), '검출 없음'),
+      h('span', {}, h('i', { class: 'off', style: 'background:none' }), '메뉴 밖에서 찾은 페이지 (sitemap·스크립트·클릭 등)')),
+    h('div', { class: 'secs' }, list.map(s => h('div', { class: 'sec' + (s.worst ? ' ' + s.worst : '') },
+      h('h3', {}, s.k, h('span', {}, s.ps.length + '쪽')),
+      // 검출 수 + 이 섹션 페이지 중 검출된 비율
+      h('div', { class: 'num' }, s.hits, h('small', {}, '건 검출')),
+      h('div', { class: 'ratio', role: 'img', 'aria-label': s.ps.length + '쪽 중 ' + s.hp + '쪽에서 검출' }, h('i', { style: 'width:' + (s.hp / s.ps.length * 100) + '%' })),
+      h('p', { class: 'rl' }, s.hp + '/' + s.ps.length + '쪽에서 검출'),
+      h('div', { class: 'dots' }, s.ps.map(dot))))),
+    // 인쇄에는 점 위 주소가 안 보이므로 검출 페이지 주소를 덧붙인다
+    hits.length ? h('ol', { class: 'printonly urls' }, hits.map(p => h('li', {}, p.risk + ' ' + p.n + '건 · ' + p.url))) : null];
 }
 
 // 판정 근거(detect.py reason 문구) → 그 근거를 만든 CSS 속성
