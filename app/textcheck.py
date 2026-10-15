@@ -29,6 +29,11 @@ SEP = set(" \t\n.,-_·•*/|~^✦★☆♡♥◆◇○●ㆍ‧・･∙⋅'\"`+
     "͏", "᠎"}
 INVISIBLE = {c for c in SEP if not c.isprintable() or c in "ㅤᅟᅠﾠ­"}
 BIDI = re.compile("[‪-‮⁦-⁩]")
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties.txt): 화면에 안 보이는 글자. 한글 채움 문자 포함 (research/13 §3)
+# 방향 제어(U+202A~202E, 2066~2069)는 unbidi가 먼저 쓰고 지운다
+IGNORABLE = re.compile("[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f"
+                       "\u3164\ufe00-\ufe0f\ufeff\uffa0\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e0fff]")
+DOT = str.maketrans({"。": ".", "｡": ".", "．": "."})  # 주소의 마침표 대신 쓰는 글자 (bcc777。COM)
 
 
 def _conf():
@@ -180,10 +185,10 @@ def unbidi(s):
 
 
 def base(s):
-    """NFKC + 결합 부호 제거 + 첫가끝·반각 자모를 호환 자모로"""
+    """보이지 않는 글자 제거 + NFKC + 。→. + 결합 부호 제거 + 첫가끝·반각 자모를 호환 자모로"""
     # 한글 계열은 NFKC를 거치면 자모가 음절로 미리 합쳐져 흔적이 사라지므로 자체 조합기(compose)에 맡긴다
     out = []
-    for c in unbidi(s):
+    for c in IGNORABLE.sub("", unbidi(s)).translate(DOT):
         if is_hangulish(c):
             out.append(to_compat(c))
         else:  # NFKC 후 결합 부호(Mn) 제거: cásínó → casino, 카̈지노 → 카지노 (09 §7.3)
@@ -248,7 +253,7 @@ def keywords(s):
 
 
 def homoglyph_tokens(raw):
-    """키워드 일치 없이도 인정하는 닮은꼴 토큰: 전각·수학·원문자(A), 라틴을 닮은 다른 문자 체계(B)"""
+    """키워드 일치 없이도 인정하는 닮은꼴 토큰: 전각·수학·원문자(A), 라틴을 닮은 다른 문자 체계(B), 주소 속 。(전각 마침표)"""
     global CONF
     if CONF is None:
         CONF = _conf()
@@ -259,7 +264,7 @@ def homoglyph_tokens(raw):
         conf = [c for c in tok if not c.isascii() and c not in compat and c in CONF]
         latin = [c for c in tok if c.isascii() and c.isalpha()]
         letters = [c for c in compat if ud.normalize("NFKC", c).isalpha()]
-        if letters and (len(compat) >= 2 or latin):
+        if letters and (len(compat) >= 2 or latin) or re.search(r"[a-z0-9][。｡．][a-z]", tok, re.I):
             hits.append(tok)
         elif conf and (len(conf) >= 2 or latin):
             hits.append(tok)
@@ -267,7 +272,7 @@ def homoglyph_tokens(raw):
 
 
 def check(raw):
-    """raw(원문) → {"ad", "HOMOGLYPH": 근거 또는 None, "JAMO": 근거 또는 None, "norm", "kw"}"""
+    """raw(원문) → {"ad", "HOMOGLYPH": 근거 또는 None, "JAMO": 근거 또는 None, "norm", "kw", "INVISIBLE": 추가 유형 근거 또는 None}"""
     n1, n2, flags = variants(raw)
     c1, made1 = compose(n1)
     c2, made2 = compose(n2)
@@ -276,6 +281,8 @@ def check(raw):
     kw1, kw2 = keywords(c1), keywords(c2)
     kw_leet = set().union(*(keywords(x) for x in leet)) - kw_raw
     kw_all = kw1 | kw2 | kw_leet | kw_raw
+    # 키워드 글자 사이에 보이지 않는 글자를 끼움 (카\u00ad지노): 4종 밖 추가 유형, 회피 의도라 광고 신호로도 센다
+    kw_inv = kw_raw - keywords(base(IGNORABLE.sub("\x01", raw)))
 
     # 초성 약어 (ㅋㅈㄴ, ㅁㅌ): 다른 광고 신호가 있을 때만 셈
     cho = [t for t in re.split(r"[^ㄱ-ㅎ]+", c2) if len(t) >= 2 and t not in NORMAL_CHO and t in KW_CHO]
@@ -287,11 +294,12 @@ def check(raw):
     action = any(a in sq for a in ACTION)
     neg = any(w in sq for w in NEGATIVE)
     strong = len(kw_all) + (len(cho) if contact or code else 0)
-    ad = strong >= 1 and (contact or code or strong >= 2 or action)
+    ad = strong >= 1 and (contact or code or strong >= 2 or action or bool(kw_inv))
     if neg and not contact:
         ad = False
 
-    res = {"ad": ad, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho})}
+    res = {"ad": ad, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho}),
+           "INVISIBLE": "보이지 않는 글자를 지우면: " + ", ".join(sorted(kw_inv)) if kw_inv else None}
 
     # HOMOGLYPH
     toks = homoglyph_tokens(raw)
@@ -345,6 +353,10 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         ("𝐁𝐄𝐓𝟑𝟔𝟓 토토 가입코드 TEST88", {H}, True),
         ("ㅂ​ㅏ​ㅋ​ㅏ​ㄹ​ㅏ 실시간 @test_bkr_stat", {J}, True),
         ("카지노 바카라 텔레그램 @test_plain", set(), True),
+        ("온라인바카라 † く 【￥ bcc777。COM ￥】 ぅ", {H}, True),  # 。 마침표 (research/13 §3)
+        ("카\u00ad지\u00ad노\u00ad커\u00ad뮤\u00ad니\u00ad티", set(), True),  # 소프트 하이픈 삽입: 4종 아님, 광고
+        ("ㄱ\u2061ㅏ 카지노 단속 안내", set(), False),
+        ("회의록。hwp 내려받기", set(), False),
         ("77ㅗㅇ머니 지급 @test_kk", {H, J}, True),  # korcen 77→ㄲ
         ("카ㆍ지ㆍ노 첫충 @test_dot", set(), True),  # ㆍ는 구분자, 자모 아님
         ("@test_flex01카지노", set(), True),  # ID 뒤에 한글이 붙어도 연락처
