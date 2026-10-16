@@ -15,6 +15,7 @@
 결과는 exe와 같은 폴더에 생긴다.
 
 - `result.json`: 채점용 결과
+- `result_extra.json`: 필수 4종 밖 추가 유형 (technique `ETC` + `extra_finding`, 지금은 `INVISIBLE_CHAR` 보이지 않는 문자 삽입)
 - `report.html`: 단일 파일 보고서 (브라우저로 연다)
 - `result.csv`: Excel용 (UTF-8 BOM)
 - `history.json`: 지문별 최초 발견일

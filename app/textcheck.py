@@ -282,7 +282,8 @@ def check(raw):
     kw_leet = set().union(*(keywords(x) for x in leet)) - kw_raw
     kw_all = kw1 | kw2 | kw_leet | kw_raw
     # 키워드 글자 사이에 보이지 않는 글자를 끼움 (카\u00ad지노): 4종 밖 추가 유형, 회피 의도라 광고 신호로도 센다
-    kw_inv = kw_raw - keywords(base(IGNORABLE.sub("\x01", raw)))
+    # 방향 제어 문자(RLO 등)는 화면 순서 바꾸기라 여기서 빼고 남긴다 (todo/08 VISUAL_REORDER)
+    kw_inv = kw_raw - keywords(base(IGNORABLE.sub(lambda m: m.group() if BIDI.match(m.group()) else "\x01", raw)))
 
     # 초성 약어 (ㅋㅈㄴ, ㅁㅌ): 다른 광고 신호가 있을 때만 셈
     cho = [t for t in re.split(r"[^ㄱ-ㅎ]+", c2) if len(t) >= 2 and t not in NORMAL_CHO and t in KW_CHO]
@@ -356,6 +357,7 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         ("온라인바카라 † く 【￥ bcc777。COM ￥】 ぅ", {H}, True),  # 。 마침표 (research/13 §3)
         ("카\u00ad지\u00ad노\u00ad커\u00ad뮤\u00ad니\u00ad티", set(), True),  # 소프트 하이픈 삽입: 4종 아님, 광고
         ("ㄱ\u2061ㅏ 카지노 단속 안내", set(), False),
+        ("\u202e노지카\u202c 가입 @test_rlo", set(), True),  # bidi는 INVISIBLE 아님 (아래에서 따로 확인)
         ("회의록。hwp 내려받기", set(), False),
         ("77ㅗㅇ머니 지급 @test_kk", {H, J}, True),  # korcen 77→ㄲ
         ("카ㆍ지ㆍ노 첫충 @test_dot", set(), True),  # ㆍ는 구분자, 자모 아님
@@ -382,4 +384,5 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         if got != want or r["ad"] != ad:
             bad += 1
             print("실패:", raw, "기대", want, ad, "결과", got, r["ad"], r["kw"], r["norm"])
+    assert check("카\u00ad지\u00ad노\u00ad커뮤니티")["INVISIBLE"] and not check("\u202e노지카\u202c 가입 @test_rlo")["INVISIBLE"]
     print("통과" if not bad else "%d건 실패" % bad)

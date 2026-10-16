@@ -29,6 +29,7 @@ TECH = {
     "TRANSPARENT": "투명·배경색 숨김",
     "OFFSCREEN": "화면 밖·크기 0 숨김",
 }
+EXTRA = {"INVISIBLE_CHAR": "추가 유형: 보이지 않는 문자 삽입"}  # result_extra.json의 extra_finding
 HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
@@ -138,7 +139,7 @@ def group(items, history, now):
         risk = "심각" if hack else "위험" if tech in HIDDEN else "참고"
         kw = f.get("kw") or []
         groups.append({
-            "fp": fp, "technique": tech, "tech_label": TECH[tech], "risk": risk, "cause": HACK if hack else POST,
+            "fp": fp, "technique": tech, "tech_label": TECH.get(tech) or EXTRA.get(f.get("extra_finding"), "추가 유형"), "risk": risk, "cause": HACK if hack else POST,
             "first_seen": history.setdefault(fp, now), "evidence_text": f["evidence_text"],
             "norm": f.get("norm", ""), "kw": kw, "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
             "html": f.get("html", ""), "style": f.get("style", {}),

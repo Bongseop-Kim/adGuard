@@ -3,7 +3,7 @@
 - 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다
 - 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
 - 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
-- 결과: exe 폴더에 result.json(채점용), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
+- 결과: exe 폴더에 result.json(채점용), result_extra.json(추가 유형), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
 """
 import asyncio
 import json
@@ -48,17 +48,20 @@ def scan(url, log=print, ctl=None, minutes=20):
         log("오류로 탐색 중단, 그때까지의 결과를 저장합니다: %r" % e)
     finally:  # 크롤이 죽어도 파싱 가능한 result.json은 남긴다 (파일이 없거나 깨지면 0점)
         pages = ctl["crawler"].results if "crawler" in ctl else []
-        findings, items, seen = [], [], set()
+        findings, extras, items, seen = [], [], [], set()
         for pg in pages:
             for f in pg["result"] or []:
-                key = (pg["url"], f["location"], f["technique"])  # 채점 단위. 같은 조합은 1건
+                key = (pg["url"], f["location"], f["technique"], f.get("extra_finding"))  # 채점 단위. 같은 조합은 1건
                 if key in seen:
                     continue
                 seen.add(key)
-                findings.append({"id": "f_%03d" % (len(findings) + 1), "url": pg["url"], "is_violation": True,
-                                 "location": f["location"], "evidence_text": f["evidence_text"] or f["location"],
-                                 "technique": f["technique"]})
-                items.append(dict(f, **findings[-1], path=pg.get("path") or [], mobile=pg.get("mobile", False)))
+                out = extras if f.get("extra_finding") else findings  # 4종 밖 추가 유형은 result_extra.json으로만
+                out.append({"id": "%s_%03d" % ("e" if out is extras else "f", len(out) + 1), "url": pg["url"],
+                            "is_violation": True, "location": f["location"],
+                            "evidence_text": f["evidence_text"] or f["location"], "technique": f["technique"]})
+                if out is extras:
+                    out[-1]["extra_finding"] = f["extra_finding"]
+                items.append(dict(f, **out[-1], path=pg.get("path") or [], mobile=pg.get("mobile", False)))
         meta = {
             "topic": "TOPIC",
             "entry_url": url,
@@ -69,7 +72,8 @@ def scan(url, log=print, ctl=None, minutes=20):
         }
         out = os.path.join(base_dir(), "result.json")
         write_json(out, {"meta": meta, "findings": findings})
-    log("탐지 완료: %d쪽, %d건 -> %s" % (len(pages), len(findings), out))
+        write_json(os.path.join(base_dir(), "result_extra.json"), {"meta": meta, "findings": extras})
+    log("탐지 완료: %d쪽, %d건(추가 유형 %d건) -> %s" % (len(pages), len(findings), len(extras), out))
     return meta, items
 
 

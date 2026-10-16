@@ -214,7 +214,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
   visit(document);
   const C = window.__adg.C = [], out = [];
   const shown = new Map();  // 요소 → 숨김 신호 없음 (보이는 글자열을 만들 때 쓴다)
-  const odd = /[^\x00-\x7f가-힣\s -¿‐-‧‰-⁞　-〿]|[a-z][0-9]|[0-9][a-z]/i;
+  const odd = /[^\x00-\x7f가-힣\s -¿‐-‧‰-⁞　-〿]|[a-z][0-9]|[0-9][a-z]|[­͏ᅟᅠ᠋-᠏​-‏⁠-⁯ㅤ︀-️﻿ﾠ]/i;
   for (const e of all) {
     if (SKIP.has(e.tagName) || e.closest('script,style,template,noscript,head')) continue;
     let own = textNodes(e).map(t => t.nodeValue).join(' ');
@@ -410,7 +410,7 @@ async def analyze(page, url):
         for k in ("HOMOGLYPH", "JAMO"):
             if t[k]:
                 tech[k] = t[k]
-        if not tech:
+        if not tech and not t["INVISIBLE"]:
             return {}
         loc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["i"])
         if not loc:
@@ -422,6 +422,9 @@ async def analyze(page, url):
             mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why,
                        "norm": t["norm"], "kw": t["kw"], **more}
             found.append(mine[k])
+        if t["INVISIBLE"]:  # 4종 밖 추가 유형: result_extra.json으로만 나간다 (모집요강 붙임4, technique "ETC")
+            found.append({"location": prefix + loc, "technique": "ETC", "extra_finding": "INVISIBLE_CHAR",
+                          "evidence_text": c["raw"], "reason": t["INVISIBLE"], "norm": t["norm"], "kw": t["kw"], **more})
         # 숨김 루트가 광고만 감싸고 있으면 루트도 낸다 (04 §4.3)
         if c["root"] is not None and "OFFSCREEN" in tech:
             rloc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["root"])
