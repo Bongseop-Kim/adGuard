@@ -99,9 +99,11 @@ def scan(url, log=print, ctl=None, minutes=20):
     browsers = os.path.join(base_dir(), "browsers")
     if os.path.isdir(browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers  # PC에 같은 환경변수가 있어도 동봉본을 쓴다
+    import ai
     from crawler import crawl
     from detect import analyze
 
+    ai.setup()  # .env 키가 있으면 경계 후보만 AI에 묻는다 (없으면 규칙만)
     ctl = {} if ctl is None else ctl
     started, t0 = datetime.now(KST), time.monotonic()
     try:
@@ -109,6 +111,7 @@ def scan(url, log=print, ctl=None, minutes=20):
     except Exception as e:
         log("오류로 탐색 중단, 그때까지의 결과를 저장합니다: %r" % e)
     finally:  # 크롤이 죽어도 파싱 가능한 result.json은 남긴다 (파일이 없거나 깨지면 0점)
+        ai.save()
         pages = ctl["crawler"].results if "crawler" in ctl else []
         findings, extras, items, seen = [], [], [], set()
         for pg in pages:
@@ -136,6 +139,10 @@ def scan(url, log=print, ctl=None, minutes=20):
         write_json(out, {"meta": meta, "findings": findings})
         write_json(os.path.join(base_dir(), "result_extra.json"), {"meta": meta, "findings": extras})
     log("탐지 완료: %d쪽, %d건(추가 유형 %d건) -> %s" % (len(pages), len(findings), len(extras), out))
+    if ai.STATS["enabled"]:
+        s = ai.STATS
+        log("AI 판정: 후보 %d, 캐시 %d, 호출 %d, 거부 %d, 실패 %d, 토큰 %d, 바꾼 판정 %d" % (
+            s["candidates"], s["cache"], s["calls"], s["refused"], s["failed"], s["tokens"], len(s["changed"])))
     return meta, items
 
 

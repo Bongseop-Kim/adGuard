@@ -21,6 +21,7 @@ import unicodedata
 import urllib.parse
 from datetime import datetime
 
+import ai
 import main
 
 TECH = {
@@ -379,8 +380,7 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         "diff": diff,
         "diag": diag or [],  # 사이트 진단 (extra.py): 검색 노출 위험 등
         "statuses": STATUSES,
-        # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
-        "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},
+        "ai": ai.summary(),  # R20 AI 사용 명세: 켜지면 rows에 [항목, 값], changed에 AI가 바꾼 판정 (실제 보낸 글 포함)
     }
     page = html_report(data)
     with open(os.path.join(base, "report.html"), "w", encoding="utf-8") as f:

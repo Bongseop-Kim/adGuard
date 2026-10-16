@@ -14,3 +14,4 @@ records/
 logs/
 status.json
 .env.txt
+cache/

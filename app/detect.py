@@ -17,6 +17,7 @@ import unicodedata
 import urllib.parse
 import zlib
 
+import ai
 import textcheck
 
 LIB_JS = r"""
@@ -555,10 +556,24 @@ async def analyze(page, url):
                 reorder = "화면에 그려진 순서로 읽으면: " + ", ".join(sorted(new)) + " (" + c["vis"][:60] + ")"
                 if not t["ad"]:
                     t = tv
-        if not t["ad"] or c.get("dup"):  # dup: 같은 글이 화면에 보인다. 보이는 쪽에서 판정한다
+        if c.get("dup"):  # dup: 같은 글이 화면에 보인다. 보이는 쪽에서 판정한다
+            return {}
+        off, tr = c["off"] + inherit["OFFSCREEN"], c["tr"] + inherit["TRANSPARENT"]
+        # AI 광고성 판정 (research/07 §6.4, eval/ai_exp.py로 합격 확인): 규칙만으로 애매한 경계 구간만 묻는다
+        #   규칙 광고 + 연락처·코드 없음 → q < 0.4면 뺀다 / 규칙 광고 아님 + 광고 낱말 + 숨김·변형 신호 → q ≥ 0.4면 넣는다
+        #   규칙 확실 양성(광고 + 연락처·코드)은 AI가 뒤집지 못한다 (주입 문장 대비). 실패·거부·꺼짐이면 규칙 그대로
+        signal = off or tr or c["diff"] or t["HOMOGLYPH"] or t["JAMO"] or t["INVISIBLE"] or reorder
+        if (t["ad"] and not t["contact"]) or (not t["ad"] and t["kw"] and signal):
+            r = await asyncio.to_thread(ai.judge, c["text"], t["norm"])
+            if r is not None:
+                now = r["q"] >= 0.4
+                if now != t["ad"]:
+                    ai.STATS["changed"].append({"url": url, "text": c["raw"][:120], "rule": t["ad"], "q": r["q"], "sent": r["sent"]})
+                    t = dict(t, ad=now)
+                t = dict(t, ai=r)
+        if not t["ad"]:
             return {}
         tech = {}
-        off, tr = c["off"] + inherit["OFFSCREEN"], c["tr"] + inherit["TRANSPARENT"]
         if c["marquee"] and not off:
             seen = []
             for _ in range(8):  # 흐르는 글자: 2.4초 동안 한 번도 상자 안에 안 들어오면 숨김 (09 §4)
@@ -594,7 +609,7 @@ async def analyze(page, url):
         mine = {}
         for k, why in tech.items():
             mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why,
-                       "norm": t["norm"], "kw": t["kw"], **more}
+                       "norm": t["norm"], "kw": t["kw"], **more, **({"ai": t["ai"]} if "ai" in t else {})}
             if k == "VISIBLE_AD":  # result_extra.json으로만 (모집요강 붙임4, technique "ETC")
                 mine[k].update(technique="ETC", extra_finding="VISIBLE_AD")
             found.append(mine[k])

@@ -720,6 +720,18 @@ function renderReport(D) {
     }
   }
 
+  // AI 사용 명세 (research/10 §2-1): 무엇을 얼마나 보냈고 무엇이 바뀌었나
+  if (D.ai.enabled) {
+    C.append(sec('s-ai', 'AI 사용 명세', '규칙만으로 애매한 후보만 OpenAI Decisions API에 물었습니다. 연락처·계정·주소는 종류만 남기고 가려서 보냈고, 규칙이 연락처까지 찾은 광고는 AI가 뒤집지 못합니다.'));
+    C.append(h('dl', { class: 'cond' }, D.ai.rows.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+    if (D.ai.changed.length) {
+      C.append(h('h3', {}, 'AI가 바꾼 판정'));
+      C.append(h('ol', { class: 'guide' }, D.ai.changed.map(x => h('li', {},
+        (x.rule ? '규칙 광고 → AI 광고 아님' : '규칙 광고 아님 → AI 광고') + ' (q ' + x.q.toFixed(2) + '): ' + x.text,
+        h('div', { class: 'muted' }, '보낸 글: ' + x.sent)))));
+    }
+  }
+
   // R7 조치 안내 (전체)
   C.append(sec('s-guide', '조치 안내'));
   C.append(h('div', {}, Object.entries(D.guide).map(([k, v]) =>
@@ -731,7 +743,7 @@ function renderReport(D) {
     ['탐지 시작', fmtTime(m.started_at)], ['탐지 완료', fmtTime(m.finished_at)],
     ['소요 시간', fmtSec(m.elapsed_sec) + (m.stopped ? ' (사용자 중단)' : '')], ['시간 상한', m.minutes + '분'],
     ['도구 버전', 'adGuard ' + m.tool_version], ['AI 판정', D.ai.enabled ? '켜짐 (' + (D.ai.model || '') + ')' : '꺼짐 · ' + (D.ai.reason || '')],
-    ['보고서 생성', fmtTime(m.report_at)], ['판정 방식', '규칙 기반(키워드·연락처 패턴 + 렌더링 결과)']];
+    ['보고서 생성', fmtTime(m.report_at)], ['판정 방식', D.ai.enabled ? '규칙 기반 + 경계 후보만 AI(q ≥ 0.4)' : '규칙 기반(키워드·연락처 패턴 + 렌더링 결과)']];
   C.append(h('dl', { class: 'cond' }, cond.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
 
   C.append(h('footer', {}, 'adGuard ' + m.tool_version + ' · 보고서 생성 ' + fmtTime(m.report_at)));
