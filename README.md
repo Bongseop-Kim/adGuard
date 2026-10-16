@@ -16,10 +16,13 @@
 결과는 exe와 같은 폴더에 생긴다.
 
 - `result.json`: 채점용 결과
-- `result_extra.json`: 필수 4종 밖 추가 유형 (technique `ETC` + `extra_finding`, 지금은 `INVISIBLE_CHAR` 보이지 않는 문자 삽입)
+- `result_extra.json`: 필수 4종 밖 추가 유형 (technique `ETC` + `extra_finding`: `VISIBLE_AD` 그대로 보이는 광고, `INVISIBLE_CHAR` 보이지 않는 문자 삽입)
 - `report.html`: 단일 파일 보고서 (브라우저로 연다)
 - `result.csv`: Excel용 (UTF-8 BOM)
 - `history.json`: 지문별 최초 발견일
+- `status.json`: 지문별 조치 상태·메모 (결과 화면에서 저장, 다음 점검의 '지난 점검 대비'에 쓰임)
+- `records/`: 점검 기록, `logs/`: 창 모드 진행 기록
+- 사용설명서·빌드 매뉴얼: [docs/submit/](docs/submit/)
 
 ## 개발 실행 (macOS·Windows 공용)
 
