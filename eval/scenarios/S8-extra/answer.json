@@ -81,6 +81,24 @@
       "location": "title",
       "extra_finding": "ISAP_SEARCH_REFLECTION",
       "note": "인기 검색어 위젯의 광고 검색어가 <title>에 반사. 본문 반사(VISIBLE_AD)·제목(ATTR_META_AD)은 이 유형으로 합침"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/news",
+      "location": "body",
+      "extra_finding": "CLOAKING",
+      "note": "Googlebot·Yeti·Daum에게만 광고 문단 (Situs Toto·gov.br 사례)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/mobile",
+      "location": "body",
+      "extra_finding": "CLOAKING",
+      "note": "구글·네이버 검색 유입 모바일만 302로 다른 도메인 광고 (인도 2026)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/js",
+      "location": "body",
+      "extra_finding": "CLOAKING",
+      "note": "검색 유입 모바일만 JS로 다른 도메인 광고 (Sucuri 2023)"
     }
   ],
   "extra_decoys": [
@@ -95,6 +113,22 @@
     {
       "url": "http://127.0.0.1:8200/search?q=%EB%AF%BC%EC%9B%90+%EC%84%9C%EC%8B%9D+%EB%82%B4%EB%A0%A4%EB%B0%9B%EA%B8%B0",
       "note": "정상 검색어 반사. 추가 유형 0건"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/varies",
+      "note": "매번 바뀌는 시각·토큰 (자연 변동)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/waf",
+      "note": "봇에게 403 → 판정 불가, 검출 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/m-normal",
+      "note": "모바일 전용 정상 화면, 검색 유입은 같은 사이트로"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s3/bot-lite",
+      "note": "봇에게 배너를 뺀 화면"
     }
   ],
   "diagnosis": {

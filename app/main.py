@@ -159,10 +159,25 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
             error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
         log("점검 실패: " + error)
     diag = []
-    if pages:  # 사이트 진단 (todo/08): 탐지 시간 밖, 보고서에만 싣는다
+    if pages:  # 사이트 진단 (todo/08): 탐지 시간 밖. 클로킹 검출만 result_extra.json에 덧붙인다
         import extra
         try:
-            diag = asyncio.run(extra.run(url, log))
+            diag, found = asyncio.run(extra.run(url, log, pages))
+            if found:
+                path = os.path.join(base_dir(), "result_extra.json")
+                with open(path, encoding="utf-8") as f:
+                    ex = json.load(f)
+                seen = {(x["url"], x["location"], x["extra_finding"]) for x in ex["findings"]}
+                for f in found:
+                    if (f["url"], f["location"], f["extra_finding"]) in seen:
+                        continue
+                    seen.add((f["url"], f["location"], f["extra_finding"]))
+                    out = {"id": "e_%03d" % (len(ex["findings"]) + 1), "url": f["url"], "is_violation": True, "location": f["location"],
+                           "evidence_text": f["evidence_text"], "technique": "ETC", "extra_finding": f["extra_finding"]}
+                    ex["findings"].append(out)
+                    items.append(dict(f, **out, path=next((x["path"] for x in pages if x["url"] == f["url"]), []), mobile=False))
+                write_json(path, ex)
+                log("진단 검출 %d건을 result_extra.json에 더했습니다" % len(found))
         except Exception as e:
             log("진단 단계 오류(보고서는 진단 없이 만듦): %r" % e)
     return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag)

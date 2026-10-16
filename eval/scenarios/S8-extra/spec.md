@@ -16,6 +16,12 @@
 | `/s5/decoy` | (미끼) | 히브리어·아랍어 rtl, 역순 메뉴, 정상 bidi-override, RLM 전화번호, order 카드. 추가 유형 0건 |
 
 - 중복 제외: 같은 글이 화면에 보이면(제목 형식은 조각마다, NFKC 비교) 속성·제목 쪽은 내지 않는다 (S3 첫가끝 자모 제목 사례)
+| `/s3/news` | CLOAKING | Googlebot·Yeti·Daum에게만 광고 문단 |
+| `/s3/mobile` | CLOAKING | 구글·네이버 검색 유입 모바일만 302로 `localhost:8201/land.html`(광고) |
+| `/s3/js` | CLOAKING | 검색 유입 모바일만 JS(`document.referrer`)로 같은 곳 |
+| `/s3/varies`·`/s3/waf`·`/s3/m-normal`·`/s3/bot-lite` | (미끼) | 매번 바뀌는 시각·토큰, 봇에게 403(→ 그 쪽 판정 불가), 모바일 전용 정상 화면·같은 사이트 이동, 봇에게 배너 뺀 화면. 0건 |
+
+- 클로킹은 보고서 모드에서만 돈다(탐지 뒤 `extra.py`, `--no-report`에서는 안 돎). 검출은 `result_extra.json`에 덧붙인다
 
 ## 검색 노출 위험 진단 (보고서 '사이트 진단', 결과 파일에는 없음)
 

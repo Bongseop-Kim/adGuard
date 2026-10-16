@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>문화 행사 | 테스트시</title>
+<script>
+// 검색으로 들어온 모바일 사용자만 다른 도메인으로 (Sucuri 2023 모바일 리다이렉트 재현)
+if (/Mobile|Android/.test(navigator.userAgent) && /google\.|naver\./.test(document.referrer)) location.href = 'http://localhost:8201/land.html';
+</script></head>
+<body><main><h1>문화 행사</h1><p>11월 문화 행사 일정입니다.</p></main></body></html>
