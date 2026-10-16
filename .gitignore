@@ -11,3 +11,5 @@ report.html
 result.csv
 history.json
 records/
+logs/
+status.json

@@ -295,11 +295,55 @@ def read_record(base, name):
 def write_csv(path, groups):
     with open(path, "w", encoding="utf-8-sig", newline="") as f:  # BOM: Excel에서 더블클릭으로 한글이 열린다
         w = csv.writer(f)
-        w.writerow(["id", "위험도", "원인 유형", "기법", "기법 코드", "URL", "위치(CSS 선택자)", "원문", "근거", "지문", "최초 발견"])
+        w.writerow(["id", "위험도", "원인 유형", "기법", "기법 코드", "URL", "위치(CSS 선택자)", "원문", "근거", "지문", "최초 발견",
+                    "지난 점검 대비", "조치 상태", "조치 메모"])
         for g in groups:
+            st = g.get("status") or {}
             for it in g["items"]:
                 w.writerow([it["id"], g["risk"], g["cause"], g["tech_label"], g["technique"], it["url"], it["location"],
-                            g["evidence_text"], g["reason"], g["fp"], g["first_seen"]])
+                            g["evidence_text"], g["reason"], g["fp"], g["first_seen"], g.get("change", ""),
+                            st.get("status", "미조치"), st.get("memo", "")])
+
+
+# ---------- 조치 상태와 재점검 비교 (research/14 §6) ----------
+STATUSES = ["미조치", "조치 요청", "조치 완료", "오탐(예외)"]
+
+
+def load_status(base):
+    """지문 → {"status", "memo", "at"}. 화면에서 바꾸면 status.json에 저장된다"""
+    try:
+        with open(os.path.join(base, "status.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def set_status(base, fp, status, memo=""):
+    if status not in STATUSES or not re.fullmatch(r"[0-9a-f]{6,40}", fp or ""):
+        return False
+    st = load_status(base)
+    st[fp] = {"status": status, "memo": (memo or "")[:500], "at": datetime.now(main.KST).isoformat(timespec="seconds")}
+    main.write_json(os.path.join(base, "status.json"), st)
+    return True
+
+
+def compare(base, meta, groups, status):
+    """같은 사이트(호스트)의 지난 점검과 비교: 항목마다 change(신규·지속·재발), 사라진 항목 목록. 지난 점검이 없으면 None"""
+    host = urllib.parse.urlsplit(meta["entry_url"]).netloc.lower()
+    prev = next((e for e in records(base) if urllib.parse.urlsplit(e["entry_url"]).netloc.lower() == host and not e.get("error")), None)
+    old = prev and read_record(base, prev["file"])
+    if not old:
+        return None
+    before = {g["fp"]: g for g in old.get("groups", [])}
+    for g in groups:
+        done = (status.get(g["fp"]) or {}).get("status") == "조치 완료"
+        g["change"] = "재발" if done else "지속" if g["fp"] in before else "신규"
+    now = {g["fp"] for g in groups}
+    gone = [{"fp": fp, "evidence_text": g["evidence_text"], "tech_label": g["tech_label"],
+             "pages": len({i["url"] for i in g["items"]}), "status": (status.get(fp) or {}).get("status", "미조치")}
+            for fp, g in before.items() if fp not in now]
+    count = lambda c: sum(g.get("change") == c for g in groups)  # noqa: E731
+    return {"prev_at": prev["finished_at"], "new": count("신규"), "kept": count("지속"), "again": count("재발"), "resolved": gone}
 
 
 def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None):
@@ -312,6 +356,10 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         history = {}
     groups = group(items, history, meta["started_at"])
     main.write_json(hist_path, history)
+    status = load_status(base)
+    for g in groups:
+        g["status"] = status.get(g["fp"]) or {}
+    diff = compare(base, meta, groups, status)
     if groups:
         try:
             asyncio.run(capture(groups, log, ctl))
@@ -323,6 +371,8 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         "groups": groups,
         "pages": pages or [],  # 방문한 전체 페이지와 발견 경로 (사이트 지도)
         "guide": GUIDE,
+        "diff": diff,
+        "statuses": STATUSES,
         # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
         "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},
     }

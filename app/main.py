@@ -15,7 +15,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-VERSION = "0.1.0"
+VERSION = "1.0.0"
 KST = timezone(timedelta(hours=9))
 
 
@@ -144,6 +144,15 @@ class Api:
         name = {"report": "report.html", "csv": "result.csv", "json": "result.json", "folder": ""}[what]
         webbrowser.open(pathlib.Path(base_dir(), name).as_uri())
 
+    def set_status(self, fp, status, memo=""):
+        """조치 상태 저장(status.json). 지금 화면 데이터에도 반영해 다시 그려도 남는다"""
+        import report
+        ok = report.set_status(base_dir(), fp, status, memo)
+        for g in (self._s.get("data") or {}).get("groups", []):
+            if ok and g["fp"] == fp:
+                g["status"] = report.load_status(base_dir())[fp]
+        return ok
+
     def records(self):
         import report
         return report.records(base_dir())
@@ -153,9 +162,20 @@ class Api:
         return report.read_record(base_dir(), name)
 
     def _run(self, url, minutes):
+        # 창 모드에서도 진행 기록을 파일로 남긴다: 오류가 나면 이 파일로 원인을 본다 (logs/날짜.log)
+        try:
+            os.makedirs(os.path.join(base_dir(), "logs"), exist_ok=True)
+            logf = open(os.path.join(base_dir(), "logs", datetime.now(KST).strftime("%Y%m%d") + ".log"), "a", encoding="utf-8")
+        except OSError:
+            logf = None
+
         def log(msg):
             print(msg, flush=True)
             self._s["log"].append(msg)
+            try:
+                logf and (logf.write(datetime.now(KST).strftime("%H:%M:%S ") + msg + "\n"), logf.flush())
+            except (OSError, ValueError):
+                pass
 
         try:
             # on_done이 "탐지 완료" 시점: 화면은 바로 완료를 표시하고 보고서는 뒤에서 만든다
@@ -165,6 +185,8 @@ class Api:
         except Exception as e:
             log("오류: %r" % e)
             self._s["phase"] = "error"
+        if logf:
+            logf.close()
         if self._smoke:
             self._window.destroy()
 
@@ -192,7 +214,7 @@ def serve(api):
 
         def do_POST(self):
             name = self.path.rsplit("/", 1)[-1]
-            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record"):
+            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record", "set_status"):
                 return self.send_error(404)
             args = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"[]")
             self.reply(json.dumps(getattr(api, name)(*args), ensure_ascii=False).encode("utf-8"), "application/json")

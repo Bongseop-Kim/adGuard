@@ -217,6 +217,12 @@ ol.top li b { color: var(--krds-color-light-danger-60); }
 .b-위험 { background: var(--krds-color-light-warning-5); color: var(--krds-color-light-warning-60); border-color: var(--krds-color-light-warning-10); }
 .b-참고 { background: var(--krds-color-light-information-5); color: var(--krds-color-light-information-60); border-color: var(--krds-color-light-information-10); }
 .b-ok { background: var(--krds-color-light-success-5); color: var(--krds-color-light-success-60); border-color: var(--krds-color-light-success-10); }
+.b-chg { background: #fff; color: var(--krds-color-light-gray-90); border-color: var(--krds-color-light-gray-40); font-weight: 400; }
+.b-chg.again { color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-60); font-weight: 700; }
+.stbox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.stbox input { flex: 1 1 240px; min-width: 0; }
+.diff { margin-top: 16px; }
+.diff ul { margin: 8px 0 0; padding-left: 20px; }
 .b-fail { background: var(--krds-color-light-gray-5); color: var(--krds-color-light-gray-70); border-color: var(--krds-color-light-gray-30); }
 .cause-hack { color: var(--krds-color-light-danger-60); font-weight: 700; }
 
@@ -348,7 +354,9 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
   .cmp .view { display: none !important; }
   .maptip { display: none; } .printonly { display: block; }
   .cmp .both { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .box, .card, .gi { break-inside: avoid; }
+  .box, .card { break-inside: avoid; }
+  .gp[hidden] { display: block !important; }  /* 인쇄: 접힌 상세(근거·캡처·조치)를 모두 펼친다 */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }  /* 위험도 색 유지 */
 }
 </style>
 </head>
@@ -557,7 +565,7 @@ function renderReport(D) {
     h('button', { onclick: newScan }, '새 점검')) : null;
   const ai = D.ai.enabled
     ? h('span', { class: 'ai-st on' }, h('i'), 'AI 판정 켜짐' + (D.ai.model ? ' · ' + D.ai.model : ''))
-    : h('span', { class: 'ai-st' }, h('i'), 'AI 판정 꺼짐');
+    : h('span', { class: 'ai-st', title: D.ai.reason || '' }, h('i'), '규칙 판정 · 외부 전송 0건');
   const state = m.error ? null : m.stopped
     ? h('b', { class: 'st-stop' }, '■ 중단됨 · ' + fmtSec(m.elapsed_sec) + ' · ' + m.visited + '쪽 (중단 시점까지의 결과)')
     : '✔ ' + fmtSec(m.elapsed_sec) + ' · ' + m.visited + '쪽';
@@ -593,16 +601,28 @@ function renderReport(D) {
       h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '검출이 많은 페이지'),
         h('ol', { class: 'top' }, top.map(([u, n]) => h('li', {}, h('span', { title: u }, short(u)), h('b', {}, n)))))));
 
+    // 지난 점검 대비 (같은 사이트의 직전 점검)
+    if (D.diff) {
+      const d = D.diff;
+      C.append(h('div', { class: 'card diff' }, h('h3', { style: 'margin-top:0' }, '지난 점검(' + fmtTime(d.prev_at) + ') 대비'),
+        h('p', {}, '새로 발견 ', h('b', {}, d.new), '종 · 계속 있음 ', h('b', {}, d.kept), '종 · ',
+          h('b', { class: d.again ? 'cause-hack' : '' }, '조치했는데 다시 나타남 ' + d.again + '종'), ' · 사라짐 ', h('b', {}, d.resolved.length), '종'),
+        d.resolved.length ? h('details', {}, h('summary', {}, '사라진 광고 문구 보기'),
+          h('ul', {}, d.resolved.map(r => h('li', {}, r.evidence_text.slice(0, 80) + ' (' + r.tech_label + ', ' + r.pages + '쪽, ' + r.status + ')')))) : null));
+    }
+
     // R4 목록 (KRDS 구조화 목록 + 필터링 패턴: 레이블 있는 컨트롤 → 결과 수·적용 조건·초기화 → 항목)
     C.append(sec('s-list', '검출 목록', '같은 광고 문구는 한 항목으로 묶었습니다. 항목을 누르면 근거·캡처·조치 방법이 나옵니다.'));
     const q = h('input', { id: 'f-q', type: 'search', oninput: () => fill() });
     const fr = h('select', { id: 'f-r', onchange: () => fill() }, h('option', { value: '' }, '전체'), ['심각', '위험', '참고'].map(r => h('option', { value: r }, r)));
     const ft = h('select', { id: 'f-t', onchange: () => fill() }, h('option', { value: '' }, '전체'), TECHS.map(t => h('option', { value: t }, TECH_KO[t])));
+    const fs = h('select', { id: 'f-st', onchange: () => fill() }, h('option', { value: '' }, '전체'), (D.statuses || []).map(t => h('option', { value: t }, t)));
     const so = h('select', { id: 'f-s', onchange: () => fill() }, [['risk', '위험도 높은 순'], ['pages', '영향 페이지 많은 순'], ['new', '최근 발견 순']].map(([v, t]) => h('option', { value: v }, t)));
     C.append(h('div', { class: 'toolbar noprint', role: 'search' },
       h('div', { class: 'fq' }, h('label', { for: 'f-q' }, '검색 (광고 원문·URL·위치)'), q),
       h('div', {}, h('label', { for: 'f-r' }, '위험도'), fr),
       h('div', {}, h('label', { for: 'f-t' }, '기법'), ft),
+      D.statuses ? h('div', {}, h('label', { for: 'f-st' }, '조치 상태'), fs) : null,
       h('div', {}, h('label', { for: 'f-s' }, '정렬'), so)));
     const count = h('p', { 'aria-live': 'polite' }), applied = h('div', { class: 'applied' }, count);
     const list = h('ul', { class: 'glist' });
@@ -610,17 +630,17 @@ function renderReport(D) {
     const fill = () => {
       list.textContent = '';
       const s = q.value.trim().toLowerCase();
-      const rows = G.filter(g => (!fr.value || g.risk === fr.value) && (!ft.value || g.technique === ft.value) &&
+      const rows = G.filter(g => (!fr.value || g.risk === fr.value) && (!ft.value || g.technique === ft.value) && (!fs.value || stOf(g) === fs.value) &&
         (!s || [g.evidence_text, g.norm, ...g.items.flatMap(i => [i.url, i.location])].join('\n').toLowerCase().includes(s)));
       // 기본 순서(위험도 → 영향 페이지 수)는 report.py가 정해 둔 그대로
       if (so.value === 'pages') rows.sort((a, b) => urlsOf(b).length - urlsOf(a).length);
       if (so.value === 'new') rows.sort((a, b) => (b.first_seen || '').localeCompare(a.first_seen || ''));
       // 적용된 조건: 하나씩 해제하는 태그 + 전체 초기화
-      const on = [[q, '검색', q.value.trim()], [fr, '위험도', fr.value], [ft, '기법', TECH_KO[ft.value]]].filter(x => x[2]);
+      const on = [[q, '검색', q.value.trim()], [fr, '위험도', fr.value], [ft, '기법', TECH_KO[ft.value]], [fs, '조치 상태', fs.value]].filter(x => x[2]);
       count.replaceChildren('광고 문구 ', h('b', {}, rows.length), '개' + (on.length ? ' (전체 ' + G.length + '개 중)' : ''));
       applied.replaceChildren(count, ...on.map(([el, k, v]) => h('button', { type: 'button', class: 'tag noprint', 'aria-label': k + ' ' + v + ' 조건 해제',
         onclick: () => { el.value = ''; fill(); q.focus(); } }, k + ': ' + v + ' ✕')),
-        on.length > 1 ? h('button', { type: 'button', class: 'tag noprint', onclick: () => { q.value = fr.value = ft.value = ''; fill(); q.focus(); } }, '조건 초기화') : '');
+        on.length > 1 ? h('button', { type: 'button', class: 'tag noprint', onclick: () => { q.value = fr.value = ft.value = fs.value = ''; fill(); q.focus(); } }, '조건 초기화') : '');
       if (!rows.length) list.append(h('li', { class: 'gi' }, h('div', { class: 'clean' }, h('b', { style: 'color:var(--krds-color-light-gray-90)' }, '조건에 맞는 검출이 없습니다'),
         h('span', { class: 'muted' }, '검색어를 줄이거나 조건을 해제해 보세요.'))));
       rows.forEach((g, k) => {
@@ -629,7 +649,9 @@ function renderReport(D) {
         const n = urlsOf(g).length;
         const btn = h('button', { type: 'button', class: 'gh', 'aria-expanded': 'false', 'aria-controls': id },
           h('span', { class: 'gtop' }, h('span', { class: 'badge b-' + g.risk }, g.risk), h('span', {}, g.tech_label),
-            h('span', { class: g.cause === '해킹 삽입 의심' ? 'cause-hack' : 'muted' }, g.cause)),
+            h('span', { class: g.cause === '해킹 삽입 의심' ? 'cause-hack' : 'muted' }, g.cause),
+            g.change && g.change !== '지속' ? h('span', { class: 'badge b-chg' + (g.change === '재발' ? ' again' : '') }, g.change) : null,
+            h('span', { class: 'muted', id: 'stl-' + g.fp }, stOf(g))),
           h('span', { class: 'gev' }, g.evidence_text),
           h('span', { class: 'gmeta' }, h('span', {}, n + '쪽' + (g.items.length > n ? ' · 위치 ' + g.items.length + '곳' : '')), ICON_CHEV()));
         btn.onclick = () => {
@@ -832,7 +854,31 @@ function detail(g, D) {
         : row('발견 위치 ' + g.items.length + '곳', h('ol', { class: 'locs' }, g.items.map(i => h('li', {}, link(i.url), h('br'), sel(i))))),
       row('조치', h('ol', { class: 'guide' }, [...(D.guide[g.cause] || []), ...(D.guide['검색엔진 흔적'] || [])].map(x => h('li', {}, x)))),
       tech.length ? row('기술 상세', h('div', { class: 'why' }, tech.map(t => h('div', {}, h('div', { class: 'k' }, t[0]), t[1])))) : null,
-      row('기록', '지문 ' + g.fp + ' · 최초 발견 ' + fmtTime(g.first_seen))));
+      row('조치 상태', statusBox(g, D)),
+      row('기록', '지문 ' + g.fp + ' · 최초 발견 ' + fmtTime(g.first_seen) + (g.change ? ' · 지난 점검 대비 ' + g.change : ''))));
+}
+
+// 인쇄 전에 아직 그리지 않은 상세를 모두 그린다 (기관 보고용 출력에 근거가 빠지지 않게)
+window.addEventListener('beforeprint', () => document.querySelectorAll('button.gh[aria-expanded=false]').forEach(b => {
+  const p = document.getElementById(b.getAttribute('aria-controls')); if (p && !p.firstChild) { b.click(); b.click(); } }));
+
+// 조치 상태: 앱에서는 고르고 메모를 남겨 status.json에 저장, 보고서 파일에서는 읽기만
+const stOf = g => (g.status && g.status.status) || '미조치';
+function statusBox(g, D) {
+  const st = g.status || {};
+  if (!APP() || !D.statuses) return [h('b', {}, stOf(g)), st.memo ? ' · ' + st.memo : '', st.at ? h('span', { class: 'muted' }, ' (' + fmtTime(st.at) + ')') : ''];
+  const id = 'st-' + g.fp;
+  const sel = h('select', { id, 'aria-label': '조치 상태' }, D.statuses.map(t => h('option', { value: t, selected: t === stOf(g) }, t)));
+  const memo = h('input', { type: 'text', value: st.memo || '', placeholder: '메모 (예: 게시판 관리자에게 삭제 요청, 10/20)', 'aria-label': '조치 메모', maxlength: 500 });
+  const msg = h('span', { class: 'muted', 'aria-live': 'polite' });
+  const save = h('button', { type: 'button' }, '저장');
+  save.onclick = () => Promise.resolve(api('set_status', g.fp, sel.value, memo.value)).then(ok => {
+    if (!ok) { msg.textContent = '저장하지 못했습니다'; return; }
+    g.status = { status: sel.value, memo: memo.value, at: new Date().toISOString() };
+    const l = document.getElementById('stl-' + g.fp); if (l) l.textContent = sel.value;
+    msg.textContent = '저장했습니다 (다음 점검에도 이어집니다)';
+  });
+  return h('div', { class: 'stbox' }, sel, memo, save, msg);
 }
 
 // ---------- 점검 기록 (앱 전용): records/index.json 목록 → 누르면 그때 결과 화면 ----------
