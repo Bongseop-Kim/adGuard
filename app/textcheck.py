@@ -351,7 +351,7 @@ def check(raw):
     if (neg or GUIDE.search(c2)) and not contact and not code:
         ad = False
 
-    res = {"ad": ad, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho}),
+    res = {"ad": ad, "contact": contact or code, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho}),
            "INVISIBLE": "보이지 않는 글자를 지우면: " + ", ".join(sorted(kw_inv)) if kw_inv else None}
 
     # HOMOGLYPH

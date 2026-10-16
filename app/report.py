@@ -29,7 +29,7 @@ TECH = {
     "TRANSPARENT": "투명·배경색 숨김",
     "OFFSCREEN": "화면 밖·크기 0 숨김",
 }
-EXTRA = {"INVISIBLE_CHAR": "추가 유형: 보이지 않는 문자 삽입"}  # result_extra.json의 extra_finding
+EXTRA = {"INVISIBLE_CHAR": "추가 유형: 보이지 않는 문자 삽입", "VISIBLE_AD": "추가 유형: 그대로 보이는 광고"}  # result_extra.json의 extra_finding
 HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
@@ -136,7 +136,8 @@ def group(items, history, now):
         rep = [loc for loc, u in locs.items() if len(u) >= 2]  # 2개 이상 페이지에 같은 위치로 반복
         hack = any(not user_area(loc) and all((u, loc) in hidden for u in locs[loc]) for loc in rep) and not own_link(f)
         tech = f["technique"]
-        risk = "심각" if hack else "위험" if tech in HIDDEN else "참고"
+        # 그대로 보이는 광고는 시민이 바로 보는 게시물이라 숨김과 같은 '위험'
+        risk = "심각" if hack else "위험" if tech in HIDDEN or f.get("extra_finding") == "VISIBLE_AD" else "참고"
         kw = f.get("kw") or []
         groups.append({
             "fp": fp, "technique": tech, "tech_label": TECH.get(tech) or EXTRA.get(f.get("extra_finding"), "추가 유형"), "risk": risk, "cause": HACK if hack else POST,

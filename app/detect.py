@@ -10,6 +10,8 @@
 - 출력 = (숨김 또는 변형 신호) AND 광고성. 기법마다 1건
 """
 import asyncio
+import json
+import re
 import struct
 import zlib
 
@@ -234,6 +236,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
   const shown = new Map();  // 요소 → 숨김 신호 없음 (보이는 글자열을 만들 때 쓴다)
   // 숨김 신호가 없어도 연락처가 있으면 문자 판정을 한다 (보이는 받침 노이즈 "먺튅 … @id")
   const contactish = /@[a-z][a-z0-9_]{3}|t\.me\/|open\.kakao|01[016789][-. ]?\d{3,4}[-. ]?\d{4}|bit\.ly\//i;
+  const KW = new RegExp(__KW__, 'i');  // 광고 사전 낱말 (보이는 광고 VISIBLE_AD 후보)
   const odd = /[^\x00-\x7f가-힣\s -¿‐-‧‰-⁞　-〿]|[a-z][0-9]|[0-9][a-z]|[­͏ᅟᅠ᠋-᠏​-‏⁠-⁯ㅤ︀-️﻿ﾠ]/i;
   for (const e of all) {
     if (SKIP.has(e.tagName) || e.closest('script,style,template,noscript,head')) continue;
@@ -255,7 +258,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
       if (sp && (sp.off.length || sp.tr.length)) continue;
     }
     shown.set(e, !sg.off.length && !sg.tr.length && !sg.diff);
-    if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw) && !contactish.test(raw)) continue;
+    if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw) && !contactish.test(raw) && !KW.test(raw.replace(/\s+/g, ''))) continue;
     const vt = vtext(e).replace(/\s+/g, ' ').trim();
     const i = C.push(e) - 1;
     e.__adgI = i;
@@ -324,6 +327,9 @@ i => {
   return { html: h.length > 800 ? h.slice(0, 800) + ' …' : h, style: out };
 }
 """
+
+
+LIB_JS = LIB_JS.replace("__KW__", json.dumps("|".join(re.escape(k) for k in textcheck.KW_KO + textcheck.KW_EN if k not in textcheck.WEAK)))
 
 
 async def ev(target, js, arg=None, sec=10):
@@ -413,6 +419,15 @@ async def analyze(page, url):
         for (a, k), kids in under.items():
             if by_i[a].get("block") != "hide" or len(kids) >= 2:
                 hits[a][k]["drop"] = True
+        # 보이는 부모 글에 숨긴 자식 광고가 섞였으면(보이는 문단 + 투명 span) 부모는 VISIBLE_AD가 아니다: 광고는 자식
+        for c in cands:
+            if not hits[c["i"]]:
+                continue
+            a = c["anc"]
+            while a is not None:
+                if "VISIBLE_AD" in hits.get(a, {}):
+                    hits[a]["VISIBLE_AD"]["drop"] = True
+                a = by_i[a]["anc"] if a in by_i else None
         for c in cands:
             if c.get("block") == "inline" and hits[c["i"]]:
                 a = c["i"]
@@ -449,11 +464,18 @@ async def analyze(page, url):
             tech["OFFSCREEN"] = "; ".join(off)
         if tr:
             tech["TRANSPARENT"] = "; ".join(tr)
-        elif c["diff"] and not off and not c.get("block") and await text_invisible(page, frame, c["i"]):
-            tech["TRANSPARENT"] = "배경 위에서 글자가 보이지 않음(스크린샷 비교)"
+        shot = None  # 스크린샷 비교 결과: True 안 보임, False 보임
+        if not tr and c["diff"] and not off and not c.get("block"):
+            shot = await text_invisible(page, frame, c["i"])
+            if shot:
+                tech["TRANSPARENT"] = "배경 위에서 글자가 보이지 않음(스크린샷 비교)"
         for k in ("HOMOGLYPH", "JAMO"):
             if t[k]:
                 tech[k] = t[k]
+        # 4종 밖 추가 유형 VISIBLE_AD: 숨김·변형 없이 그냥 보이는 광고. 연락처·코드까지 있을 때만 (안내문 오탐 방지)
+        visible = not tech and not off and not tr and (not c["diff"] or shot is False)
+        if visible and t["contact"]:
+            tech["VISIBLE_AD"] = "숨김·변형 없이 보이는 광고 (" + ", ".join(t["kw"]) + ")"
         if not tech and not t["INVISIBLE"]:
             return {}
         loc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["i"])
@@ -465,6 +487,8 @@ async def analyze(page, url):
         for k, why in tech.items():
             mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why,
                        "norm": t["norm"], "kw": t["kw"], **more}
+            if k == "VISIBLE_AD":  # result_extra.json으로만 (모집요강 붙임4, technique "ETC")
+                mine[k].update(technique="ETC", extra_finding="VISIBLE_AD")
             found.append(mine[k])
         if t["INVISIBLE"]:  # 4종 밖 추가 유형: result_extra.json으로만 나간다 (모집요강 붙임4, technique "ETC")
             found.append({"location": prefix + loc, "technique": "ETC", "extra_finding": "INVISIBLE_CHAR",
