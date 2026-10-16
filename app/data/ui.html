@@ -115,6 +115,9 @@ input.err { border-color: var(--krds-color-light-danger-50); }
 .opt { margin-top: 24px; border-top: 1px solid var(--krds-color-light-gray-20); padding-top: 16px; }
 .opt summary { cursor: pointer; font-weight: 500; color: var(--krds-color-light-gray-90); }
 .opt input { width: 96px; margin: 0 6px; }
+.opt summary .ai-st { margin-left: 8px; height: 26px; font-size: 14px; }
+#keyrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+#keyrow input { flex: 1; min-width: 220px; width: auto; margin: 0; }
 .files { margin: 24px 0 0; padding: 16px 20px; background: var(--krds-color-light-gray-5); border-radius: 8px; font-size: 15px; color: var(--krds-color-light-gray-70); }
 .files b { color: var(--krds-color-light-gray-90); }
 
@@ -391,6 +394,17 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
         <p><label>시간 상한<input id="minutes" type="number" min="1" max="30" value="20">분</label></p>
         <div class="hint">상한에 닿으면 그때까지 찾은 결과를 저장합니다.</div>
       </details>
+      <details class="opt" id="aibox">
+        <summary>AI 광고성 판정 (선택) <span id="aist" class="ai-st"><i></i>확인 중</span></summary>
+        <div class="hint">OpenAI API 키(유료 등급)를 넣으면 규칙만으로 애매한 후보를 AI가 한 번 더 판정합니다. 비워 두면 규칙만으로 탐지합니다.
+          키는 프로그램 폴더의 <b>.env</b> 파일에 저장되며, 메모장으로 그 파일을 직접 고쳐도 됩니다.</div>
+        <form id="keyrow" onsubmit="saveKey(); return false;">
+          <input id="key" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" aria-label="OpenAI API 키" aria-describedby="keymsg">
+          <button class="secondary" type="submit">저장하고 확인</button>
+          <button id="keydel" type="button" onclick="saveKey(true)" hidden>키 지우기</button>
+        </form>
+        <div id="keymsg" class="hint" role="status"></div>
+      </details>
       <div class="files">결과는 프로그램 폴더에 저장됩니다. <b>result.json</b>(제출 형식), <b>report.html</b>(보고서), <b>result.csv</b>(Excel)</div>
     </div>
   </section>
@@ -485,6 +499,28 @@ function start() {
   $('#p-time-l').textContent = '경과 시간';
   Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(() => { show('progress'); poll(); });
 }
+// AI 키 상태: 키 값은 받지 않고 가린 값(sk-…abcd)만 받는다
+function showAi(st, saveMsg) {
+  const el = $('#aist');
+  el.className = 'ai-st' + (st.on ? ' on' : '');
+  el.lastChild.textContent = st.on ? '켜짐 · ' + st.model : st.masked ? '꺼짐 · 확인 실패' : '꺼짐 · 규칙만';
+  $('#keydel').hidden = !st.masked;
+  $('#key').placeholder = st.masked ? '저장된 키 ' + st.masked + ' (바꾸려면 새 키 입력)' : 'sk-...';
+  const msg = (saveMsg || '') + (st.on ? '키 확인 완료. 탐지할 때 AI 판정을 함께 씁니다.' : st.masked ? st.reason + '. 규칙만으로 탐지합니다.' : '');
+  $('#keymsg').className = 'hint' + (st.masked && !st.on ? ' err' : '');
+  $('#keymsg').textContent = msg;
+}
+function saveKey(del) {
+  const key = del ? '' : $('#key').value.trim();
+  if (!del && !key) { $('#key').focus(); return; }
+  $('#keymsg').className = 'hint'; $('#keymsg').textContent = '확인 중…';
+  Promise.resolve(api('set_key', key)).then(st => {
+    $('#key').value = '';
+    showAi(st, st.saved ? (del ? '키를 지웠습니다. ' : st.saved + ' 파일에 저장했습니다. ')
+                        : '폴더에 쓸 수 없어 이번 실행에만 씁니다. ');
+  });
+}
+function loadAi() { Promise.resolve(api('ai')).then(st => showAi(st)); }
 function stopScan() { $('#stopbtn').disabled = true; api('stop'); }
 
 // 과정 표시: st = '' (대기) | on | done | err
@@ -909,7 +945,11 @@ function openRecord(file) {
 const EMBED = JSON.parse($('#data').textContent);
 $('#recbtn').hidden = !!EMBED;  // 보고서 파일에는 기록 목록이 없다
 if (EMBED) { document.title = 'adGuard 점검 보고서 — ' + EMBED.meta.entry_url; renderReport(EMBED); show('result'); }
-else { document.title = 'adGuard 불법광고 탐지'; $('#steps').hidden = false; show('start'); }
+else {
+  document.title = 'adGuard 불법광고 탐지'; $('#steps').hidden = false; show('start');
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.ai) loadAi();
+  else if (location.protocol.startsWith('http')) loadAi(); else window.addEventListener('pywebviewready', loadAi);
+}
 </script>
 </body>
 </html>

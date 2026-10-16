@@ -24,6 +24,68 @@ def base_dir():
     return os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 
 
+ENV_NAMES = (".env", ".env.txt")  # 메모장 "확장자 숨기기"로 .env.txt가 되는 경우도 읽는다
+AI_MODEL = "gpt-6-luna"
+
+
+def load_env():
+    """exe 옆 .env를 읽어 환경변수에 넣는다. PC에 같은 이름이 있어도 .env가 이긴다 (심사위원 키가 확실히 쓰이게)"""
+    for name in ENV_NAMES:
+        p = os.path.join(base_dir(), name)
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8-sig") as f:  # 메모장 BOM 허용
+                for line in f:
+                    k, eq, v = line.strip().partition("=")
+                    if eq and not k.startswith("#"):
+                        os.environ[k.strip().removeprefix("export ")] = v.strip().strip("'\"")
+            return p
+    return None
+
+
+def save_key(key):
+    """OPENAI_API_KEY 줄만 바꿔 .env에 쓴다 (다른 줄·주석은 그대로). 실패하면 이번 실행에만 쓴다. 반환: 저장 경로 또는 None"""
+    if key:
+        os.environ["OPENAI_API_KEY"] = key
+    else:
+        os.environ.pop("OPENAI_API_KEY", None)
+    path = next((p for p in (os.path.join(base_dir(), n) for n in ENV_NAMES) if os.path.isfile(p)),
+                os.path.join(base_dir(), ".env"))
+    try:
+        lines = open(path, encoding="utf-8-sig").read().splitlines() if os.path.isfile(path) else []
+        lines = [l for l in lines if l.strip().partition("=")[0].strip() != "OPENAI_API_KEY"]
+        if key:
+            lines.append("OPENAI_API_KEY=" + key)
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(lines) + "\n")
+        return path
+    except OSError:
+        return None
+
+
+def ai_status(check=True):
+    """화면 표시용 AI 상태. 키 값은 절대 내보내지 않는다 (앞 3자·끝 4자만). check면 키로 모델 조회를 한 번 해 본다(비용 없음)"""
+    import urllib.error
+    import urllib.request
+
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    model = os.environ.get("OPENAI_DECISIONS_MODEL", "").strip() or AI_MODEL
+    if not key:
+        return {"on": False, "model": model, "reason": "키 없음"}
+    out = {"on": False, "model": model, "masked": key[:3] + "…" + key[-4:]}
+    if not check:
+        return dict(out, reason="확인 전")
+    req = urllib.request.Request("https://api.openai.com/v1/models/" + model, headers={"Authorization": "Bearer " + key})
+    try:
+        urllib.request.urlopen(req, timeout=8).close()
+        return dict(out, on=True, reason="")
+    except urllib.error.HTTPError as e:
+        reason = {401: "키가 맞지 않습니다", 403: "이 키로 %s 모델을 쓸 권한이 없습니다(유료 등급 키 필요)" % model,
+                  404: "이 키로 %s 모델을 쓸 수 없습니다(유료 등급 키 필요)" % model, 429: "호출 한도 초과 또는 결제 필요"}
+        return dict(out, reason="%s (HTTP %d)" % (reason.get(e.code, "확인 실패"), e.code))
+    except (urllib.error.URLError, OSError) as e:
+        return dict(out, reason="OpenAI에 연결하지 못했습니다 (%s)" % getattr(e, "reason", e))
+
+
 def write_json(path, data):
     # UTF-8(BOM 없음), 임시 파일에 쓴 뒤 교체해서 반쯤 쓰인 파일이 남지 않게 한다
     tmp = path + ".tmp"
@@ -153,6 +215,17 @@ class Api:
                 g["status"] = report.load_status(base_dir())[fp]
         return ok
 
+    def ai(self):
+        return ai_status()
+
+    def set_key(self, key):
+        """첫 화면에서 넣은 키를 .env에 저장하고 바로 확인한다. 빈 값이면 키를 지운다"""
+        key = (key or "").strip()
+        saved = save_key(key)
+        st = ai_status()
+        st["saved"] = os.path.basename(saved) if saved else None
+        return st
+
     def records(self):
         import report
         return report.records(base_dir())
@@ -214,7 +287,7 @@ def serve(api):
 
         def do_POST(self):
             name = self.path.rsplit("/", 1)[-1]
-            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record", "set_status"):
+            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record", "set_status", "ai", "set_key"):
                 return self.send_error(404)
             args = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"[]")
             self.reply(json.dumps(getattr(api, name)(*args), ensure_ascii=False).encode("utf-8"), "application/json")
@@ -264,6 +337,8 @@ def gui(smoke_url=None):
 def main():
     sys.stdout.reconfigure(encoding="utf-8")  # Windows에서 출력을 파일로 돌려도 한글이 깨지지 않게
     args = sys.argv[1:]
+    env = load_env()
+    print("설정: %s" % (env or ".env 없음, AI 꺼짐"), flush=True)
     if args[:1] == ["--smoke-gui"]:
         gui(args[1])
     elif args[:1] == ["--no-report"]:  # 탐지와 결과 파일만 (보고서·캡처 생략). 채점 자동화용

@@ -13,3 +13,4 @@ history.json
 records/
 logs/
 status.json
+.env.txt

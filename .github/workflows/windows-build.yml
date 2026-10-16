@@ -20,6 +20,9 @@ jobs:
       - name: exe 빌드 (onedir, UPX 끔)
         run: pyinstaller --noconfirm --onedir --noupx --name adguard --add-data "app/data;data" app/main.py
 
+      - name: .env 예시를 exe 옆에 (심사위원이 키만 넣으면 됨)
+        run: copy app\.env.example dist\adguard\.env.example
+
       - name: 빌드 크기
         shell: pwsh
         run: |
