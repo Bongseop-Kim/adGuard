@@ -138,8 +138,8 @@ BODY_JS = r"""() => {
 # 원본 HTML의 meta refresh: 0초 이동은 분석 도중 페이지를 바꿔 DOM에서 못 읽을 수 있다
 META_REFRESH = re.compile(r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh[^>]*content\s*=\s*[\"']?\s*\d*\s*;?\s*url\s*=\s*([^\"'>]+)", re.I)
 NET_ERR = re.compile(r"Timeout|net::ERR_")
-# 서버가 버거워서 생긴 실패가 아닌 것: 다른 호스트로 보내진 뒤 DNS·인증서 실패, 차단한 요청 (P11)
-NOT_SERVER = re.compile(r"ERR_NAME_NOT_RESOLVED|ERR_CERT|ERR_ABORTED|ERR_BLOCKED|ERR_UNKNOWN_URL_SCHEME|ERR_INVALID")
+# 서버가 버거워서 생긴 실패가 아닌 것: 다른 호스트로 보내진 뒤 DNS·인증서 실패, 리다이렉트 반복(사이트 설정 오류), 차단한 요청 (P11)
+NOT_SERVER = re.compile(r"ERR_NAME_NOT_RESOLVED|ERR_TOO_MANY_REDIRECTS|ERR_CERT|ERR_ABORTED|ERR_BLOCKED|ERR_UNKNOWN_URL_SCHEME|ERR_INVALID")
 CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사이트에서 모자라면 조정
 
 
@@ -536,22 +536,26 @@ class Crawler:
             return  # 리다이렉트로 범위 밖으로 나감
         if post is None and norm(final) in self.canons:
             return  # 이미 기록한 페이지로 보내짐 ("잘못된 접근" 뒤 첫 화면 등)
+        landed = final
         self.seen.add(norm(final))
         self.via.setdefault(norm(final), self.via.get(norm(url)))
         canon = await with_timeout(page.evaluate(
             "() => { const l = document.querySelector('link[rel=canonical]'); return l ? l.href : null }"), 3)
-        if canon and self.in_scope(canon):
+        cs = urllib.parse.urlsplit(minimize(canon)) if canon and self.in_scope(canon) else None
+        # 모든 쪽이 첫 화면을 가리키는 잘못된 canonical은 중복 판정에도, 결과 주소에도 쓰지 않는다
+        if cs and (cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path)):
             final = minimize(canon)
-            cs = urllib.parse.urlsplit(final)
-            # 모든 쪽이 첫 화면을 가리키는 잘못된 canonical은 믿지 않는다
-            ckey = ("c", norm(final)) if cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path) else None
-            if ckey and post is None:
+            ckey = ("c", norm(final))
+            if post is None:
                 self.same(url, ckey)
-            if ckey and norm(final) in self.canons:
+            if norm(final) in self.canons:
                 return  # canonical이 같으면 같은 페이지 (P7)
+            self.canons.add(norm(final))
             self.seen.add(norm(final))
             self.via.setdefault(norm(final), self.via.get(norm(url)))
 
+        if post is None:  # 기록하기 전(분석·클릭에 몇 초)에 먼저 차지한다: 동시에 같은 곳으로 보내진 워커가 겹치지 않게
+            self.canons.add(norm(landed))
         body, full = await with_timeout(page.evaluate(BODY_JS), 5) or ("", "")
         # 본문이 거의 없으면(머리·꼬리만 있는 화면) 전체 글자로: 서로 다른 짧은 화면을 하나로 합치지 않게
         h = hashlib.sha1((body if len(body) >= 100 else "\0" + full).encode("utf-8", "replace")).hexdigest()
@@ -559,9 +563,8 @@ class Crawler:
             self.same(url, ("h", h))
         if h in self.hashes:  # 같은 글이 다른 URL로 (꼬리표·세션 등): 대표 URL만 짧은 것으로 바꾼다
             r = self.results[self.hashes[h]]
-            if len(final) < len(r["url"]):
-                r["url"] = final
-                self.canons.add(norm(final))
+            if len(final) < len(r["url"]) and not any(norm(x["url"]) == norm(final) for x in self.results):
+                r["url"] = final  # 다른 결과가 이미 쓰는 주소로는 바꾸지 않는다 (결과 주소가 겹치면 한 쪽이 덮인다)
             return
 
         caught, state = [], {"armed": False, "aborted": False}
