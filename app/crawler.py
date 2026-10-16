@@ -126,6 +126,15 @@ ID_KEYS = {"id", "wr_id", "nttid", "no", "idx", "seq", "document_srl", "articlen
 DATE_KEYS = {"ym", "yyyymm", "year", "month", "day", "date", "yy", "mm", "dd", "caldate", "sdate", "edate", "week"}
 DATE_VAL = re.compile(r"^\d{4}[-./]?\d{2}(?:[-./]?\d{2})?$")
 MOBILE_ONLY = re.compile(r"모바일|mobile|스마트폰", re.I)
+# 본문 해시용 글자: 머리·메뉴·꼬리·옆 영역과 스크립트를 뺀다 (Bar-Yossef 2002 템플릿 제외의 간이판, research/13 §4-2)
+BODY_JS = r"""() => {
+  const skip = 'script,style,noscript,template,header,nav,footer,aside,[role=navigation],[role=banner],[role=contentinfo]';
+  const w = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    n => n.nodeType === 1 && n.matches(skip) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT);  // 제외 영역은 하위째 건너뜀
+  let t = '';
+  while (w.nextNode()) if (w.currentNode.nodeType === 3) t += w.currentNode.nodeValue;
+  return [t.replace(/\s+/g, ' ').trim(), document.documentElement.textContent];
+}"""
 # 원본 HTML의 meta refresh: 0초 이동은 분석 도중 페이지를 바꿔 DOM에서 못 읽을 수 있다
 META_REFRESH = re.compile(r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh[^>]*content\s*=\s*[\"']?\s*\d*\s*;?\s*url\s*=\s*([^\"'>]+)", re.I)
 NET_ERR = re.compile(r"Timeout|net::ERR_")
@@ -241,6 +250,8 @@ class Crawler:
         self.seen, self.sig_count = set(), {}
         self.hashes, self.results = {}, []  # 내용 해시 → results 인덱스
         self.canons = set()  # 결과로 남긴 페이지의 대표 주소(norm)
+        # 무관한 파라미터 학습 (research/13 §4-4): 같은 페이지 키(본문 해시·canonical) → 방문 주소들, 근거, 배운 것
+        self.groups, self.evidence, self.learned = {}, {}, set()  # learned: (호스트, 경로, 파라미터)
         self.templates = {}  # (페이지 패턴, 함수명) → (요청, 인자) 또는 None(이동 없음)
         self.visited = 0
         self.errors = []
@@ -272,6 +283,12 @@ class Crawler:
     def push(self, url, depth, body=None, via=(None, "링크")):
         post = (url, body) if body is not None else None  # POST로만 열리면 원래 action과 본문을 남겨 둔다
         url = minimize(url, body)
+        if self.learned and body is None:  # 내용을 안 바꾼다고 배운 파라미터는 뺀다
+            s = urllib.parse.urlsplit(url)
+            q = urllib.parse.parse_qsl(s.query, keep_blank_values=True)
+            q2 = [(k, v) for k, v in q if (s.netloc.lower(), s.path, k) not in self.learned]
+            if len(q2) != len(q):
+                url = urllib.parse.urlunsplit((s.scheme, s.netloc, s.path, urllib.parse.urlencode(q2), ""))
         key = norm(url)
         if key != self.start:
             s = urllib.parse.urlsplit(url)
@@ -294,6 +311,35 @@ class Crawler:
             return
         self.seq += 1
         heapq.heappush(self.heap, (priority(url), depth, self.seq, url, post))
+
+    def same(self, url, key):
+        """url이 key(본문 해시·canonical)로 본 페이지와 같다. 같은 페이지의 주소들이 파라미터 하나만 다르면 그 파라미터를 근거로 모으고,
+        서로 다른 페이지 2곳에서 근거가 나오면 그 경로에서는 무관한 파라미터로 배운다 (Koppula 외 WSDM 2010의 온라인 축소판).
+        숫자 값·ID·쪽·날짜 키는 배우지 않는다. 같은 안내 화면(삭제·권한)을 여러 주소가 보여도 근거는 1곳으로만 센다"""
+        g = self.groups.setdefault(key, [])
+        if url in g:
+            return
+        g.append(url)
+        if len(g) < 2:
+            return
+        parts = [(s.netloc.lower(), s.path, dict(urllib.parse.parse_qsl(s.query, keep_blank_values=True)))
+                 for s in map(urllib.parse.urlsplit, g)]
+        base, diff = parts[0], set()
+        for x in parts[1:]:
+            diff |= {k for k in set(x[2]) | set(base[2]) if x[2].get(k) != base[2].get(k)} if x[:2] == base[:2] else {None, ""}
+        if len(diff) != 1:
+            for ev in self.evidence.values():
+                ev.discard(key)  # 여러 파라미터가 다른데도 같은 화면: 안내 화면일 수 있어 근거에서 뺀다
+            return
+        p = diff.pop()
+        if p.lower() in ID_KEYS | PAGE_KEYS | DATE_KEYS or any(x[2].get(p, "").isdigit() for x in parts):
+            return
+        k = base[:2] + (p,)
+        ev = self.evidence.setdefault(k, set())
+        ev.add(key)
+        if len(ev) >= 2 and k not in self.learned:
+            self.learned.add(k)
+            self.log("꼬리표 '%s'는 내용을 바꾸지 않아 이후 주소에서 뺍니다 (%s)" % (p, base[1]))
 
     async def seed(self, ctx):
         """robots.txt와 sitemap에서 시드를 얻는다. 메뉴에 없는 옛 게시판용 (research/03 §2)."""
@@ -497,17 +543,25 @@ class Crawler:
         if canon and self.in_scope(canon):
             final = minimize(canon)
             cs = urllib.parse.urlsplit(final)
-            if norm(final) in self.canons and (cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path)):
-                return  # canonical이 같으면 같은 페이지 (P7). 모든 쪽이 첫 화면을 가리키는 잘못된 설정은 믿지 않는다
+            # 모든 쪽이 첫 화면을 가리키는 잘못된 canonical은 믿지 않는다
+            ckey = ("c", norm(final)) if cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path) else None
+            if ckey and post is None:
+                self.same(url, ckey)
+            if ckey and norm(final) in self.canons:
+                return  # canonical이 같으면 같은 페이지 (P7)
             self.seen.add(norm(final))
             self.via.setdefault(norm(final), self.via.get(norm(url)))
 
-        text = await with_timeout(page.evaluate("() => document.documentElement.textContent"), 5) or ""
-        h = hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()
+        body, full = await with_timeout(page.evaluate(BODY_JS), 5) or ("", "")
+        # 본문이 거의 없으면(머리·꼬리만 있는 화면) 전체 글자로: 서로 다른 짧은 화면을 하나로 합치지 않게
+        h = hashlib.sha1((body if len(body) >= 100 else "\0" + full).encode("utf-8", "replace")).hexdigest()
+        if post is None:
+            self.same(url, ("h", h))
         if h in self.hashes:  # 같은 글이 다른 URL로 (꼬리표·세션 등): 대표 URL만 짧은 것으로 바꾼다
             r = self.results[self.hashes[h]]
             if len(final) < len(r["url"]):
                 r["url"] = final
+                self.canons.add(norm(final))
             return
 
         caught, state = [], {"armed": False, "aborted": False}
@@ -668,7 +722,22 @@ async def crawl(entry, analyze=None, workers=None, time_limit=20 * 60, log=print
     return await c.run()
 
 
-if __name__ == "__main__":  # python app/crawler.py <URL>
+if __name__ == "__main__" and sys.argv[1:] == ["--self-test"]:  # 무관한 파라미터 학습 확인
+    c = Crawler("http://s.kr/", None, 1, 10, lambda m: None)
+    c.same("http://s.kr/v?id=1&view=a", "K1"), c.same("http://s.kr/v?id=1&view=b", "K1")
+    assert not c.learned  # 근거 1곳
+    c.same("http://s.kr/v?id=2&view=a", "K2"), c.same("http://s.kr/v?id=2", "K2")
+    assert c.learned == {("s.kr", "/v", "view")}
+    c.push("http://s.kr/v?id=3&view=c", 1)
+    assert c.heap[-1][3] == "http://s.kr/v?id=3"
+    for u in ("http://s.kr/v?id=5", "http://s.kr/v?id=6"):  # 삭제 글 안내처럼 ID만 다른데 같은 화면
+        c.same(u, "K3")
+    for k, u in (("K4", "http://s.kr/b?cfile=a"), ("K4", "http://s.kr/b?cfile=b"), ("K4", "http://s.kr/b?cfile=c&idx=1"),
+                 ("K5", "http://s.kr/b?cfile=d"), ("K5", "http://s.kr/b?cfile=e")):
+        c.same(u, k)  # K4는 여러 파라미터가 다른 안내 화면이라 근거에서 빠짐 → cfile은 근거 1곳
+    assert c.learned == {("s.kr", "/v", "view")}, c.learned
+    print("통과")
+elif __name__ == "__main__":  # python app/crawler.py <URL>
     sys.stdout.reconfigure(encoding="utf-8")
     for r in asyncio.run(crawl(sys.argv[1], log=lambda m: None)):
         print(r["url"])
