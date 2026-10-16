@@ -312,7 +312,35 @@ function frameSeg(e) {
   const pre = r instanceof ShadowRoot ? locate(r.host) + ' >>> ' : '';
   return pre + (same.length === 1 ? s : selectorIn(e.parentElement) + ' > ' + s);
 }
-window.__adg = { C: [], collect, signals, locate, hideText, marqueeSeen, frameSeg };
+// 화면에 그려지지 않는 글: HTML 주석, <title>, <meta> 설명, alt·title·aria-label 속성 (todo/08 S-4)
+// 같은 글이 화면에 보이거나 그 요소의 본문과 같으면 뺀다: 보이는 쪽(또는 숨김 4종)에서 이미 판정한다
+function unseen() {
+  const sq = t => (t || '').normalize('NFKC').replace(/\s+/g, '');  // NFKC: 첫가끝 자모 본문과 완성형 제목을 같게 본다
+  const vis = sq(document.body ? document.body.innerText : ''), out = [];
+  const add = (kind, e, text, what, own) => {
+    const t = (text || '').replace(/\s+/g, ' ').trim();
+    // 제목 형식("글 제목 | 사이트")이면 조각마다 화면에 있는지 본다
+    const parts = t.split(/\s[>|·:\-–—]\s/).map(sq).filter(Boolean);
+    if (t.length < 2 || t.length > 500 || parts.every(x => vis.includes(x)) || (own && sq(e.textContent) === sq(t))) return;
+    out.push({ kind, what, text: t, loc: e ? locate(e) : 'html' });
+  };
+  const visit = root => {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
+    while (w.nextNode()) add('HTML_COMMENT_AD', w.currentNode.parentElement, w.currentNode.nodeValue, 'HTML 주석', false);
+    for (const e of root.querySelectorAll('[alt],[title],[aria-label]'))
+      for (const a of ['alt', 'title', 'aria-label']) if (e.hasAttribute(a)) add('ATTR_META_AD', e, e.getAttribute(a), a + ' 속성', true);
+    for (const e of root.querySelectorAll('*')) if (e.shadowRoot) visit(e.shadowRoot);
+  };
+  visit(document);
+  const ti = document.querySelector('title');
+  if (ti) add('ATTR_META_AD', ti, ti.textContent, '<title>', false);
+  for (const m of document.querySelectorAll('meta[name="description"],meta[name="keywords"],meta[property^="og:"],meta[name^="twitter:"]')) {
+    const n = m.getAttribute('name') || m.getAttribute('property');
+    if (/title|description|keywords/.test(n)) add('ATTR_META_AD', m, m.getAttribute('content'), '<meta ' + n + '>', false);
+  }
+  return out;
+}
+window.__adg = { C: [], collect, signals, locate, hideText, marqueeSeen, frameSeg, unseen };
 }
 """
 
@@ -434,6 +462,13 @@ async def analyze(page, url):
                 if any(hits.get(d["i"]) for d in cands if d["anc"] == a):
                     for f in hits[a].values():
                         f["drop"] = True
+        # 4종 밖 추가 유형 S-4: 주석·<title>·<meta>·속성 속 광고 (result_extra.json으로만)
+        for u in await ev(frame, "() => window.__adg.unseen()") or []:
+            t = textcheck.check(u["text"])
+            if t["ad"]:
+                found.append({"location": prefix + u["loc"], "technique": "ETC", "extra_finding": u["kind"],
+                              "evidence_text": u["text"], "reason": u["what"] + "에 넣은 광고 (화면에 안 보임)",
+                              "norm": t["norm"], "kw": t["kw"]})
         for child in frame.child_frames:
             try:
                 fe = await asyncio.wait_for(child.frame_element(), 3)
@@ -504,7 +539,7 @@ async def analyze(page, url):
     await walk(page.main_frame, "", {"OFFSCREEN": [], "TRANSPARENT": []})
     seen, out = set(), []
     for f in found:
-        k = (f["location"], f["technique"])
+        k = (f["location"], f["technique"], f.get("extra_finding"))
         if k not in seen and not f.get("drop"):
             seen.add(k)
             out.append(f)

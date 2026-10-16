@@ -236,14 +236,23 @@ def score(name, result_path, extra_path=None):
 
 
 def check_extra(path, expected):
-    """result_extra.json: 기대하는 extra 항목이 url 기준으로 몇 건 나왔는지만 본다 (본심사 자료)"""
+    """result_extra.json: 기대 항목을 (url, extra_finding) 기준으로 센다. 기대에 없는 (url, 유형)은 오탐 후보로 보여 준다 (본심사 자료)"""
     try:
         data = json.loads(open(path, "rb").read().decode("utf-8"))
-        got = {norm_url(f.get("url", "")) for f in data.get("findings", []) if f.get("technique") == "ETC"}
+        got = [(norm_url(f.get("url", "")), f.get("extra_finding")) for f in data.get("findings", []) if f.get("technique") == "ETC"]
     except Exception as e:
         return {"error": str(e)}
     want = {norm_url(x["url"]) for x in expected}
-    return {"expected_pages": len(want), "found_pages": len(want & got)}
+    pairs = {(norm_url(x["url"]), x.get("extra_finding")) for x in expected}
+    left = list(got)
+    hit = 0
+    for x in expected:  # 같은 (url, 유형)이 여러 건이면 건수만큼
+        k = (norm_url(x["url"]), x.get("extra_finding"))
+        if k in left:
+            left.remove(k)
+            hit += 1
+    return {"expected_pages": len(want), "found_pages": len(want & {u for u, _ in got}), "expected": len(expected),
+            "found": hit, "unexpected": sorted({"%s %s" % k for k in left if k not in pairs})}
 
 
 # ---------- 서버·출력 ----------

@@ -1,0 +1,16 @@
+{
+  "scenario": "S8",
+  "entry_url": "http://127.0.0.1:8200/",
+  "answers": [],
+  "decoys": [],
+  "extra": [
+    {"url": "http://127.0.0.1:8200/s4/comment", "location": "div.news-body", "extra_finding": "HTML_COMMENT_AD", "note": "주석 속 광고"},
+    {"url": "http://127.0.0.1:8200/s4/meta", "location": "head > title", "extra_finding": "ATTR_META_AD", "note": "<title> 광고 (본문에 없음)"},
+    {"url": "http://127.0.0.1:8200/s4/meta", "location": "head > meta:nth-of-type(2)", "extra_finding": "ATTR_META_AD", "note": "<meta description> 광고"},
+    {"url": "http://127.0.0.1:8200/s4/attr", "location": "li.photo-1 > img", "extra_finding": "ATTR_META_AD", "note": "img alt 광고"},
+    {"url": "http://127.0.0.1:8200/s4/attr", "location": "li.photo-2 > a", "extra_finding": "ATTR_META_AD", "note": "a title 광고"}
+  ],
+  "extra_decoys": [
+    {"url": "http://127.0.0.1:8200/s4/decoy", "note": "예방 교육 주석·제목·메타·alt·aria-label·title. 추가 유형 0건이어야 함"}
+  ]
+}

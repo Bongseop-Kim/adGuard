@@ -1,0 +1,14 @@
+# S8-extra: 추가 탐지 유형 (todo/08)
+
+- 2026-10-16. 4종 밖 추가 유형의 데모 + 미끼. `result.json`은 0건이어야 한다(추가 유형은 `result_extra.json`으로만)
+- 진입: `http://127.0.0.1:8200/`
+- 채점: `python eval/scorer/score.py S8-extra app/result.json --extra app/result_extra.json` → `extra.found == expected`, `unexpected == []`
+
+| 페이지 | 유형 | 내용 |
+|---|---|---|
+| `/s4/comment` | HTML_COMMENT_AD | 본문 상자 안 HTML 주석에 광고 |
+| `/s4/meta` | ATTR_META_AD ×2 | `<title>`·`<meta description>`에 광고, 본문에는 없음 |
+| `/s4/attr` | ATTR_META_AD ×2 | `img alt`, `a title`에 광고 |
+| `/s4/decoy` | (미끼) | 예방 교육 주석·제목·메타·alt, `aria-label="메뉴 열기"`, 본문과 같은 `title`. 추가 유형 0건 |
+
+- 중복 제외: 같은 글이 화면에 보이면(제목 형식은 조각마다, NFKC 비교) 속성·제목 쪽은 내지 않는다 (S3 첫가끝 자모 제목 사례)

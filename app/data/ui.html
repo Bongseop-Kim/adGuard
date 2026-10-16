@@ -473,7 +473,7 @@ const TECH_DESC = {
   JAMO: '음절을 자모 단위로 쪼개거나 초성만 써서 키워드 검색을 피하는 기법입니다. (예: 카지노 → ㅋㅏㅈㅣㄴㅗ, ㅋㅈㄴ)',
   TRANSPARENT: '글자색을 배경색과 같게 하거나 opacity:0, color:transparent 등으로 사람 눈에는 안 보이게 숨기는 기법입니다. 검색엔진에는 읽혀 사이트 이름으로 광고가 노출됩니다.',
   OFFSCREEN: 'position:absolute; left:-9999px 처럼 화면 밖으로 밀거나, font-size 0~1px, display:none, 크기 0 상자 등으로 숨기는 기법입니다.',
-  ETC: '필수 4종 밖의 추가 유형입니다. 보이지 않는 문자 삽입: 소프트 하이픈(U+00AD)·폭 없는 공백(U+200B)처럼 화면에 안 그려지는 글자를 키워드 글자 사이에 끼워 금칙어 필터를 피합니다. result_extra.json에만 기록합니다.',
+  ETC: '필수 4종 밖의 추가 유형입니다. 보이지 않는 문자 삽입: 소프트 하이픈(U+00AD)·폭 없는 공백(U+200B)처럼 화면에 안 그려지는 글자를 키워드 글자 사이에 끼워 금칙어 필터를 피합니다. 주석·제목·메타·속성 속 광고: HTML 주석, <title>, <meta> 설명, alt·title·aria-label 속성처럼 화면에는 안 그려지지만 검색엔진·스크린리더는 읽는 곳에 넣은 광고입니다. 그대로 보이는 광고: 숨김 없이 연락처까지 적힌 광고 글입니다. result_extra.json에만 기록합니다.',
 };
 const TECHS = ['HOMOGLYPH', 'JAMO', 'TRANSPARENT', 'OFFSCREEN', 'ETC'];
 const TECH_SHORT = { HOMOGLYPH: '유사 문자', JAMO: '자모 분리', TRANSPARENT: '투명 숨김', OFFSCREEN: '화면 밖 숨김', ETC: '추가 유형' };

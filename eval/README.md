@@ -16,7 +16,8 @@ eval/
 │   ├── S4-dynamic/        ← 클릭·외부 JS로만 닿는 위치 회귀 세트
 │   ├── S5-detect/         ← 탐지 규칙 보완(research/09) 회귀 세트
 │   ├── S6-probe/          ← 처음 보는 변형 (research/14)
-│   └── S7-reach/          ← 처음 보는 도달 경로 (research/14, check.py로 채점)
+│   ├── S7-reach/          ← 처음 보는 도달 경로 (research/14, check.py로 채점)
+│   └── S8-extra/          ← 추가 탐지 유형 데모·미끼 (todo/08, --extra로 채점)
 ├── blind/                 ← 블라인드 세트 (개발 중 열람 금지)
 └── scorer/                ← 채점기 (todo/02에서 구현)
 ```
@@ -48,6 +49,7 @@ SX-name/
 | S5 | 8150 | 8151 |
 | S6 | 8170 | 8171 |
 | S7 | 8180 | 8181 |
+| S8 | 8200 | 8201 |
 | blind | 8190 | 8191 |
 
 ## 테스트용 광고 문구 방침
