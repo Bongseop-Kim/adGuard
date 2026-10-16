@@ -57,7 +57,7 @@ header.top { border-bottom: 1px solid var(--krds-color-light-gray-20); backgroun
 .theme svg { width: 22px; height: 22px; }
 .theme .sun, .theme[aria-pressed="true"] .moon { display: none; }
 .theme[aria-pressed="true"] .sun { display: block; }
-/* AI 판정 상태 */
+/* AI 결정 모델 상태 */
 .ai-st { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 4px; font-size: 15px; font-weight: 700; border: 1px solid var(--krds-color-light-gray-30); color: var(--krds-color-light-gray-70); background: var(--krds-color-light-gray-5); vertical-align: middle; }
 .ai-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--krds-color-light-gray-50); }
 .ai-st.on { color: var(--krds-color-light-success-60); border-color: var(--krds-color-light-success-10); background: var(--krds-color-light-success-5); }
@@ -100,66 +100,148 @@ input.err { border-color: var(--krds-color-light-danger-50); }
 .hint { font-size: 15px; color: var(--krds-color-light-gray-70); margin-top: 8px; }
 .hint.err { color: var(--krds-color-light-danger-60); }
 
-/* 단계 표시 */
-.steps { display: flex; gap: 0; margin: 0 0 32px; padding: 0; list-style: none; counter-reset: s; }
-.steps li { flex: 1; position: relative; padding-top: 12px; border-top: 4px solid var(--krds-color-light-gray-20); color: var(--krds-color-light-gray-50); font-size: 15px; font-weight: 500; counter-increment: s; }
-.steps li + li { margin-left: 8px; }
-.steps li::before { content: counter(s) "단계 "; }
-.steps li.on { border-top-color: var(--krds-color-light-primary-50); color: var(--krds-color-light-primary-60); font-weight: 700; }
-.steps li.done { border-top-color: var(--krds-color-light-primary-10); color: var(--krds-color-light-gray-70); }
-
-/* 1단계 시작 */
-#start .box { max-width: 840px; padding: 40px; }
-#start form { display: flex; gap: 8px; }
-#start input#url { flex: 1; height: 56px; font-size: 19px; border-radius: 8px; }
-.opt { margin-top: 24px; border-top: 1px solid var(--krds-color-light-gray-20); padding-top: 16px; }
-.opt summary { cursor: pointer; font-weight: 500; color: var(--krds-color-light-gray-90); }
-.opt input { width: 96px; margin: 0 6px; }
-.opt summary .ai-st { margin-left: 8px; height: 26px; font-size: 14px; }
-#keyrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-#keyrow input { flex: 1; min-width: 220px; width: auto; margin: 0; }
-.files { margin: 24px 0 0; padding: 16px 20px; background: var(--krds-color-light-gray-5); border-radius: 8px; font-size: 15px; color: var(--krds-color-light-gray-70); }
-.files b { color: var(--krds-color-light-gray-90); }
-
-/* 2단계 진행: 탐지 → 캡처·보고서 두 과정을 한 화면에서. 진행 중인 과정만 막대가 움직인다 */
-#progress .box { max-width: 840px; padding: 32px 40px; }
-.run-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--krds-color-light-gray-20); }
-.state { font-size: 24px; font-weight: 700; color: var(--krds-color-light-gray-95); }
-.state.err { color: var(--krds-color-light-danger-60); }
-.state.ok { color: var(--krds-color-light-success-60, #1f7a3a); }
-.state small { display: block; font-size: 15px; font-weight: 400; color: var(--krds-color-light-gray-70); margin-top: 4px; }
-.clock { text-align: right; flex: none; }
-.clock b { display: block; font-size: 24px; line-height: 1.5; color: var(--krds-color-light-gray-95); }
-.clock span, .stat span { font-size: 15px; color: var(--krds-color-light-gray-70); }
-.clock b, .stat b, .stage .sd { font-variant-numeric: tabular-nums; }
-.stages { list-style: none; margin: 0; padding: 8px 0; }
-.stage { display: grid; grid-template-columns: 32px 1fr; gap: 16px; padding: 16px 0; position: relative; }
-.stage + .stage::before { content: ""; position: absolute; left: 15px; top: -16px; height: 32px; width: 2px; background: var(--krds-color-light-gray-20); }
-.stage.done + .stage::before { background: var(--krds-color-light-success-50); }
-.stage .t { font-size: 17px; font-weight: 700; color: var(--krds-color-light-gray-50); }
-.stage .sd { display: block; font-size: 15px; color: var(--krds-color-light-gray-60); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stage.on .t { color: var(--krds-color-light-gray-95); }
-.stage.on .sd { color: var(--krds-color-light-gray-70); }
-.stage.done .t { color: var(--krds-color-light-gray-90); }
-.stage.err .t { color: var(--krds-color-light-danger-60); }
-/* 과정 아이콘: 대기 = 번호, 진행 = 도는 고리, 완료 = 체크, 오류 = ! */
-.ic { position: relative; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--krds-color-light-gray-20); background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-50);
-  display: grid; place-items: center; font-size: 15px; font-weight: 700; font-style: normal; z-index: 1; }
-.stage.on .ic { border-color: var(--krds-color-light-primary-50); color: var(--krds-color-light-primary-60); }
-.stage.done .ic { background: var(--krds-color-light-success-50); border-color: var(--krds-color-light-success-50); color: #fff; }
-.stage.err .ic { background: var(--krds-color-light-danger-50); border-color: var(--krds-color-light-danger-50); color: #fff; }
-.bar { height: 6px; background: var(--krds-color-light-gray-10); border-radius: 2px; overflow: hidden; margin-top: 12px; }
-.stage:not(.on) .bar { display: none; }
-.bar i { display: block; height: 100%; width: 35%; background: var(--krds-color-light-primary-50); border-radius: 2px; animation: slide 1.2s cubic-bezier(.77,0,.175,1) infinite; }
-.bar.pct i { width: 100%; animation: none; transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform .3s cubic-bezier(.23,1,.32,1); }
-@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
-@media (prefers-reduced-motion: reduce) {
-  .bar:not(.pct) i { animation: none; width: 100%; opacity: .35; }
+/* 시작: 주소창 하나가 중심. 옵션은 상태 칩으로만 보이고 누르면 펼친다. 아래에 최근 점검 */
+#start { max-width: 680px; margin: 48px auto 0; display: grid; gap: 16px; }
+#start h1 { text-align: center; margin: 0 0 8px; text-wrap: balance; }
+#start > form { display: flex; gap: 8px; }
+#start input#url { flex: 1; min-width: 0; height: 56px; font-size: 19px; border-radius: 8px; }
+#urlmsg { margin-top: -8px; }
+/* 맨 위로: 한 화면 넘게 내렸을 때만 오른쪽 아래에 나타난다 */
+.totop { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: max(24px, env(safe-area-inset-bottom, 0px)); z-index: 5; width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%;
+  border-color: var(--krds-color-light-gray-30); box-shadow: 0 4px 16px rgb(0 0 0 / .12); opacity: 0; visibility: hidden; transform: translateY(8px);
+  transition: opacity .2s ease-out, transform .2s cubic-bezier(.23,1,.32,1), visibility 0s .2s; }
+.totop.on { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.totop:active { transform: scale(.95); }
+.totop svg { width: 22px; height: 22px; }
+#main:focus { outline: none; }  /* 맨 위로 뒤 초점만 옮긴다 */
+@media (prefers-reduced-motion: reduce) { .totop { transform: none; } }
+/* 옵션 피커: 입력칸처럼 테두리·화살표가 있는 칸. 안쪽 왼쪽에 이름, 오른쪽에 지금 값.
+   시간 상한은 기본 셀렉트(열면 바로 고름), AI 결정 모델은 키 입력이 있어 모달을 연다 */
+.picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pick { position: relative; display: block; }
+.pick .pl { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--krds-color-light-gray-70); pointer-events: none; }
+.pick select, button.pick { width: 100%; height: 48px; padding-left: 112px; font-weight: 700; text-align: left; }
+button.pick { display: flex; align-items: center; border-color: var(--krds-color-light-gray-50); padding-right: 48px; background: var(--krds-color-light-gray-0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23464c53' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 16px center / 20px; }
+:root[data-contrast="high"] button.pick { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cdd1d5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+button.pick:hover { border-color: var(--krds-color-light-gray-70); }
+button.pick .pl { left: 16px; font-weight: 400; }
+button.pick .ai-st { border: 0; background: none; padding: 0; height: auto; font-size: 17px; color: var(--krds-color-light-gray-90); }
+button.pick .ai-st.on { color: var(--krds-color-light-success-60); }
+/* AI 모달: 기본 dialog (Esc·바깥 초점 잠금은 브라우저가). 열 때 살짝 커지며 나타난다 */
+dialog#aidlg { width: min(560px, calc(100% - 32px)); padding: 28px; border: 1px solid var(--krds-color-light-gray-20); border-radius: 12px; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); box-shadow: 0 16px 48px rgb(0 0 0 / .18); }
+dialog#aidlg::backdrop { background: rgb(0 0 0 / .4); }
+dialog#aidlg h2 { margin: 0 0 8px; font-size: 21px; }
+dialog#aidlg .hint:first-of-type { margin: 0 0 20px; }
+dialog#aidlg .dfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+@media (prefers-reduced-motion: no-preference) {
+  dialog#aidlg[open] { animation: dlg .2s cubic-bezier(.23,1,.32,1); }
+  dialog#aidlg[open]::backdrop { animation: fade-in .2s ease-out; }
 }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 24px; }
-.stat { background: var(--krds-color-light-gray-5); border-radius: 10px; padding: 16px; }
-.stat b { display: block; font-size: 24px; line-height: 1.5; }
-.stat.hit b { color: var(--krds-color-light-danger-60); }
+@keyframes dlg { from { opacity: 0; transform: scale(.96); } }
+.keycard { border: 1px solid var(--krds-color-light-gray-20); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; }
+.keycard.on { border-color: var(--krds-color-light-success-10); background: var(--krds-color-light-success-5); }
+.keycard.bad { border-color: var(--krds-color-light-danger-10); background: var(--krds-color-light-danger-5); }
+.keycard .kk { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.keycard .kk code { font-size: 16px; }
+.keycard .ai-st { height: 26px; font-size: 14px; }
+.keycard.bad .ai-st { color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-10); background: var(--krds-color-light-gray-0); }
+.keycard.bad .ai-st i { background: var(--krds-color-light-danger-50); }
+.kwhy { font-size: 15px; color: var(--krds-color-light-gray-70); }
+.keycard.bad .kwhy { color: var(--krds-color-light-danger-60); }
+.kacts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 15px; }
+button.danger { color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-50); }
+button.danger-fill { background: var(--krds-color-light-danger-50); border-color: var(--krds-color-light-danger-50); color: #fff; font-weight: 700; }
+#keyedit input { width: 100%; }
+#recent { margin-top: 16px; border-top: 1px solid var(--krds-color-light-gray-20); padding-top: 12px; }
+#recent .rtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; color: var(--krds-color-light-gray-70); margin-bottom: 4px; }
+#recent ul { list-style: none; margin: 0; padding: 0; }
+/* 사이트 현황판: 사이트 하나 = 한 줄 (최근 결과 · 추이 · 지난번 대비 · 다시 진단). 줄을 누르면 최근 결과 */
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; border-bottom: 1px solid var(--krds-color-light-gray-10); }
+button.sopen { display: grid; grid-template-columns: minmax(0, 1fr) 64px 6.5em; gap: 16px; align-items: center; width: 100%; height: auto; min-height: 60px; padding: 8px 12px; border: 0; background: none; text-align: left; font-weight: 400; }
+.sopen .sn { display: grid; gap: 2px; min-width: 0; }
+.sopen .sn b { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sopen .sn span { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--krds-color-light-gray-70); font-variant-numeric: tabular-nums; }
+.sopen .badge { height: 24px; font-size: 13px; padding: 0 8px; }
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+.spark i { width: 9px; min-height: 3px; border-radius: 2px 2px 0 0; background: var(--krds-color-light-warning-30); }
+.spark i.z { background: var(--krds-color-light-success-50); }
+.chg { font-size: 14px; font-weight: 700; color: var(--krds-color-light-gray-70); font-variant-numeric: tabular-nums; }
+.chg.down { color: var(--krds-color-light-success-60); } .chg.up { color: var(--krds-color-light-danger-60); }
+.srow > button.xs { margin-right: 4px; }
+@media (max-width: 560px) { .dbar .ds span { display: none; } .picks { grid-template-columns: 1fr; } button.sopen { grid-template-columns: minmax(0, 1fr) 6em; } .spark { display: none; } }
+/* 결과 화면 진단 바: 맨 위에 붙어 있다. ← 사이트 현황 · 사이트 · 점검 이력 · 다시 진단 */
+.dbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -32px 0 24px; padding: 12px 0; background: var(--krds-color-light-gray-0); border-bottom: 1px solid var(--krds-color-light-gray-20); }
+.dbar .back { height: 40px; padding: 0 10px 0 6px; border: 0; background: none; color: var(--krds-color-light-primary-60); font-size: 15px; }
+.dbar .back svg { width: 20px; height: 20px; }
+.dbar .ds { flex: 1; min-width: 180px; display: grid; line-height: 1.35; }
+.dbar .ds b { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbar .ds span { font-size: 14px; color: var(--krds-color-light-gray-70); }
+.dbar select { height: 40px; font-size: 15px; max-width: 260px; }
+.dbar .primary { height: 40px; font-size: 15px; padding: 0 16px; }
+#result h2[id] { scroll-margin-top: 88px; }
+
+/* 진행: 첫 화면의 주소창이 그 자리에서 상태 줄(주소·시간·막대)이 된다. 제목·주소 줄은 View Transitions로 이어진다 */
+.vt-title { view-transition-name: title; }
+.vt-field { view-transition-name: field; }
+header.top { view-transition-name: top; }  /* 헤더는 전환 중에도 그대로 */
+#progress { max-width: 680px; margin: 48px auto 0; display: grid; gap: 16px; }
+#progress h1 { text-align: center; margin: 0 0 8px; text-wrap: balance; }
+#progress h1.ok { color: var(--krds-color-light-success-60); }
+#progress h1.err { color: var(--krds-color-light-danger-60); }
+.prow { display: flex; gap: 8px; }
+.run { flex: 1; min-width: 0; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 18px; border: 1px solid var(--krds-color-light-gray-20); border-radius: 8px; background: var(--krds-color-light-gray-5); position: relative; overflow: hidden; }
+.run .u { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; }
+.run .t { flex: none; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.run .t small { font-size: 15px; font-weight: 500; color: var(--krds-color-light-gray-70); }
+.meter { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--krds-color-light-gray-10); }
+.meter i { display: block; height: 100%; background: var(--krds-color-light-primary-50); transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform .5s linear; }
+.pulse { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--krds-color-light-primary-50); box-shadow: 0 0 0 4px var(--krds-color-light-primary-10); }
+@media (prefers-reduced-motion: no-preference) { #progress:not(.ok):not(.err) .pulse { animation: pulse 1.6s ease-in-out infinite; } }
+@keyframes pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
+#progress.ok .pulse, #progress.ok .meter i { background: var(--krds-color-light-success-50); }
+#progress.ok .pulse { box-shadow: 0 0 0 4px var(--krds-color-light-success-10); }
+#progress.err .meter i { background: var(--krds-color-light-danger-50); }
+#progress.err .pulse { background: var(--krds-color-light-danger-50); box-shadow: 0 0 0 4px var(--krds-color-light-danger-10); }
+#stopbtn { height: 56px; border-radius: 8px; flex: none; }
+.pcur { margin: -6px 0 0; text-align: center; font-size: 15px; color: var(--krds-color-light-gray-70); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nums { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
+.nums div { padding: 14px 18px; border-radius: 10px; background: var(--krds-color-light-gray-5); border: 1px solid transparent; }
+.nums b { display: block; font-size: 28px; line-height: 1.3; font-variant-numeric: tabular-nums; transform-origin: left center; }
+.nums span { font-size: 15px; color: var(--krds-color-light-gray-70); }
+.nums .hit { background: var(--krds-color-light-danger-5); border-color: var(--krds-color-light-danger-10); }
+.nums .hit b { font-size: 34px; color: var(--krds-color-light-danger-60); }
+.nums b.bump { animation: bump .22s cubic-bezier(.23,1,.32,1); }
+@keyframes bump { 50% { transform: scale(1.06); } }
+.feed { border-top: 1px solid var(--krds-color-light-gray-20); padding-top: 12px; }
+.feed ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--krds-color-light-gray-10); font-size: 15px; }
+.feed li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed .badge { background: var(--krds-color-light-danger-5); color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-10); height: 26px; font-size: 14px; }
+.plog summary { cursor: pointer; font-size: 15px; color: var(--krds-color-light-gray-70); }
+/* 들어오는 조각: 아래에서 8px, 40ms 간격 (점검 한 번에 한 번) */
+.rise > * { animation: rise .26s cubic-bezier(.23,1,.32,1) both; }
+.rise > :nth-child(3) { animation-delay: .12s; } .rise > :nth-child(4) { animation-delay: .16s; } .rise > :nth-child(5) { animation-delay: .2s; } .rise > :nth-child(6) { animation-delay: .24s; }
+.rise > :nth-child(-n+2) { animation: none; }
+.feed li.new { animation: rise .22s cubic-bezier(.23,1,.32,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes up-out { to { opacity: 0; transform: translateY(-10px); } }
+@keyframes up-in { from { opacity: 0; transform: translateY(10px); } }
+/* 화면 전환: 나머지는 빠르게 사라지고, 제목은 위로 바뀌고, 주소 줄은 제자리에서 모양만 바뀐다 */
+::view-transition-group(*) { animation-duration: .32s; animation-timing-function: cubic-bezier(.77,0,.175,1); }
+::view-transition-old(root) { animation: .16s ease-out both fade-out; }
+::view-transition-new(root) { animation: .2s ease-out .1s both fade-in; }
+::view-transition-old(title) { animation: .18s cubic-bezier(.23,1,.32,1) both up-out; }
+::view-transition-new(title) { animation: .24s cubic-bezier(.23,1,.32,1) .08s both up-in; }
+::view-transition-old(field), ::view-transition-new(field) { height: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*) { animation-duration: .01s; }
+  ::view-transition-old(*) { animation: .16s ease-out both fade-out !important; }
+  ::view-transition-new(*) { animation: .16s ease-out both fade-in !important; }
+  .rise > *, .feed li.new { animation-name: fade-in; }
+  .nums b.bump { animation: none; }
+}
 
 /* 3단계 결과: 머리 */
 .rhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -230,10 +312,23 @@ ol.top li b { color: var(--krds-color-light-danger-60); }
 .cause-hack { color: var(--krds-color-light-danger-60); font-weight: 700; }
 
 /* 검출 목록 (KRDS 구조화 목록: 도구 막대 → 항목. 항목 머리 전체가 펼침 버튼) */
-.toolbar { display: grid; grid-template-columns: 1fr 160px 200px 180px; gap: 16px; }
-.toolbar label { display: block; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-.toolbar input, .toolbar select { width: 100%; }
-.applied { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; min-height: 32px; }
+.toolbar { display: grid; gap: 12px; }
+.frow { display: flex; gap: 8px; flex-wrap: wrap; }
+.frow input { flex: 1 1 280px; min-width: 0; }
+.frow select { flex: none; }
+/* 필터 칩: 누르면 진하게 채워진다(aria-pressed). 개수가 0이면 누를 수 없다 */
+.fchips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.flbl { font-size: 15px; font-weight: 700; color: var(--krds-color-light-gray-70); min-width: 56px; }
+button.fchip { height: 36px; padding: 0 14px; border-radius: 18px; font-size: 15px; border-color: var(--krds-color-light-gray-30); color: var(--krds-color-light-gray-70); transition: background-color .15s ease, color .15s ease, transform .16s cubic-bezier(.23,1,.32,1); }
+button.fchip b { color: var(--krds-color-light-gray-90); font-variant-numeric: tabular-nums; }
+button.fchip:active { transform: scale(.97); }
+button.fchip[aria-pressed="true"] { background: var(--krds-color-light-gray-90); border-color: var(--krds-color-light-gray-90); color: var(--krds-color-light-gray-0); }
+button.fchip[aria-pressed="true"] b { color: var(--krds-color-light-gray-0); }
+button.fchip:disabled { background: none !important; opacity: .5; }
+.fdot { width: 8px; height: 8px; border-radius: 50%; }
+.fd-심각 { background: var(--krds-color-light-danger-50); } .fd-위험 { background: var(--krds-color-light-warning-30); } .fd-참고 { background: var(--krds-color-light-information-50); }
+button.freset { height: 32px; padding: 0 4px; border: 0; background: none; color: var(--krds-color-light-gray-70); font-size: 15px; text-decoration: underline; text-underline-offset: 3px; }
+.applied { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 16px 0; min-height: 32px; }
 .applied p { margin: 0 8px 0 0; font-size: 15px; } .applied p b { color: var(--krds-color-light-primary-60); }
 .tag { height: 32px; padding: 0 10px; font-size: 15px; border-radius: 4px; border-color: var(--krds-color-light-gray-50); }
 .glist { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--krds-color-light-gray-90); }
@@ -251,7 +346,7 @@ button.gh:hover { background: var(--krds-color-light-gray-5); }
 /* 이 페이지의 구성 (KRDS 콘텐츠 내 탐색: 본문 오른쪽 고정, 좁은 화면은 제목 아래) */
 .rwrap { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; align-items: start; }
 .rwrap > .rmain { grid-column: 1; grid-row: 1; }
-.toc { grid-column: 2; grid-row: 1; position: sticky; top: 24px; border-left: 2px solid var(--krds-color-light-gray-20); padding-left: 16px; }
+.toc { grid-column: 2; grid-row: 1; position: sticky; top: 96px; border-left: 2px solid var(--krds-color-light-gray-20); padding-left: 16px; }
 .toc h2 { font-size: 15px; margin: 0 0 8px; color: var(--krds-color-light-gray-70); }
 .toc ul { list-style: none; margin: 0; padding: 0; }
 .toc a { display: block; padding: 6px 0; font-size: 15px; color: var(--krds-color-light-gray-70); text-decoration: none; white-space: nowrap; }
@@ -335,12 +430,13 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
   .top-in { padding: 0 16px; height: 60px; } .top-in .desc { display: none; }
   main { padding: 24px 16px 48px; }
   h1 { font-size: 24px; } h2 { font-size: 22px; margin-top: 40px; }
-  #start .box, #progress .box { padding: 24px; }
-  #start form { flex-direction: column; }
+  #start .box { padding: 24px; }
+  #start > form { flex-direction: column; } #start input#url { flex: none; } #start #go { width: 100%; justify-content: center; }
   .dash { grid-template-columns: 1fr; } .tech { grid-template-columns: 1fr 1fr; } .acts { margin-left: 0; width: 100%; } .menu { right: auto; left: 0; }
-  .run-head { flex-direction: column; align-items: flex-start; } .clock { text-align: left; }
+  #progress { margin-top: 24px; } .dbar { margin-top: -24px; } .prow { flex-direction: column; } .run { flex: none; } #stopbtn { width: 100%; justify-content: center; }
+  .nums { grid-template-columns: 1fr 1fr; } .nums .hit { grid-column: 1 / -1; } .pcur { white-space: normal; }
   .cond { grid-template-columns: max-content 1fr; }
-  .toolbar { grid-template-columns: 1fr 1fr; } .toolbar .fq { grid-column: 1 / -1; }
+  .frow input { flex-basis: 100%; } .frow select { flex: 1 1 0; min-width: 0; } .flbl { width: 100%; }
   .cmp .tag { display: none; } .cmp .lbls { display: flex; }
   table.fact > tr > th, table.fact > tr > td { display: block; width: auto; } table.fact > tr > th { border-bottom: 0; padding-bottom: 6px; }
   button.gh { grid-template-columns: 1fr; } .gh .gmeta { grid-column: 1; grid-row: auto; }
@@ -352,7 +448,7 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
   .rwrap > .rmain { grid-row: 2; }
 }
 @media print {
-  header.top, .noprint, .toolbar, .applied, .toc, .steps { display: none !important; }
+  header.top, .noprint, .toolbar, .applied, .toc { display: none !important; }
   .rwrap { display: block; }
   .cmp .view { display: none !important; }
   .maptip { display: none; } .printonly { display: block; }
@@ -368,72 +464,76 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
 <header class="top"><div class="top-in">
   <span class="logo"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" fill="#256ef4"/><path d="m8.5 12 2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>adGuard</span>
   <span class="desc">공공 웹사이트 불법광고 탐지 도구</span>
-  <button id="recbtn" class="theme noprint" type="button" aria-label="점검 기록" title="점검 기록" onclick="openRecords()">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v5h5M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>
   <button id="hc" class="theme noprint" type="button" aria-pressed="false" aria-label="선명한 화면(어두운 배경)" title="선명한 화면(어두운 배경)">
     <svg class="moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
     <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
 </div></header>
 <main id="main">
-  <ol class="steps noprint" id="steps" hidden><li>주소 입력</li><li>탐지</li><li>결과 확인</li></ol>
-
-  <section id="start" hidden>
-    <h1>불법광고 점검</h1>
-    <p class="lead">입력한 주소에서 시작해 하위 페이지, 게시글, 댓글, iframe 안까지 살펴보고 숨겨지거나 변형된 불법광고를 찾습니다.</p>
-    <div class="box">
-      <label class="lbl" for="url">점검할 웹사이트 주소</label>
-      <form onsubmit="start(); return false;">
-        <input id="url" placeholder="https://www.example.go.kr" autocomplete="url" autofocus aria-describedby="urlmsg">
-        <button id="go" class="primary lg" type="submit">탐지 시작</button>
-      </form>
-      <div id="urlmsg" class="hint">http:// 또는 https://로 시작하는 주소를 입력하세요.</div>
-      <details class="opt">
-        <summary>옵션</summary>
-        <p><label>시간 상한<input id="minutes" type="number" min="1" max="30" value="20">분</label></p>
-        <div class="hint">상한에 닿으면 그때까지 찾은 결과를 저장합니다.</div>
-      </details>
-      <details class="opt" id="aibox">
-        <summary>AI 광고성 판정 (선택) <span id="aist" class="ai-st"><i></i>확인 중</span></summary>
-        <div class="hint">OpenAI API 키(유료 등급)를 넣으면 규칙만으로 애매한 후보를 AI가 한 번 더 판정합니다. 비워 두면 규칙만으로 탐지합니다.
-          키는 프로그램 폴더의 <b>.env</b> 파일에 저장되며, 메모장으로 그 파일을 직접 고쳐도 됩니다.</div>
-        <form id="keyrow" onsubmit="saveKey(); return false;">
-          <input id="key" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" aria-label="OpenAI API 키" aria-describedby="keymsg">
-          <button class="secondary" type="submit">저장하고 확인</button>
-          <button id="keydel" type="button" onclick="saveKey(true)" hidden>키 지우기</button>
-        </form>
-        <div id="keymsg" class="hint" role="status"></div>
-      </details>
-      <div class="files">결과는 프로그램 폴더에 저장됩니다. <b>result.json</b>(제출 형식), <b>report.html</b>(보고서), <b>result.csv</b>(Excel)</div>
+    <section id="start" hidden>
+    <h1 class="vt-title">어느 사이트를 점검할까요?</h1>
+    <form class="vt-field" onsubmit="start(); return false;">
+      <input id="url" placeholder="https://www.example.go.kr" autocomplete="url" autofocus aria-label="점검할 웹사이트 주소" aria-describedby="urlmsg">
+      <button id="go" class="primary lg" type="submit">탐지 시작</button>
+    </form>
+    <div id="urlmsg" class="hint" hidden></div>
+    <div class="picks">
+      <label class="pick"><span class="pl">시간 상한</span>
+        <select id="minutes" aria-describedby="minhint" title="상한에 닿으면 그때까지 찾은 결과를 저장합니다">
+          <option value="5">5분</option><option value="10">10분</option><option value="15">15분</option><option value="20" selected>20분</option><option value="25">25분</option><option value="30">30분</option>
+        </select></label>
+      <button class="pick" type="button" aria-haspopup="dialog" onclick="$('#aidlg').showModal()"><span class="pl">AI 결정 모델</span><span id="aist" class="ai-st"><i></i>확인 중</span></button>
     </div>
+    <span id="minhint" class="sr">상한에 닿으면 그때까지 찾은 결과를 저장합니다.</span>
+    <dialog id="aidlg" aria-labelledby="aidlg-t">
+      <form method="dialog" onsubmit="saveKey(event)">
+        <h2 id="aidlg-t">AI 결정 모델</h2>
+        <p class="hint">애매한 후보를 AI가 한 번 더 봅니다. 키가 없으면 규칙만 씁니다.</p>
+        <!-- 저장된 키가 있으면 카드, 없거나 "바꾸기"를 누르면 입력칸 -->
+        <div id="keycard" class="keycard" hidden>
+          <div class="kk"><code id="kmask"></code><span id="kpill" class="ai-st"><i></i>켜짐</span></div>
+          <div id="kwhy" class="kwhy"></div>
+          <div id="kacts" class="kacts">
+            <button type="button" class="xs" onclick="editKey(true)">바꾸기</button>
+            <button type="button" class="xs" id="krecheck" onclick="recheckKey()">다시 확인</button>
+            <button type="button" class="xs danger" onclick="askDel(true)">삭제</button>
+          </div>
+          <div id="kconfirm" class="kacts" hidden>
+            <span>키를 지울까요? 이후로는 규칙만 씁니다.</span>
+            <button type="button" class="xs danger-fill" onclick="delKey()">지우기</button>
+            <button type="button" class="xs" onclick="askDel(false)">취소</button>
+          </div>
+        </div>
+        <div id="keyedit">
+          <label class="lbl" for="key">OpenAI API 키</label>
+          <input id="key" type="password" placeholder="sk-로 시작하는 키를 붙여 넣으세요" autocomplete="off" spellcheck="false" aria-describedby="keymsg" oninput="$('#keysave').disabled = !this.value.trim()">
+        </div>
+        <div id="keymsg" class="hint" role="status"></div>
+        <div class="dfoot"><button type="button" id="keyclose" onclick="$('#aidlg').close()">닫기</button><button class="primary" type="submit" id="keysave" disabled>저장</button></div>
+      </form>
+    </dialog>
+    <div id="recent"></div>
   </section>
 
   <section id="progress" hidden>
-    <h1>탐지 진행</h1>
-    <p class="lead" id="stsub"></p>
-    <div class="box">
-      <div class="run-head">
-        <div id="st" class="state" role="status">탐지 중</div>
-        <div class="clock"><b id="p-time">0초</b><span id="p-time-l">경과 시간</span></div>
-      </div>
-      <ol class="stages">
-        <li class="stage" id="sg1"><i class="ic">1</i><div><span class="t">페이지 탐색·불법광고 탐지</span><span class="sd" id="sd1"></span><div class="bar" id="bar1"><i></i></div></div></li>
-        <li class="stage" id="sg2"><i class="ic">2</i><div><span class="t">증거 캡처·보고서 작성</span><span class="sd" id="sd2">탐지가 끝나면 시작합니다.</span><div class="bar" id="bar2"><i></i></div></div></li>
-      </ol>
-      <div class="stats">
-        <div class="stat"><b id="p-visited">0</b><span>살펴본 페이지</span></div>
-        <div class="stat"><b id="p-queue">0</b><span>남은 대기 주소</span></div>
-        <div class="stat" id="s-found"><b id="p-found">0</b><span>검출</span></div>
-      </div>
-      <button id="stopbtn" onclick="stopScan()">중단 (그때까지 결과 저장)</button>
-      <details class="opt"><summary>진행 기록</summary><pre id="log" style="margin-top:12px"></pre></details>
+    <h1 id="ptitle" class="vt-title" role="status">탐지 중</h1>
+    <div class="prow vt-field">
+      <div class="run"><i class="pulse"></i><span class="u" id="p-url"></span><span class="t" id="p-time">0초</span><span class="meter"><i id="p-bar"></i></span></div>
+      <button id="stopbtn" class="lg" type="button" onclick="stopScan()" aria-label="중단하고 그때까지 결과 저장">중단</button>
     </div>
+    <p class="pcur" id="p-cur"></p>
+    <div class="nums">
+      <div class="hit"><b id="p-found">0건</b><span>검출</span></div>
+      <div><b id="p-visited">0</b><span>살펴본 페이지</span></div>
+      <div><b id="p-queue">0</b><span>남은 대기 주소</span></div>
+    </div>
+    <div class="feed"><div class="muted" id="p-fh">찾은 광고가 여기에 쌓입니다. 자세한 내용은 결과 화면에서 봅니다.</div><ul id="p-feed"></ul></div>
+    <details class="plog"><summary>진행 기록</summary><pre id="log" style="margin-top:12px"></pre></details>
   </section>
 
   <section id="result" hidden></section>
-  <section id="records" hidden></section>
 </main>
+<button id="totop" class="totop noprint" type="button" aria-label="맨 위로" title="맨 위로"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <script type="application/json" id="data">null</script>
 <script>
 'use strict';
@@ -452,12 +552,7 @@ function h(tag, attrs, ...kids) {
 }
 const PAGES = ['start', 'progress', 'result'];
 const show = id => {
-  for (const s of [...PAGES, 'records']) $('#' + s).hidden = s !== id;
-  if (!EMBED) $('#steps').hidden = id === 'records';
-  [...$('#steps').children].forEach((li, i) => {
-    li.className = i < PAGES.indexOf(id) ? 'done' : i === PAGES.indexOf(id) ? 'on' : '';
-    if (li.className === 'on') li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-  });
+  for (const s of PAGES) $('#' + s).hidden = s !== id;
 };
 // 선명한 화면 (KRDS 선명한 화면 모드). 이 브라우저에만 기억한다
 const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem('adguard.' + k); localStorage.setItem('adguard.' + k, v); } catch (e) { return null; } };
@@ -490,84 +585,112 @@ function start() {
   const url = $('#url').value.trim();
   const bad = !url;
   $('#url').classList.toggle('err', bad);
-  $('#urlmsg').className = bad ? 'hint err' : 'hint';
-  $('#urlmsg').textContent = bad ? '점검할 주소를 입력하세요.' : 'http:// 또는 https://로 시작하는 주소를 입력하세요.';
+  $('#urlmsg').className = 'hint err'; $('#urlmsg').hidden = !bad;
+  $('#urlmsg').textContent = '점검할 주소를 입력하세요. (예: https://www.example.go.kr)';
   if (bad) { $('#url').focus(); return; }
-  $('#go').disabled = true; $('#recbtn').disabled = true;
+  $('#go').disabled = true;
   $('#stopbtn').disabled = false; $('#stopbtn').hidden = false;
-  $('#log').textContent = '';
-  $('#p-time-l').textContent = '경과 시간';
-  Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(() => { show('progress'); poll(); });
+  $('#log').textContent = ''; $('#p-feed').textContent = ''; seen.clear(); lastFound = 0;
+  $('#progress').className = 'rise'; $('#ptitle').className = 'vt-title'; $('#ptitle').textContent = '탐지 중';
+  $('#p-url').textContent = url; $('#p-time').textContent = '0초'; $('#p-cur').textContent = '시작 주소를 여는 중…';
+  $('#p-found').textContent = '0건'; $('#p-visited').textContent = '0'; $('#p-queue').textContent = '0'; $('#p-bar').style.setProperty('--p', 0);
+  Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(() => { swap(() => show('progress')); poll(); });
 }
 // AI 키 상태: 키 값은 받지 않고 가린 값(sk-…abcd)만 받는다
-function showAi(st, saveMsg) {
-  const el = $('#aist');
-  el.className = 'ai-st' + (st.on ? ' on' : '');
-  el.lastChild.textContent = st.on ? '켜짐 · ' + st.model : st.masked ? '꺼짐 · 확인 실패' : '꺼짐 · 규칙만';
-  $('#keydel').hidden = !st.masked;
-  $('#key').placeholder = st.masked ? '저장된 키 ' + st.masked + ' (바꾸려면 새 키 입력)' : 'sk-...';
-  const msg = (saveMsg || '') + (st.on ? '키 확인 완료. 탐지할 때 AI 판정을 함께 씁니다.' : st.masked ? st.reason + '. 규칙만으로 탐지합니다.' : '');
-  $('#keymsg').className = 'hint' + (st.masked && !st.on ? ' err' : '');
-  $('#keymsg').textContent = msg;
+// 키 상태(st): 키 값은 받지 않고 가린 값(sk-…abcd)만 받는다. 피커에는 켜짐/꺼짐만, 자세한 말은 모달 안에
+// 모달: 저장된 키가 있으면 카드(바꾸기·다시 확인·삭제), 없거나 "바꾸기"를 누르면 입력칸
+let aiSt = {};
+function showAi(st, msg) {
+  aiSt = st;
+  $('#aist').className = 'ai-st' + (st.on ? ' on' : '');
+  $('#aist').lastChild.textContent = st.on ? '켜짐' : st.masked ? '키 확인 실패' : '꺼짐';
+  $('#kmask').textContent = st.masked || '';
+  $('#kpill').className = 'ai-st' + (st.on ? ' on' : ''); $('#kpill').lastChild.textContent = st.on ? '켜짐' : '확인 실패';
+  $('#keycard').className = 'keycard ' + (st.on ? 'on' : 'bad');
+  $('#kwhy').textContent = st.on ? st.model + '로 판정합니다.' : (st.reason || '확인 실패') + '. 지금은 규칙만 씁니다.';
+  $('#krecheck').hidden = !!st.on;
+  askDel(false); editKey(!st.masked);
+  $('#keymsg').className = 'hint'; $('#keymsg').textContent = msg || '';
 }
-function saveKey(del) {
-  const key = del ? '' : $('#key').value.trim();
-  if (!del && !key) { $('#key').focus(); return; }
-  $('#keymsg').className = 'hint'; $('#keymsg').textContent = '확인 중…';
-  Promise.resolve(api('set_key', key)).then(st => {
-    $('#key').value = '';
-    showAi(st, st.saved ? (del ? '키를 지웠습니다. ' : st.saved + ' 파일에 저장했습니다. ')
-                        : '폴더에 쓸 수 없어 이번 실행에만 씁니다. ');
-  });
+function editKey(on) {
+  $('#keycard').hidden = on || !aiSt.masked; $('#keyedit').hidden = !on;
+  $('#keysave').hidden = !on; $('#key').value = ''; $('#keysave').disabled = true;
+  $('#keyclose').className = on ? '' : 'primary';
+  if (on && $('#aidlg').open) $('#key').focus();
 }
+const askDel = on => { $('#kacts').hidden = on; $('#kconfirm').hidden = !on; };
+const busy = text => { $('#keymsg').className = 'hint'; $('#keymsg').textContent = text; $('#keysave').disabled = true; };
+const afterSave = st => showAi(st, st.saved ? '' : '프로그램 폴더에 쓸 수 없어 이번 실행에만 씁니다.');
+function saveKey(e) {
+  e.preventDefault();
+  const key = $('#key').value.trim();
+  if (!key) return;
+  busy('키를 확인하는 중…');
+  // 확인에 성공하면 닫는다. 실패하면 저장은 된 채 카드에 이유를 보여준다
+  Promise.resolve(api('set_key', key)).then(st => { afterSave(st); if (st.on && st.saved) $('#aidlg').close(); });
+}
+function delKey() { busy(''); Promise.resolve(api('set_key', '')).then(afterSave); }
+function recheckKey() { busy('키를 다시 확인하는 중…'); Promise.resolve(api('ai')).then(st => showAi(st)); }
+$('#aidlg').addEventListener('close', () => showAi(aiSt));
 function loadAi() { Promise.resolve(api('ai')).then(st => showAi(st)); }
 function stopScan() { $('#stopbtn').disabled = true; api('stop'); }
 
-// 과정 표시: st = '' (대기) | on | done | err
-function stage(n, st, text, pct) {
-  const li = $('#sg' + n), ic = li.querySelector('.ic'), bar = $('#bar' + n);
-  li.className = 'stage ' + st;
-  if (st === 'on') li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-  ic.textContent = st === 'done' ? '✓' : st === 'err' ? '!' : n;
-  if (text != null) $('#sd' + n).textContent = text;
-  bar.classList.toggle('pct', pct != null);
-  if (pct != null) bar.firstChild.style.setProperty('--p', pct);
+// 화면 전환: View Transitions가 있으면 쓰고(WebView2·Chrome 111+), 없으면 바로 바꾼다
+const swap = fn => document.startViewTransition ? document.startViewTransition(fn) : fn();
+// 진행 제목: 바뀔 때만 위로 짧게 바꿔 넣는다
+function ptitle(text, cls) {
+  const t = $('#ptitle');
+  $('#progress').classList.toggle('ok', cls === 'ok'); $('#progress').classList.toggle('err', cls === 'err');
+  if (t.textContent === text) return;
+  const set = () => { t.textContent = text; t.className = 'vt-title' + (cls ? ' ' + cls : ''); };
+  if (!t.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return set();
+  t.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 140, easing: 'ease-out' }).onfinish = () => {
+    set(); t.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.23,1,.32,1)' });
+  };
 }
-function head(title, sub) {
-  $('#st').replaceChildren(title, sub ? h('small', {}, sub) : '');
+const seen = new Set(); let lastFound = 0;
+function feed(recent) {
+  if (!recent || !recent.length) return;
+  $('#p-fh').textContent = '방금 찾은 광고 · 자세한 내용은 결과 화면에서 봅니다';
+  $('#p-feed').replaceChildren(...recent.map(r => {
+    const k = r.technique + '|' + r.url + '|' + r.location, isNew = !seen.has(k); seen.add(k);
+    return h('li', { class: isNew ? 'new' : null }, h('span', { class: 'badge' }, TECH_SHORT[r.technique] || r.technique), h('span', { title: r.url }, pathOf(r.url)));
+  }));
 }
+const pathOf = u => { try { const x = new URL(u); return (x.pathname + x.search) || '/'; } catch (e) { return u; } };
+const meter = p => $('#p-bar').style.setProperty('--p', Math.max(0, Math.min(1, p)));
 
 function poll() {
   api('state').then(s => {
+    const found = s.found || 0;
     $('#p-visited').textContent = s.visited || 0;
     $('#p-queue').textContent = s.queue || 0;
-    $('#p-found').textContent = s.found || 0;
-    $('#s-found').classList.toggle('hit', s.found > 0);
-    if (s.elapsed != null && s.phase === 'running') $('#p-time').textContent = fmtSec(s.elapsed);
+    $('#p-found').textContent = found + '건';
+    if (found > lastFound) { const b = $('#p-found'); b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); lastFound = found; }
+    feed(s.recent);
     $('#log').textContent = (s.log || []).join('\n');
-    $('#st').className = 'state';
-    $('#stsub').textContent = s.url || '';
+    if (s.url) $('#p-url').textContent = s.url;
     if (s.phase === 'running') {
-      head(s.stopping ? '중단하는 중' : '탐지 중', s.stopping ? '진행 중인 페이지를 마친 뒤 그때까지의 결과를 저장합니다.' : '하위 페이지·게시글·댓글·iframe까지 살펴봅니다.');
-      stage(1, 'on', s.current ? '살펴보는 페이지: ' + s.current : '시작 주소를 여는 중…');
-      stage(2, '', '탐지가 끝나면 시작합니다.');
+      ptitle(s.stopping ? '중단하는 중' : '탐지 중');
+      if (s.elapsed != null) { $('#p-time').replaceChildren(fmtSec(s.elapsed) + ' ', h('small', {}, '/ ' + (s.minutes || 20) + '분')); meter(s.elapsed / ((s.minutes || 20) * 60)); }
+      $('#p-cur').textContent = s.stopping ? '진행 중인 페이지를 마친 뒤 그때까지의 결과를 저장합니다.'
+        : s.current ? '살펴보는 페이지: ' + s.current : '시작 주소를 여는 중…';
     } else if (s.phase === 'report') {
-      const [n, t] = s.shot || [0, 0];
       // 검출 시간은 "탐지 시작"~"탐지 완료"(모집요강 붙임2). 완료를 먼저 크게 알리고 시계를 멈춘다. 캡처는 시간 밖의 부속 단계
-      $('#st').classList.add('ok');
-      head('✔ 탐지 완료 · ' + fmtSec(s.scan_sec || 0), '결과 파일(result.json)을 저장했습니다. 이어서 보고서용 증거 화면을 찍습니다 (탐지 시간에 포함되지 않음).');
-      $('#p-time').textContent = fmtSec(s.scan_sec || 0); $('#p-time-l').textContent = '탐지 소요 시간';
-      stage(1, 'done', '완료 · ' + (s.visited || 0) + '쪽 · 검출 ' + (s.found || 0) + '건 · ' + fmtSec(s.scan_sec || 0));
-      stage(2, 'on', t ? '캡처 ' + n + ' / ' + t + ' (숨김 해제 전·후 화면)' : '보고서 작성 중…', t ? n / t : null);
+      const [n, t] = s.shot || [0, 0];
+      ptitle('✔ 탐지 완료 · ' + fmtSec(s.scan_sec || 0), 'ok');
+      $('#p-time').textContent = t ? '캡처 ' + n + ' / ' + t : '보고서 작성 중';
+      meter(t ? n / t : 0);
+      $('#p-cur').textContent = '결과 파일(result.json)을 저장했습니다. 보고서에 넣을 증거 화면을 찍는 중입니다 (탐지 시간에 포함되지 않음).';
       $('#stopbtn').hidden = true;
     } else if (s.phase === 'error') {
-      $('#st').classList.add('err');
-      head('오류로 점검을 마치지 못했습니다', '진행 기록을 확인하세요. 그때까지의 결과는 result.json에 저장되어 있습니다.');
-      stage(s.shot ? 2 : 1, 'err');
-      $('#go').disabled = false; $('#recbtn').disabled = false;
+      ptitle('오류로 점검을 마치지 못했습니다', 'err');
+      $('#p-cur').textContent = '진행 기록을 확인하세요. 그때까지의 결과는 result.json에 저장되어 있습니다.';
+      $('#stopbtn').hidden = true; $('.plog').open = true;
+      $('#go').disabled = false;
       return;
     }
-    if (s.phase === 'ready') { $('#recbtn').disabled = false; renderReport(s.data); show('result'); window.scrollTo(0, 0); return; }
+    if (s.phase === 'ready') { swap(() => { renderReport(s.data); show('result'); window.scrollTo(0, 0); }); return; }
     setTimeout(poll, 500);
   }).catch(() => setTimeout(poll, 1000));
 }
@@ -597,14 +720,14 @@ function renderReport(D) {
     f.append(h('h2', { id, tabindex: -1 }, title)); if (sub) f.append(h('p', { class: 'secdesc' }, sub)); return f; };
 
   // 머리: 제목·AI 상태·내보내기 한 줄 (채움 버튼은 하나), 그 아래 대상·시각·상태
-  const actions = APP() ? h('div', { class: 'acts noprint' }, filesMenu(),
-    h('button', { onclick: newScan }, '새 점검')) : null;
+  const actions = APP() ? h('div', { class: 'acts noprint' }, filesMenu()) : null;
   const ai = D.ai.enabled
-    ? h('span', { class: 'ai-st on' }, h('i'), 'AI 판정 켜짐' + (D.ai.model ? ' · ' + D.ai.model : ''))
+    ? h('span', { class: 'ai-st on' }, h('i'), 'AI 결정 모델 켜짐' + (D.ai.model ? ' · ' + D.ai.model : ''))
     : h('span', { class: 'ai-st', title: D.ai.reason || '' }, h('i'), '규칙 판정 · 외부 전송 0건');
   const state = m.error ? null : m.stopped
     ? h('b', { class: 'st-stop' }, '■ 중단됨 · ' + fmtSec(m.elapsed_sec) + ' · ' + m.visited + '쪽 (중단 시점까지의 결과)')
     : '✔ ' + fmtSec(m.elapsed_sec) + ' · ' + m.visited + '쪽';
+  if (APP() && !EMBED) root.append(diagBar(m));
   root.append(h('div', { class: 'rhead' }, h('h1', {}, '점검 결과'), ai, actions),
     h('p', { class: 'rmeta' }, m.entry_url + ' · ' + fmtTime(m.finished_at), state ? [' · ', state] : null));
   const hackN = G.filter(g => g.cause === '해킹 삽입 의심').length;
@@ -649,34 +772,35 @@ function renderReport(D) {
 
     // R4 목록 (KRDS 구조화 목록 + 필터링 패턴: 레이블 있는 컨트롤 → 결과 수·적용 조건·초기화 → 항목)
     C.append(sec('s-list', '검출 목록', '같은 광고 문구는 한 항목으로 묶었습니다. 항목을 누르면 근거·캡처·조치 방법이 나옵니다.'));
-    const q = h('input', { id: 'f-q', type: 'search', oninput: () => fill() });
-    const fr = h('select', { id: 'f-r', onchange: () => fill() }, h('option', { value: '' }, '전체'), ['심각', '위험', '참고'].map(r => h('option', { value: r }, r)));
-    const ft = h('select', { id: 'f-t', onchange: () => fill() }, h('option', { value: '' }, '전체'), TECHS.map(t => h('option', { value: t }, TECH_KO[t])));
-    const fs = h('select', { id: 'f-st', onchange: () => fill() }, h('option', { value: '' }, '전체'), (D.statuses || []).map(t => h('option', { value: t }, t)));
-    const so = h('select', { id: 'f-s', onchange: () => fill() }, [['risk', '위험도 높은 순'], ['pages', '영향 페이지 많은 순'], ['new', '최근 발견 순']].map(([v, t]) => h('option', { value: v }, t)));
-    C.append(h('div', { class: 'toolbar noprint', role: 'search' },
-      h('div', { class: 'fq' }, h('label', { for: 'f-q' }, '검색 (광고 원문·URL·위치)'), q),
-      h('div', {}, h('label', { for: 'f-r' }, '위험도'), fr),
-      h('div', {}, h('label', { for: 'f-t' }, '기법'), ft),
-      D.statuses ? h('div', {}, h('label', { for: 'f-st' }, '조치 상태'), fs) : null,
-      h('div', {}, h('label', { for: 'f-s' }, '정렬'), so)));
+    // 필터: 검색 한 줄 + 위험도·기법 칩(개수 표시, 여러 개 선택). 같은 묶음 안은 "또는", 묶음끼리는 "그리고"
+    const q = h('input', { id: 'f-q', type: 'search', placeholder: '광고 원문·URL·위치 검색', 'aria-label': '검색 (광고 원문·URL·위치)', oninput: () => fill() });
+    const fs = h('select', { id: 'f-st', 'aria-label': '조치 상태', onchange: () => fill() }, h('option', { value: '' }, '조치 상태 전체'), (D.statuses || []).map(t => h('option', { value: t }, t)));
+    const so = h('select', { id: 'f-s', 'aria-label': '정렬', onchange: () => fill() }, [['risk', '위험도 높은 순'], ['pages', '영향 페이지 많은 순'], ['new', '최근 발견 순']].map(([v, t]) => h('option', { value: v }, t)));
+    const pickR = new Set(), pickT = new Set();
+    const chips = (label, set, vals, key, name, dot) => h('div', { class: 'fchips', role: 'group', 'aria-label': label }, h('span', { class: 'flbl' }, label),
+      vals.map(v => { const n = G.filter(g => g[key] === v).length;
+        return h('button', { type: 'button', class: 'fchip', 'aria-pressed': 'false', disabled: !n || null, 'data-v': v,
+          onclick: e => { set.has(v) ? set.delete(v) : set.add(v); e.currentTarget.setAttribute('aria-pressed', set.has(v)); fill(); } },
+          dot ? h('i', { class: 'fdot fd-' + v }) : null, name(v), h('b', {}, n)); }));
+    const chR = chips('위험도', pickR, ['심각', '위험', '참고'], 'risk', v => v, true);
+    const chT = chips('기법', pickT, byTech.map(([t]) => t), 'technique', v => TECH_SHORT[v]);  // 요약 카드(기법별 위치 수)와 같은 순서
+    C.append(h('div', { class: 'toolbar noprint', role: 'search' }, h('div', { class: 'frow' }, q, D.statuses ? fs : null, so), chR, chT));
     const count = h('p', { 'aria-live': 'polite' }), applied = h('div', { class: 'applied' }, count);
     const list = h('ul', { class: 'glist' });
     C.append(applied, list);
+    const reset = () => { q.value = fs.value = ''; pickR.clear(); pickT.clear(); document.querySelectorAll('.fchip').forEach(b => b.setAttribute('aria-pressed', 'false')); fill(); q.focus(); };
     const fill = () => {
       list.textContent = '';
       const s = q.value.trim().toLowerCase();
-      const rows = G.filter(g => (!fr.value || g.risk === fr.value) && (!ft.value || g.technique === ft.value) && (!fs.value || stOf(g) === fs.value) &&
+      const rows = G.filter(g => (!pickR.size || pickR.has(g.risk)) && (!pickT.size || pickT.has(g.technique)) && (!fs.value || stOf(g) === fs.value) &&
         (!s || [g.evidence_text, g.norm, ...g.items.flatMap(i => [i.url, i.location])].join('\n').toLowerCase().includes(s)));
       // 기본 순서(위험도 → 영향 페이지 수)는 report.py가 정해 둔 그대로
       if (so.value === 'pages') rows.sort((a, b) => urlsOf(b).length - urlsOf(a).length);
       if (so.value === 'new') rows.sort((a, b) => (b.first_seen || '').localeCompare(a.first_seen || ''));
-      // 적용된 조건: 하나씩 해제하는 태그 + 전체 초기화
-      const on = [[q, '검색', q.value.trim()], [fr, '위험도', fr.value], [ft, '기법', TECH_KO[ft.value]], [fs, '조치 상태', fs.value]].filter(x => x[2]);
-      count.replaceChildren('광고 문구 ', h('b', {}, rows.length), '개' + (on.length ? ' (전체 ' + G.length + '개 중)' : ''));
-      applied.replaceChildren(count, ...on.map(([el, k, v]) => h('button', { type: 'button', class: 'tag noprint', 'aria-label': k + ' ' + v + ' 조건 해제',
-        onclick: () => { el.value = ''; fill(); q.focus(); } }, k + ': ' + v + ' ✕')),
-        on.length > 1 ? h('button', { type: 'button', class: 'tag noprint', onclick: () => { q.value = fr.value = ft.value = fs.value = ''; fill(); q.focus(); } }, '조건 초기화') : '');
+      // 켜진 칩이 곧 적용된 조건이라 따로 태그를 늘어놓지 않는다. 결과 수와 초기화만
+      const any = s || fs.value || pickR.size || pickT.size;
+      count.replaceChildren('광고 문구 ', h('b', {}, rows.length), '개' + (any ? ' (전체 ' + G.length + '개 중)' : ''));
+      applied.replaceChildren(count, any ? h('button', { type: 'button', class: 'freset noprint', onclick: reset }, '조건 초기화') : '');
       if (!rows.length) list.append(h('li', { class: 'gi' }, h('div', { class: 'clean' }, h('b', { style: 'color:var(--krds-color-light-gray-90)' }, '조건에 맞는 검출이 없습니다'),
         h('span', { class: 'muted' }, '검색어를 줄이거나 조건을 해제해 보세요.'))));
       rows.forEach((g, k) => {
@@ -742,7 +866,7 @@ function renderReport(D) {
   const cond = [['점검 대상', m.entry_url], ['살펴본 페이지', m.visited + '쪽'],
     ['탐지 시작', fmtTime(m.started_at)], ['탐지 완료', fmtTime(m.finished_at)],
     ['소요 시간', fmtSec(m.elapsed_sec) + (m.stopped ? ' (사용자 중단)' : '')], ['시간 상한', m.minutes + '분'],
-    ['도구 버전', 'adGuard ' + m.tool_version], ['AI 판정', D.ai.enabled ? '켜짐 (' + (D.ai.model || '') + ')' : '꺼짐 · ' + (D.ai.reason || '')],
+    ['도구 버전', 'adGuard ' + m.tool_version], ['AI 결정 모델', D.ai.enabled ? '켜짐 (' + (D.ai.model || '') + ')' : '꺼짐 · ' + (D.ai.reason || '')],
     ['보고서 생성', fmtTime(m.report_at)], ['판정 방식', D.ai.enabled ? '규칙 기반 + 경계 후보만 AI(q ≥ 0.4)' : '규칙 기반(키워드·연락처 패턴 + 렌더링 결과)']];
   C.append(h('dl', { class: 'cond' }, cond.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
 
@@ -941,38 +1065,83 @@ function statusBox(g, D) {
   return h('div', { class: 'stbox' }, sel, memo, save, msg);
 }
 
-// ---------- 점검 기록 (앱 전용): records/index.json 목록 → 누르면 그때 결과 화면 ----------
-const newScan = () => { $('#go').disabled = false; show('start'); };
-function openRecords() {
-  const root = $('#records');
-  root.replaceChildren(h('div', { class: 'rhead' }, h('h1', {}, '점검 기록'), h('div', { class: 'acts' }, h('button', { onclick: newScan }, '새 점검'))),
-    h('p', { class: 'rmeta' }, '지금까지 점검한 결과입니다. 항목을 누르면 그때의 결과 화면을 엽니다.'));
-  show('records'); window.scrollTo(0, 0);
+// ---------- 점검 기록 (앱 전용): records/index.json 목록을 첫 화면 아래에 → 누르면 그때 결과 화면 ----------
+const verdict = r => r.error ? h('span', { class: 'badge b-fail' }, '점검 실패')
+  : r.findings ? h('span', { class: 'badge b-' + (RISK_ORDER.find(k => r.risk[k]) || '참고') }, '검출 ' + r.kinds + '종 · ' + r.findings + '곳')
+  : h('span', { class: 'badge b-ok' }, '광고 없음');
+const newScan = () => { $('#go').disabled = false; loadRecent(); swap(() => { show('start'); window.scrollTo(0, 0); }); };
+// 기록을 사이트(호스트)별로 묶는다. records/index.json은 최신이 앞이라 묶은 뒤에도 각 사이트의 [0]이 최근 점검
+const hostOf = u => { try { return new URL(u).host; } catch (e) { return u; } };
+const bySite = R => { const m = new Map(); R.forEach(r => { const k = hostOf(r.entry_url); m.has(k) ? m.get(k).push(r) : m.set(k, [r]); }); return m; };
+const fileOf = m => m.started_at.replace(/\D/g, '').slice(0, 14) + '.html';  // report.save_record와 같은 규칙
+// 같은 사이트 다시 진단: 그 주소를 넣고 시작한 것과 같다 (설정은 첫 화면 값)
+const rescan = url => { $('#url').value = url; start(); };
+// 홈 = 사이트 현황판. 사이트 하나 = 한 줄, 끝에 닿을 때마다 20곳씩 더 그린다. 기록이 없으면 도구 설명 한 줄
+let recentIO;
+function loadRecent() {
+  const root = $('#recent');
+  if (recentIO) recentIO.disconnect();
   Promise.resolve(api('records')).then(R => {
-    if (!R.length) return root.append(h('div', { class: 'card clean' }, h('b', {}, '아직 점검 기록이 없습니다'), h('span', { class: 'muted' }, '점검을 마치면 여기에 쌓입니다.')));
-    const verdict = r => r.error ? h('span', { class: 'badge b-fail' }, '점검 실패')
-      : r.findings ? h('span', { class: 'badge b-' + (RISK_ORDER.find(k => r.risk[k]) || '참고') }, '검출 ' + r.kinds + '종 · ' + r.findings + '곳')
-      : h('span', { class: 'badge b-ok' }, '광고 없음');
-    root.append(h('ul', { class: 'glist' }, R.map(r => h('li', { class: 'gi' },
-      h('button', { class: 'gh', type: 'button', onclick: () => openRecord(r.file) },
-        h('div', { class: 'gtop' }, verdict(r), r.stopped ? h('b', { class: 'st-stop' }, '중단됨') : null, h('span', { class: 'muted' }, fmtTime(r.finished_at))),
-        h('div', { class: 'gev', title: r.entry_url }, r.entry_url),
-        h('div', { class: 'gmeta' }, h('span', {}, r.visited + '쪽'), h('span', {}, fmtSec(r.elapsed_sec))))))));
-  });
+    if (!R.length) return root.replaceChildren(h('p', { class: 'muted' }, '입력한 주소에서 시작해 하위 페이지, 게시글, 댓글, iframe 안까지 살펴보고 숨겨지거나 변형된 불법광고를 찾습니다. 결과는 보고서·Excel·제출 파일로 프로그램 폴더에 저장됩니다.'));
+    const S = [...bySite(R)];
+    const ul = h('ul', {}), end = h('div', { 'aria-hidden': 'true' });
+    let n = 0;
+    const row = ([host, rs]) => {
+      const r = rs[0], ok = rs.filter(x => !x.error), prev = ok[1], cur = ok[0];
+      const d = cur && prev ? cur.kinds - prev.kinds : null;
+      const chg = !cur || !prev ? h('span', { class: 'chg' }, rs.length > 1 ? '' : '첫 점검')
+        : h('span', { class: 'chg' + (d < 0 ? ' down' : d > 0 ? ' up' : '') }, d ? (d > 0 ? '+' : '−') + Math.abs(d) + '종' : '변화 없음');
+      const hist = ok.slice(0, 5).reverse(), top = Math.max(1, ...hist.map(x => x.kinds));  // 왼쪽이 오래된 점검
+      return h('li', { class: 'srow' },
+        h('button', { class: 'sopen', type: 'button', title: r.entry_url + ' 최근 결과 열기', onclick: () => openRecord(r.file) },
+          h('span', { class: 'sn' }, h('b', {}, host), h('span', {}, fmtTime(r.finished_at).slice(0, 16) + (rs.length > 1 ? ' · ' + rs.length + '회' : '') + (r.stopped ? ' · 중단' : ''), verdict(r))),
+          h('span', { class: 'spark', 'aria-hidden': 'true' }, hist.map(x => h('i', { class: x.kinds ? null : 'z', style: 'height:' + Math.round(26 * x.kinds / top) + 'px' }))),
+          chg),
+        h('button', { class: 'xs', type: 'button', onclick: () => rescan(r.entry_url) }, '다시 진단'));
+    };
+    const more = () => { ul.append(...S.slice(n, n += 20).map(row)); if (n >= S.length && recentIO) recentIO.disconnect(); };
+    root.replaceChildren(h('div', { class: 'rtop' }, h('span', {}, '사이트 현황 ' + S.length + '곳 · 점검 ' + R.length + '회')), ul, end);
+    more();
+    if (n < S.length) { recentIO = new IntersectionObserver(es => es[0].isIntersecting && more(), { rootMargin: '400px' }); recentIO.observe(end); }
+  }).catch(() => root.replaceChildren());
 }
+// 결과 화면 진단 바 (앱 전용). 점검 이력은 같은 사이트의 기록만, 고르면 그때 결과로 바뀐다
+function diagBar(m) {
+  const host = hostOf(m.entry_url), cur = fileOf(m);
+  const hist = h('select', { 'aria-label': '점검 이력', onchange: e => openRecord(e.target.value), hidden: true });
+  Promise.resolve(api('records')).then(R => {
+    const rs = bySite(R).get(host) || [];
+    if (rs.length < 2) return;
+    hist.replaceChildren(...rs.map(r => h('option', { value: r.file, selected: r.file === cur || null },
+      fmtTime(r.finished_at).slice(5, 16) + ' · ' + (r.error ? '실패' : r.findings ? r.kinds + '종' : '광고 없음'))));
+    hist.title = '점검 이력 ' + rs.length + '회'; hist.hidden = false;
+  }).catch(() => {});
+  return h('div', { class: 'dbar noprint' },
+    h('button', { class: 'back', type: 'button', onclick: newScan }, ICON_BACK(), '사이트 현황'),
+    h('div', { class: 'ds' }, h('b', { title: m.entry_url }, host), h('span', {}, fmtTime(m.finished_at).slice(0, 16) + ' 점검')),
+    hist,
+    h('button', { class: 'primary', type: 'button', onclick: () => rescan(m.entry_url) }, '다시 진단'));
+}
+const ICON_BACK = () => { const e = document.createElement('span'); e.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; return e.firstChild; };
 const RISK_ORDER = ['심각', '위험', '참고'];
 function openRecord(file) {
   Promise.resolve(api('record', file)).then(D => { if (!D) return; renderReport(D); show('result'); window.scrollTo(0, 0); });
 }
 
+// 맨 위로 버튼: 화면 높이만큼 내려가면 보인다. 누르면 맨 위로 가고 초점은 본문 시작으로
+addEventListener('scroll', () => $('#totop').classList.toggle('on', scrollY > innerHeight * 0.8), { passive: true });
+$('#totop').onclick = () => {
+  scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  $('#main').setAttribute('tabindex', '-1'); $('#main').focus({ preventScroll: true });
+};
 // 시작: 보고서 파일이면 내장 JSON을, 앱이면 시작 화면을
 const EMBED = JSON.parse($('#data').textContent);
-$('#recbtn').hidden = !!EMBED;  // 보고서 파일에는 기록 목록이 없다
 if (EMBED) { document.title = 'adGuard 점검 보고서 — ' + EMBED.meta.entry_url; renderReport(EMBED); show('result'); }
 else {
-  document.title = 'adGuard 불법광고 탐지'; $('#steps').hidden = false; show('start');
-  if (window.pywebview && window.pywebview.api && window.pywebview.api.ai) loadAi();
-  else if (location.protocol.startsWith('http')) loadAi(); else window.addEventListener('pywebviewready', loadAi);
+  document.title = 'adGuard 불법광고 탐지'; show('start');
+  const boot = () => { loadAi(); loadRecent(); };
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.ai) boot();
+  else if (location.protocol.startsWith('http')) boot(); else window.addEventListener('pywebviewready', boot);
 }
 </script>
 </body>

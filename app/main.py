@@ -209,8 +209,9 @@ class Api:
         url = (url or "").strip()
         if "://" not in url:
             url = "http://" + url
-        self._s, self._ctl, self._t0 = {"phase": "running", "log": [], "url": url}, {}, time.monotonic()
-        threading.Thread(target=self._run, args=(url, max(1, min(30, int(minutes or 20)))), daemon=True).start()
+        minutes = max(1, min(30, int(minutes or 20)))
+        self._s, self._ctl, self._t0 = {"phase": "running", "log": [], "url": url, "minutes": minutes}, {}, time.monotonic()
+        threading.Thread(target=self._run, args=(url, minutes), daemon=True).start()
 
     def stop(self):
         c = self._ctl.get("crawler")
@@ -224,7 +225,10 @@ class Api:
         out["log"] = s["log"][-200:]
         if c:
             out.update(visited=c.visited, queue=len(c.heap), found=sum(len(r["result"] or []) for r in c.results),
-                       current=c.results[-1]["url"] if c.results else None)
+                       current=c.results[-1]["url"] if c.results else None,
+                       # 진행 화면 "방금 찾은 광고": 최근 4건의 유형·페이지만 (원문은 넘기지 않는다)
+                       recent=[{"technique": x["technique"], "url": r["url"], "location": x["location"]}
+                               for r in reversed(c.results) for x in reversed(r["result"] or [])][:4])
         out["shot"] = self._ctl.get("shot")
         if s["phase"] in ("running", "report"):
             out["elapsed"] = round(time.monotonic() - self._t0, 1)
