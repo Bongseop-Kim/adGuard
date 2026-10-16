@@ -11,6 +11,7 @@
 |---|---|
 | `adguard.exe` (더블클릭) | 창에서 URL 입력 → "탐지 시작" |
 | `adguard.exe <URL>` | 창 없이 탐지하고 파일만 쓴다 (채점용) |
+| `adguard.exe --no-report <URL>` | 탐지와 result.json·result_extra.json만 쓰고 보고서·캡처는 건너뛴다 |
 
 결과는 exe와 같은 폴더에 생긴다.
 

@@ -19,6 +19,7 @@ LIB_JS = r"""
 () => {
 if (window.__adg) return;
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEMPLATE', 'NOSCRIPT', 'TITLE', 'HEAD', 'META', 'LINK', 'OPTION']);
+const INLINE = new Set(['SPAN', 'B', 'I', 'U', 'S', 'EM', 'STRONG', 'A', 'FONT', 'SMALL', 'MARK', 'SUB', 'SUP', 'INS', 'DEL', 'Q', 'CITE', 'KBD', 'CODE']);
 const up = e => e.parentElement || (e.parentNode && e.parentNode.host) || null;  // Shadow DOM 경계를 넘는 부모
 const cs = e => getComputedStyle(e);
 const rgba = s => {
@@ -33,10 +34,18 @@ const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y
 const fop = f => { let v = 1; for (const m of (f || '').matchAll(/opacity\(([\d.]+)(%?)\)/g)) v *= m[2] ? m[1] / 100 : +m[1]; return v; };
 
 function textNodes(e) { return [...e.childNodes].filter(n => n.nodeType === 3 && n.nodeValue.trim()); }
+// 직속 글자가 없으면(글자가 자식 요소에 나뉜 부모) 자손 글자 노드로 본다
+function textsOf(e) {
+  const own = textNodes(e);
+  if (own.length) return own;
+  const out = [], w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) if (w.currentNode.nodeValue.trim()) out.push(w.currentNode);
+  return out;
+}
 function rectsOf(e, box) {
   if (box) return [e.getBoundingClientRect()];
   const out = [];
-  for (const t of textNodes(e)) { const r = document.createRange(); r.selectNodeContents(t); out.push(...r.getClientRects()); }
+  for (const t of textsOf(e)) { const r = document.createRange(); r.selectNodeContents(t); out.push(...r.getClientRects()); }
   if (!out.length && (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA')) out.push(e.getBoundingClientRect());
   return out;
 }
@@ -63,6 +72,8 @@ function signals(e, box) {
     for (let n = e; n; n = up(n)) if (n.nodeType === 1 && (cs(n).display === 'none' || n.hidden)) { root = n; break; }
   }
   if (!box && parseFloat(s0.fontSize) <= 1) off.push('font-size ' + s0.fontSize);
+  // 자기 자신의 content-visibility:hidden (hidden="until-found" 포함): checkVisibility()는 조상 것만 본다
+  if (rendered && s0.contentVisibility === 'hidden') off.push('content-visibility:hidden' + (e.getAttribute('hidden') === 'until-found' ? ' (hidden=until-found)' : ''));
   if (rendered) {
     const rs = rectsOf(e, box).filter(r => r.width > 0 || r.height > 0);
     const sx = scrollX, sy = scrollY;
@@ -70,10 +81,17 @@ function signals(e, box) {
     if (!rs.length) off.push('글자 박스 없음');
     else {
       const maxH = Math.max(...rs.map(r => r.height)), sumW = rs.reduce((a, r) => a + r.width, 0);
-      const chars = textNodes(e).reduce((a, t) => a + t.nodeValue.trim().length, 0) || 1;
+      const chars = textsOf(e).reduce((a, t) => a + t.nodeValue.trim().length, 0) || 1;
       if (maxH <= 1 || sumW <= 1) off.push('글자 박스 크기 0');
       else if (box ? (maxH < 2 || sumW < 2) : (maxH < 3 || sumW / chars < 1.5)) off.push('글자 박스가 읽을 수 없게 작음');
       if (rs.every(r => r.right + sx <= 0 || r.bottom + sy <= 0 || r.left + sx >= docW)) off.push('문서 밖 좌표');
+      // 오른쪽·아래로 보낸 글 (right:-9999px): 문서 폭이 같이 늘어나 좌표로는 못 잡는다. left:-9999px의 대칭
+      for (let n = e; n && n.nodeType === 1 && n !== document.body; n = up(n)) {
+        const s = cs(n);
+        if (s.position !== 'absolute' && s.position !== 'fixed') continue;
+        if (parseFloat(s.right) <= -1000 || parseFloat(s.bottom) <= -1000) { off.push('right/bottom ' + s.right + ' ' + s.bottom); }
+        break;
+      }
       // 조상 클리핑: overflow, clip, clip-path. absolute는 정적 조상의 overflow에 안 잘리고, fixed는 조상에 안 잘린다
       let L = -1e9, T = -1e9, R = 1e9, B = 1e9, abs = false, fixed = false, zero = null;
       for (let n = e; n && n.nodeType === 1 && n !== document.documentElement && n !== document.body; n = up(n)) {
@@ -214,16 +232,30 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
   visit(document);
   const C = window.__adg.C = [], out = [];
   const shown = new Map();  // 요소 → 숨김 신호 없음 (보이는 글자열을 만들 때 쓴다)
+  // 숨김 신호가 없어도 연락처가 있으면 문자 판정을 한다 (보이는 받침 노이즈 "먺튅 … @id")
+  const contactish = /@[a-z][a-z0-9_]{3}|t\.me\/|open\.kakao|01[016789][-. ]?\d{3,4}[-. ]?\d{4}|bit\.ly\//i;
   const odd = /[^\x00-\x7f가-힣\s -¿‐-‧‰-⁞　-〿]|[a-z][0-9]|[0-9][a-z]|[­͏ᅟᅠ᠋-᠏​-‏⁠-⁯ㅤ︀-️﻿ﾠ]/i;
   for (const e of all) {
     if (SKIP.has(e.tagName) || e.closest('script,style,template,noscript,head')) continue;
     let own = textNodes(e).map(t => t.nodeValue).join(' ');
     if ((e.tagName === 'INPUT' && /^(text|search|email|url|tel|)$/.test(e.type || '') && e.value) ) own = e.value;
-    if (!own.trim()) continue;
+    let block = false;
+    if (!own.trim()) {
+      // 글자 노드가 없는 부모: 자손 글자를 합쳐 판정 (research/14 §3-2). span으로 쪼갠 글자(ㅋㅏ|ㅈㅣ|ㄴㅗ)나,
+      // 숨김을 만든 상자 안에 글자가 여러 요소로 나뉜 경우(<strong>카지노</strong><a>가입 @id</a>)
+      const kids = [...e.children], txt = e.textContent.trim();
+      if (!txt || txt.length > 300 || kids.length < 2 || kids.length > 8) continue;
+      block = kids.every(k => !k.children.length && INLINE.has(k.tagName)) ? 'inline' : 'hide';
+    }
     const raw = (e.tagName === 'INPUT' ? e.value : e.textContent).replace(/\s+/g, ' ').trim();
     const sg = signals(e, false);
+    if (block === 'hide') {  // 숨김이 이 상자에서 시작될 때만 (부모가 보일 때). 부모 신호는 숨겨진 상자만 잰다
+      if (!(sg.off.length || sg.tr.length)) continue;
+      const p = up(e), sp = p && p.nodeType === 1 ? signals(p, false) : null;
+      if (sp && (sp.off.length || sp.tr.length)) continue;
+    }
     shown.set(e, !sg.off.length && !sg.tr.length && !sg.diff);
-    if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw)) continue;
+    if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw) && !contactish.test(raw)) continue;
     const vt = vtext(e).replace(/\s+/g, ' ').trim();
     const i = C.push(e) - 1;
     e.__adgI = i;
@@ -231,7 +263,7 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
     for (let n = up(e); n; n = up(n)) if (n.__adgI !== undefined && C[n.__adgI] === n) { anc = n.__adgI; break; }
     let rootSame = null;
     if (sg.root && sg.root !== e && sg.root.textContent.replace(/\s+/g, '') === e.textContent.replace(/\s+/g, '')) rootSame = C.push(sg.root) - 1;
-    out.push({ i, anc, raw: raw.slice(0, 500), text: vt.slice(0, 500), off: sg.off, tr: sg.tr, diff: sg.diff, marquee: sg.marquee, root: rootSame });
+    out.push({ i, anc, block, raw: raw.slice(0, 500), text: vt.slice(0, 500), off: sg.off, tr: sg.tr, diff: sg.diff, marquee: sg.marquee, root: rootSame });
   }
   // 숨긴 글이 같은 페이지에 그대로 보이면 광고를 감추려는 숨김이 아니다: 접근성 제목(그누보드 #hd_h1), 댓글 수정 폼 등 (research/13 §1)
   // ponytail: 보이는 쪽 글만 본다. 화면 어디에도 없는 sr-only 광고는 그대로 검출. iframe이 숨겨져 있으면(all_) 따지지 않음
@@ -367,14 +399,26 @@ async def analyze(page, url):
         for c in cands:
             hits[c["i"]] = await judge(frame, prefix, inherit, c)
         # 같은 기법이 자손에서도 나왔으면 부모 것은 뺀다: 광고는 가장 안쪽 요소 (04 §4.3)
+        # 숨김을 만든 상자(block "hide")는 광고 자손이 2개 이상일 때만 뺀다: 광고 여럿을 감싼 상자는 자식만, 광고 하나를 감싼 숨김 상자는 둘 다 (S1 tag-cloud, S2 s-wrap1)
         by_i = {c["i"]: c for c in cands}
+        under = {}
         for c in cands:
             a = c["anc"]
             while a is not None:
-                for k, f in list(hits.get(a, {}).items()):
+                for k in hits.get(a, {}):
                     if k in hits[c["i"]]:
-                        f["drop"] = True
+                        under.setdefault((a, k), set()).add(c["i"])
                 a = by_i[a]["anc"] if a in by_i else None
+        # span 조각(inline) 부모는 자손 하나라도 검출되면 뺀다: 조각 하나가 이미 광고면 합친 글이 아니라 따로 쓴 글이다
+        for (a, k), kids in under.items():
+            if by_i[a].get("block") != "hide" or len(kids) >= 2:
+                hits[a][k]["drop"] = True
+        for c in cands:
+            if c.get("block") == "inline" and hits[c["i"]]:
+                a = c["i"]
+                if any(hits.get(d["i"]) for d in cands if d["anc"] == a):
+                    for f in hits[a].values():
+                        f["drop"] = True
         for child in frame.child_frames:
             try:
                 fe = await asyncio.wait_for(child.frame_element(), 3)
@@ -405,7 +449,7 @@ async def analyze(page, url):
             tech["OFFSCREEN"] = "; ".join(off)
         if tr:
             tech["TRANSPARENT"] = "; ".join(tr)
-        elif c["diff"] and not off and await text_invisible(page, frame, c["i"]):
+        elif c["diff"] and not off and not c.get("block") and await text_invisible(page, frame, c["i"]):
             tech["TRANSPARENT"] = "배경 위에서 글자가 보이지 않음(스크린샷 비교)"
         for k in ("HOMOGLYPH", "JAMO"):
             if t[k]:

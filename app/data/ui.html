@@ -123,6 +123,7 @@ input.err { border-color: var(--krds-color-light-danger-50); }
 .run-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--krds-color-light-gray-20); }
 .state { font-size: 24px; font-weight: 700; color: var(--krds-color-light-gray-95); }
 .state.err { color: var(--krds-color-light-danger-60); }
+.state.ok { color: var(--krds-color-light-success-60, #1f7a3a); }
 .state small { display: block; font-size: 15px; font-weight: 400; color: var(--krds-color-light-gray-70); margin-top: 4px; }
 .clock { text-align: right; flex: none; }
 .clock b { display: block; font-size: 24px; line-height: 1.5; color: var(--krds-color-light-gray-95); }
@@ -392,7 +393,7 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
     <div class="box">
       <div class="run-head">
         <div id="st" class="state" role="status">탐지 중</div>
-        <div class="clock"><b id="p-time">0초</b><span>경과 시간</span></div>
+        <div class="clock"><b id="p-time">0초</b><span id="p-time-l">경과 시간</span></div>
       </div>
       <ol class="stages">
         <li class="stage" id="sg1"><i class="ic">1</i><div><span class="t">페이지 탐색·불법광고 탐지</span><span class="sd" id="sd1"></span><div class="bar" id="bar1"><i></i></div></div></li>
@@ -473,6 +474,7 @@ function start() {
   $('#go').disabled = true; $('#recbtn').disabled = true;
   $('#stopbtn').disabled = false; $('#stopbtn').hidden = false;
   $('#log').textContent = '';
+  $('#p-time-l').textContent = '경과 시간';
   Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(() => { show('progress'); poll(); });
 }
 function stopScan() { $('#stopbtn').disabled = true; api('stop'); }
@@ -497,7 +499,7 @@ function poll() {
     $('#p-queue').textContent = s.queue || 0;
     $('#p-found').textContent = s.found || 0;
     $('#s-found').classList.toggle('hit', s.found > 0);
-    if (s.elapsed != null) $('#p-time').textContent = fmtSec(s.elapsed);
+    if (s.elapsed != null && s.phase === 'running') $('#p-time').textContent = fmtSec(s.elapsed);
     $('#log').textContent = (s.log || []).join('\n');
     $('#st').className = 'state';
     $('#stsub').textContent = s.url || '';
@@ -507,7 +509,10 @@ function poll() {
       stage(2, '', '탐지가 끝나면 시작합니다.');
     } else if (s.phase === 'report') {
       const [n, t] = s.shot || [0, 0];
-      head('증거 캡처 중', '탐지 결과(result.json)는 저장했습니다. 보고서에 넣을 화면을 찍고 있습니다.');
+      // 검출 시간은 "탐지 시작"~"탐지 완료"(모집요강 붙임2). 완료를 먼저 크게 알리고 시계를 멈춘다. 캡처는 시간 밖의 부속 단계
+      $('#st').classList.add('ok');
+      head('✔ 탐지 완료 · ' + fmtSec(s.scan_sec || 0), '결과 파일(result.json)을 저장했습니다. 이어서 보고서용 증거 화면을 찍습니다 (탐지 시간에 포함되지 않음).');
+      $('#p-time').textContent = fmtSec(s.scan_sec || 0); $('#p-time-l').textContent = '탐지 소요 시간';
       stage(1, 'done', '완료 · ' + (s.visited || 0) + '쪽 · 검출 ' + (s.found || 0) + '건 · ' + fmtSec(s.scan_sec || 0));
       stage(2, 'on', t ? '캡처 ' + n + ' / ' + t + ' (숨김 해제 전·후 화면)' : '보고서 작성 중…', t ? n / t : null);
       $('#stopbtn').hidden = true;

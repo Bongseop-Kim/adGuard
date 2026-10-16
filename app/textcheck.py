@@ -34,6 +34,18 @@ BIDI = re.compile("[‪-‮⁦-⁩]")
 IGNORABLE = re.compile("[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f"
                        "\u3164\ufe00-\ufe0f\ufeff\uffa0\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e0fff]")
 DOT = str.maketrans({"。": ".", "｡": ".", "．": "."})  # 주소의 마침표 대신 쓰는 글자 (bcc777。COM)
+# NFKC·confusables가 라틴으로 안 바꾸는 장식 글자: 작은 대문자 ʙᴇᴛ, 음각·네모 원문자 🅑🅔🅣 (research/14 §3-4)
+NAME_FOLD = re.compile(r"(?:LATIN LETTER SMALL CAPITAL|(?:NEGATIVE )?(?:CIRCLED|SQUARED) LATIN (?:CAPITAL|SMALL) LETTER|"
+                       r"MODIFIER LETTER (?:CAPITAL|SMALL)|REGIONAL INDICATOR SYMBOL LETTER) ([A-Z])$")
+
+
+def fold(c):
+    """한 글자를 NFKC로, 안 되면 유니코드 이름으로 라틴 소문자에 맞춘다"""
+    n = ud.normalize("NFKC", c)
+    if len(n) == 1 and n.isascii() or c.isascii():
+        return n
+    m = NAME_FOLD.match(ud.name(c, ""))
+    return m.group(1).lower() if m else n
 
 
 def _conf():
@@ -94,16 +106,29 @@ LEET = str.maketrans({"0": "o", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"
 KW_KO = ["카지노", "바카라", "슬롯", "토토", "먹튀", "첫충", "매충", "환전", "홀덤", "파워볼", "꽁머니", "안전놀이터", "메이저사이트",
          "배팅", "베팅", "총판", "룰렛", "잭팟", "블랙잭", "사설토토", "스포츠토토", "성인", "19금", "조건만남", "출장안마", "야동", "성인방송",
          "비아그라", "시알리스", "대포통장", "법인통장", "통장임대", "통장매매", "대포폰", "작업대출", "불법대출", "무직자대출", "무직자", "급전", "카드깡", "내구제",
-         "필로폰", "대마초", "마약"]
+         "필로폰", "대마초", "마약",
+         # 2군 (research/14 §3-1): 릴게임·성매매·불법 대출·중계 계열. 일반어로도 쓰는 말은 WEAK
+         "릴게임", "바다이야기", "홀짝", "사다리게임", "그래프게임", "온카", "슬롯머신", "스포츠중계", "해외축구중계", "도박",
+         "사설", "롤링", "유흥", "오피", "출장", "1인샵", "립카페", "키스방", "성매매", "출장마사지", "레비트라",
+         "대출", "개인돈", "일수", "대리입금", "소액결제현금화", "상품권현금화", "휴대폰깡", "중계"]
+# 일반어로도 쓰는 말: 연락처·코드(또는 다른 약한 말 + 행동어)가 함께 있을 때만 광고 신호 ("성인반 수강 신청 문의", "외화 환전 안내", "의회 생중계")
+# 모집요강 예시 "무료 슬롯 체험 바로가기"처럼 연락처 없는 광고가 있으므로 슬롯·토토 같은 도박 용어는 WEAK에 넣지 않는다
+WEAK = {"성인", "환전", "마약", "급전", "무직자", "대출", "출장", "중계", "사설", "롤링", "유흥", "오피", "도박", "일수", "spins"}
+NOT_KW = ["오피스"]  # 키워드를 품은 정상 낱말
+# 안내문 어미: 광고는 짧은 문구라 이런 말투를 거의 안 쓴다. 연락처·코드가 없으면 정상 안내로 본다 ("…당첨금 지급 문의는 고객센터로 하시기 바랍니다")
+GUIDE = re.compile(r"바랍니다|하시기|하십시오|안내해\s*드립니다|문의하세요|확인하세요")
 KW_EN = ["casino", "baccarat", "slot", "slots", "toto", "bet", "poker", "holdem", "jackpot", "roulette", "sportsbook",
-         "viagra", "cialis"]
+         "viagra", "cialis", "gambling", "gacor", "judi", "situs", "sbobet", "spins"]
 ACTION = ["가입", "코드", "지급", "이벤트", "체험", "무료", "바로가기", "충전", "보너스", "입금", "실시간", "추천", "상담", "문의",
-          "접속", "주소", "신규", "혜택", "검증"]
+          "접속", "주소", "신규", "혜택", "검증", "판매", "할인", "예약", "쿠폰", "시청", "알바", "고수익", "보장", "당일", "승인",
+          "24시", "모집", "정품", "free", "bonus", "join", "signup", "deposit"]
 NEGATIVE = ["예방", "근절", "단속", "신고", "처벌", "주의", "경고", "피해", "교육", "캠페인", "유의", "금지", "차단", "상담센터",
             "1336", "경찰", "금융감독원", "감독위원회", "보도자료"]
 NORMAL_CHO = {"ㅋㅋ", "ㅎㅎ", "ㅠㅠ", "ㅜㅜ", "ㅇㅋ", "ㄱㅅ", "ㄴㄴ", "ㅇㅇ", "ㄱㄱ", "ㅂㅂ", "ㅈㅅ", "ㄷㄷ"}
 
 CONTACT = re.compile(r"(?<![a-z0-9_.])@[a-z][a-z0-9_]{3,31}(?![a-z0-9_@.])|t\.me/\w{3,}|open\.kakao\.com/\S+|"
+                     r"(?:카톡|카카오톡|라인|line|텔레|텔레그램|위챗|wechat|kakao)\s*(?:id|아이디)?\s*[:：]?\s*@?[a-z][a-z0-9_]{2,31}\b|"
+                     r"(?:bit\.ly|han\.gl|me2\.do|vo\.la|t\.ly|tinyurl\.com|goo\.gl|url\.kr|is\.gd|cutt\.ly)/\w+|"
                      r"01[016789][-. ]?\d{3,4}[-. ]?\d{4}|"
                      r"(?<![\w@])[a-z0-9][a-z0-9-]{1,}\s*(?:\.|닷|점)\s*(?:com|net|kr|xyz|top|io|bet|vip|club|site|test|example|me|cc)\b",
                      re.I)
@@ -148,6 +173,9 @@ def compose(s):
 
     while i < n:
         c = s[i]
+        if c in DOUBLE and i + 1 < n and s[i + 1] == c and i + 2 < n and s[i + 2] in JUNG:  # ㄱㄱㅗㅇ → 꽁 (쌍자음 풀어쓰기)
+            s, n = s[:i] + DOUBLE[c] + s[i + 2:], n - 1
+            c = s[i]
         if c in CHO:
             j = nxt(i + 1)
             if j < n and s[j] in JUNG:
@@ -174,6 +202,9 @@ def compose(s):
     return "".join(out), made
 
 
+DOUBLE = {"ㄱ": "ㄲ", "ㄷ": "ㄸ", "ㅂ": "ㅃ", "ㅅ": "ㅆ", "ㅈ": "ㅉ"}
+
+
 def strip_jong(s):
     return "".join(chr(0xAC00 + (ord(c) - 0xAC00) // 28 * 28) if is_syl(c) else c for c in s)
 
@@ -192,7 +223,7 @@ def base(s):
         if is_hangulish(c):
             out.append(to_compat(c))
         else:  # NFKC 후 결합 부호(Mn) 제거: cásínó → casino, 카̈지노 → 카지노 (09 §7.3)
-            out.append(ud.normalize("NFC", "".join(x for x in ud.normalize("NFD", ud.normalize("NFKC", c))
+            out.append(ud.normalize("NFC", "".join(x for x in ud.normalize("NFD", fold(c))
                                                    if ud.category(x) != "Mn")))
     return "".join(out)
 
@@ -239,9 +270,25 @@ def squash(s):
     return "".join(c for c in s if c not in SEP).lower()
 
 
+def jong_noise(sq):
+    """두 글자 키워드에 받침을 덧붙인 글자 (먺튅 → 먹튀). 덧붙인 받침이 있어야 한다 (스스로 ≠ 슬롯)"""
+    out = set()
+    for k in KW_KO:
+        if len(k) != 2 or k in sq:
+            continue
+        sk = strip_jong(k)
+        for i in range(len(sq) - 1):
+            sub = sq[i:i + 2]
+            if sub != k and strip_jong(sub) == sk and all(is_syl(c) and (ord(c) - 0xAC00) % 28 for c in sub):
+                out.add(k + "(받침)")
+    return out
+
+
 def keywords(s):
     """정규화된 문자열에서 찾은 키워드 집합"""
     sq = squash(s)
+    for w in NOT_KW:
+        sq = sq.replace(w, "|")
     found = {k for k in KW_KO if k in sq}
     found |= {m.group(0).lower() for m in KW_EN_RE.finditer(s)}
     stripped = strip_jong(sq)  # 받침 노이즈 (3음절 이상 키워드만)
@@ -259,12 +306,12 @@ def homoglyph_tokens(raw):
         CONF = _conf()
     hits = []
     for tok in re.split(r"\s+", raw):
-        compat = [c for c in tok if not c.isascii() and len(ud.normalize("NFKC", c)) == 1
-                  and ud.normalize("NFKC", c).isascii() and ud.normalize("NFKC", c).isalnum()]
+        compat = [c for c in tok if not c.isascii() and len(fold(c)) == 1 and fold(c).isascii() and fold(c).isalnum()]
         conf = [c for c in tok if not c.isascii() and c not in compat and c in CONF]
         latin = [c for c in tok if c.isascii() and c.isalpha()]
-        letters = [c for c in compat if ud.normalize("NFKC", c).isalpha()]
-        if letters and (len(compat) >= 2 or latin) or re.search(r"[a-z0-9][。｡．][a-z]", tok, re.I):
+        letters = [c for c in compat if fold(c).isalpha()]
+        fwdigit = sum("０" <= c <= "９" for c in tok)  # 전각 숫자로 쓴 연락처 (０１０－…)
+        if letters and (len(compat) >= 2 or latin) or re.search(r"[a-z0-9][。｡．][a-z]", tok, re.I) or fwdigit >= 3:
             hits.append(tok)
         elif conf and (len(conf) >= 2 or latin):
             hits.append(tok)
@@ -293,10 +340,15 @@ def check(raw):
     code = bool(CODE.search(low))
     sq = squash(c2)
     action = any(a in sq for a in ACTION)
-    neg = any(w in sq for w in NEGATIVE)
-    strong = len(kw_all) + (len(cho) if contact or code else 0)
-    ad = strong >= 1 and (contact or code or strong >= 2 or action or bool(kw_inv))
-    if neg and not contact:
+    neg = any(w in t for t in re.split(r"\s+", low) for w in NEGATIVE)  # 어절 안에서만: "당첨금 지급"의 "금지" 방지
+    weak = {k for k in kw_all if k.removesuffix("(받침)") in WEAK}
+    # 두 글자 키워드 받침 노이즈 (먺튅): 연락처·코드가 있을 때만
+    if contact or code:
+        kw_all |= jong_noise(sq)
+    strong = len(kw_all - weak) + (len(cho) if contact or code else 0)
+    ad = strong >= 1 and (contact or code or strong + len(weak) >= 2 or action or bool(kw_inv)) or bool(weak and (contact or code)) \
+        or bool(len(weak) >= 2 and action)
+    if (neg or GUIDE.search(c2)) and not contact and not code:
         ad = False
 
     res = {"ad": ad, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho}),
@@ -376,6 +428,26 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         ("LH공사 7월 1층 문의 help@agency.go.kr 02-123-4567", set(), False),
         ("시ㆍ도 협의회", set(), False),
         ("ＡＢＣ마트 ＬＧ전자", {H}, False),
+        # research/14 신규
+        ("ʙᴇᴛ 365 가입코드 TEST55", {H}, True),
+        ("🅑🅔🅣 365 토토 @test_neg", {H}, True),
+        ("무직자대출 당일 승인 ０１０－００００－５５８２", {H}, True),
+        ("ㄱㄱㅗㅇㅁㅓㄴㅣ 지급 @test_kkong", {J}, True),
+        ("먺튅 검증 사이트 가입 @test_mt", {J}, True),
+        ("릴게임 바다이야기 무료쿠폰 지급 텔레 @test_reel", set(), True),
+        ("오피 출장 1인샵 24시 예약 010-0000-1234", set(), True),
+        ("해외 스포츠중계 무료 시청 가입 bit.ly/test123", set(), True),
+        ("비아그라 정품 할인 판매 카톡 test99", set(), True),
+        ("Best online gambling - free spins at spin-test.example", set(), True),
+        ("카톡 ID: casino77 첫충 이벤트", set(), True),
+        ("성인반 수강 신청 문의", set(), False),
+        ("해외 연수 참가자 외화 환전 안내: 가까운 은행에 문의하세요", set(), False),
+        ("성인 독감 접종 일정 문의 1339", set(), False),
+        ("오피스텔 분양 상담 문의", set(), False),
+        ("도서 대출 반납 안내", set(), False),
+        ("스스로 문의 @test_self", set(), False),
+        ("의회 생중계 바로가기", set(), False),
+        ("스포츠토토 당첨금 지급 문의는 수탁사업자 고객센터로 하시기 바랍니다.", set(), False),
     ]
     bad = 0
     for raw, want, ad in cases:

@@ -1,0 +1,397 @@
+{
+ "scenario": "S6",
+ "entry_url": "http://127.0.0.1:8170/",
+ "answers": [
+  {
+   "id": "a01",
+   "url": "http://127.0.0.1:8170/",
+   "location": "div.promo-top",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "top:-9999px"
+  },
+  {
+   "id": "a02",
+   "url": "http://127.0.0.1:8170/",
+   "location": "div.promo-right",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "right:-9999px (가로 스크롤 생김)"
+  },
+  {
+   "id": "a03",
+   "url": "http://127.0.0.1:8170/",
+   "location": "div.promo-low",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "top:20000px 문서 아래"
+  },
+  {
+   "id": "a04",
+   "url": "http://127.0.0.1:8170/",
+   "location": "p.faint",
+   "technique": "TRANSPARENT",
+   "evidence_text": "",
+   "note": "rgba 알파 0.04"
+  },
+  {
+   "id": "a05",
+   "url": "http://127.0.0.1:8170/",
+   "location": "p.ghost",
+   "technique": "TRANSPARENT",
+   "evidence_text": "",
+   "note": "opacity 0.01"
+  },
+  {
+   "id": "a42",
+   "url": "http://127.0.0.1:8170/",
+   "location": "iframe[src=\"http://localhost:8171/frame.html\"] >>> p.ext-ind",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "다른 도메인 iframe text-indent (대조군)"
+  },
+  {
+   "id": "a06",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "p.det-p",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "details 닫힘"
+  },
+  {
+   "id": "a07",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "p.cv-p",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "content-visibility:hidden 조상"
+  },
+  {
+   "id": "a08",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "div.huf",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "hidden=until-found"
+  },
+  {
+   "id": "a09",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "p.m-hide",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "미디어쿼리 display:none"
+  },
+  {
+   "id": "a11",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "p.tiny",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "transform scale(0.01)"
+  },
+  {
+   "id": "a12",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "div.band",
+   "technique": "TRANSPARENT",
+   "evidence_text": "",
+   "note": "단색 그라데이션 배경 = 글자색"
+  },
+  {
+   "id": "a14",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "p.fade",
+   "technique": "TRANSPARENT",
+   "evidence_text": "",
+   "note": "animation으로 opacity 0"
+  },
+  {
+   "id": "a15",
+   "url": "http://127.0.0.1:8170/intro",
+   "location": "table.legacy font",
+   "technique": "TRANSPARENT",
+   "evidence_text": "",
+   "note": "td bgcolor + font color"
+  },
+  {
+   "id": "a16",
+   "url": "http://127.0.0.1:8170/board/list",
+   "location": "a.t-greek",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "그리스 대문자 ΤΟΤΟ"
+  },
+  {
+   "id": "a17",
+   "url": "http://127.0.0.1:8170/board/list",
+   "location": "a.t-fwnum",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "전각 숫자 전화번호만"
+  },
+  {
+   "id": "a18",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "p.split",
+   "technique": "JAMO",
+   "evidence_text": "",
+   "note": "자모를 span 여러 개로 나눔 (부모에 직접 글자 없음)"
+  },
+  {
+   "id": "a19",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "div.post-body > p:nth-of-type(3)",
+   "technique": "JAMO",
+   "evidence_text": "",
+   "note": "쌍자음 분해 ㄱㄱ→ㄲ"
+  },
+  {
+   "id": "a20",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "div.post-body > p:nth-of-type(4)",
+   "technique": "JAMO",
+   "evidence_text": "",
+   "note": "두 글자 키워드 받침 노이즈 먺튅"
+  },
+  {
+   "id": "a21",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(2)",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "위첨자 ᶜᵃˢⁱⁿᵒ"
+  },
+  {
+   "id": "a22",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(3)",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "작은 대문자 ʙᴇᴛ"
+  },
+  {
+   "id": "a23",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(4)",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "체로키 ᏴᎬᎢ"
+  },
+  {
+   "id": "a24",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(5)",
+   "technique": "JAMO",
+   "evidence_text": "",
+   "note": "자모 + 전각 공백"
+  },
+  {
+   "id": "a25",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(6)",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "leet 대문자 C4S1N0"
+  },
+  {
+   "id": "a26",
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(7)",
+   "technique": "HOMOGLYPH",
+   "evidence_text": "",
+   "note": "음각 원문자 🅑🅔🅣"
+  },
+  {
+   "id": "a27",
+   "url": "http://127.0.0.1:8170/board/view?id=102",
+   "location": "div.hidden-box",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "display:none 블록, 직접 글자 없음(strong+a)"
+  },
+  {
+   "id": "a28",
+   "url": "http://127.0.0.1:8170/board/view?id=102",
+   "location": "div.far-box",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "left:-9999 블록, 문단 2개"
+  },
+  {
+   "id": "a30",
+   "url": "http://127.0.0.1:8170/board/view?id=102",
+   "location": "svg.deco text",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "SVG text x=-900"
+  },
+  {
+   "id": "a31",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v31",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 릴게임"
+  },
+  {
+   "id": "a32",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v32",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 오피·출장(전화)"
+  },
+  {
+   "id": "a33",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v33",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 스포츠중계+bit.ly"
+  },
+  {
+   "id": "a34",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v34",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 사설·롤링"
+  },
+  {
+   "id": "a35",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v35",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 대출(일반어)"
+  },
+  {
+   "id": "a36",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v36",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 비아그라+카톡ID"
+  },
+  {
+   "id": "a37",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v37",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 도박"
+  },
+  {
+   "id": "a38",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v38",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 유흥"
+  },
+  {
+   "id": "a39",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v39",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 영어 gambling"
+  },
+  {
+   "id": "a40",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v40",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 조건 만남+오픈채팅(대조군)"
+  },
+  {
+   "id": "a41",
+   "url": "http://127.0.0.1:8170/board/view?id=103",
+   "location": "div.v41",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "어휘: 카톡ID casino77(대조군)"
+  },
+  {
+   "id": "a28b",
+   "url": "http://127.0.0.1:8170/board/view?id=102",
+   "location": "div.far-box > p:nth-of-type(1)",
+   "technique": "OFFSCREEN",
+   "evidence_text": "",
+   "note": "숨김 상자가 광고 하나만 감싸면 상자와 자식 둘 다 (S2 s-wrap1과 같은 규칙)"
+  }
+ ],
+ "decoys": [
+  {
+   "url": "http://127.0.0.1:8170/",
+   "location": "a.skip",
+   "note": "접근성 본문 바로가기"
+  },
+  {
+   "url": "http://127.0.0.1:8170/",
+   "location": "li.sub-adult > a",
+   "note": "닫힌 메뉴: 성인반 수강 신청 문의"
+  },
+  {
+   "url": "http://127.0.0.1:8170/",
+   "location": "div.tab-travel",
+   "note": "닫힌 탭: 외화 환전 안내 문의"
+  },
+  {
+   "url": "http://127.0.0.1:8170/",
+   "location": "div.notice-visible",
+   "note": "정상 공지"
+  },
+  {
+   "url": "http://127.0.0.1:8170/board/list",
+   "location": "table.bbs tr:last-child a",
+   "note": "정상 전각·한자"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "dd.faq-toto",
+   "note": "닫힌 FAQ: 스포츠토토 당첨금 지급 문의"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "dd.faq-loan",
+   "note": "닫힌 FAQ: 불법 대출 피해 신고"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "p.print-only",
+   "note": "인쇄용: 성인 독감 접종 문의"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "span.sr-only",
+   "note": "새창 열림"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "label.sr-only",
+   "note": "검색어 입력"
+  },
+  {
+   "url": "http://127.0.0.1:8170/board/view?id=101",
+   "location": "ul.cmt > li:nth-of-type(8)",
+   "note": "α β 정상 그리스 문자"
+  }
+ ],
+ "extra": [
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "p.visible-ad",
+   "extra_finding": "VISIBLE_AD",
+   "note": "그냥 보이는 광고"
+  },
+  {
+   "url": "http://127.0.0.1:8170/guide",
+   "location": "p.stroke-ad",
+   "extra_finding": "VISIBLE_AD",
+   "note": "color:transparent + text-stroke (실제로 보임)"
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 """adGuard 진입점 (골격).
 
-- 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다
+- 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다 (--no-report <URL>: 보고서·캡처 생략)
 - 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
 - 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
 - 결과: exe 폴더에 result.json(채점용), result_extra.json(추가 유형), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
@@ -244,6 +244,8 @@ def main():
     args = sys.argv[1:]
     if args[:1] == ["--smoke-gui"]:
         gui(args[1])
+    elif args[:1] == ["--no-report"]:  # 탐지와 결과 파일만 (보고서·캡처 생략). 채점 자동화용
+        scan(args[1])
     elif args:
         run_all(args[0])
     else:
