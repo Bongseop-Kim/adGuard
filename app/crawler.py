@@ -140,7 +140,12 @@ def norm(u):
     path = re.sub(r";jsessionid=[^/?#]*", "", s.path, flags=re.I).rstrip("/") or "/"
     if s.query and path.endswith("/index.php"):  # XE·라이믹스 /?mid=…와 /index.php?mid=…는 같은 페이지 (P7)
         path = path[:-10] or "/"
-    q = urllib.parse.urlencode(sorted(urllib.parse.parse_qsl(s.query, keep_blank_values=True)))
+    qs = urllib.parse.parse_qsl(s.query, keep_blank_values=True)
+    d = dict(qs)
+    if "mid" in d and set(d) <= {"mid", "document_srl"} and len(qs) == len(d):
+        # XE·라이믹스 고유 주소: ?mid=board&document_srl=123 ≡ /board/123 (canonical로 합치기 전에 같은 키로)
+        path, qs = path.rstrip("/") + "/" + "/".join(v for v in (d["mid"], d.get("document_srl")) if v), []
+    q = urllib.parse.urlencode(sorted(qs))
     return "%s%s%s" % (s.netloc.lower(), path, "?" + q if q else "")
 
 
