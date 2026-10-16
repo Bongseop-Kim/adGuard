@@ -54,6 +54,9 @@ jobs:
           $gui
           if (-not ($gui -match "UI: WebView2") -or -not ($gui -match "동봉 Chromium")) { throw "WebView2 창 모드 실패" }
           if (-not ($gui -match "보고서 저장") -or -not (Test-Path "$dest\report.html")) { throw "창 모드 보고서 실패" }
+          $env:PLAYWRIGHT_BROWSERS_PATH = "$dest\browsers"  # 동봉 headless shell로 보고서를 열어 본다
+          python eval/reportcheck.py "$dest\report.html"
+          if ($LASTEXITCODE -ne 0) { throw "report.html 스크립트 오류" }
           Stop-Process -Id $srv.Id
           python eval/validate.py "$dest\result.json"
           if ($LASTEXITCODE -ne 0) { throw "result.json 스키마 위반" }

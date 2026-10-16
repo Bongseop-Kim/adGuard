@@ -13,6 +13,8 @@ import asyncio
 import json
 import re
 import struct
+import unicodedata
+import urllib.parse
 import zlib
 
 import textcheck
@@ -466,6 +468,24 @@ async def text_invisible(page, frame, i):
         await h.dispose()
 
 
+def isap_reflect(found, url, title):
+    """4종 밖 추가 유형 S-1 ISAP: 주소의 검색어 값이 광고이고 그 값이 <title>에 그대로 들어감 (USENIX Security 2024 기준).
+    같은 글로 낸 다른 추가 유형(보이는 광고·제목 속 광고)은 이 페이지에서는 원인이 검색 반사라 뺀다"""
+    if not title:
+        return
+    sq = lambda s: re.sub(r"\s+", "", unicodedata.normalize("NFKC", s)).lower()
+    for _, v in urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query):
+        if len(v.strip()) < 5 or sq(v) not in sq(title[0]) or not textcheck.check(v)["ad"]:
+            continue
+        for f in found:
+            if f["technique"] == "ETC" and sq(v) in sq(f["evidence_text"]):
+                f["drop"] = True
+        t = textcheck.check(v)
+        found.append({"location": title[1], "technique": "ETC", "extra_finding": "ISAP_SEARCH_REFLECTION", "evidence_text": v,
+                      "reason": "주소의 검색어가 페이지 제목에 그대로 반사됨 (내부 검색 악용)", "norm": t["norm"], "kw": t["kw"]})
+        return
+
+
 async def analyze(page, url):
     """crawler가 부르는 페이지 분석. 프레임을 위에서부터 내려가며 location 접두어와 숨김 상속을 넘긴다"""
     found = []
@@ -593,6 +613,7 @@ async def analyze(page, url):
         return mine
 
     await walk(page.main_frame, "", {"OFFSCREEN": [], "TRANSPARENT": []})
+    isap_reflect(found, page.url, await ev(page, "() => { const t = document.querySelector('title'); return t && [t.textContent, window.__adg.locate(t)]; }"))
     seen, out = set(), []
     for f in found:
         k = (f["location"], f["technique"], f.get("extra_finding"))

@@ -158,7 +158,14 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
             m = re.search(r"net::\w+|Timeout[^\\]*", c.errors[0][1])
             error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
         log("점검 실패: " + error)
-    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl)
+    diag = []
+    if pages:  # 사이트 진단 (todo/08): 탐지 시간 밖, 보고서에만 싣는다
+        import extra
+        try:
+            diag = asyncio.run(extra.run(url, log))
+        except Exception as e:
+            log("진단 단계 오류(보고서는 진단 없이 만듦): %r" % e)
+    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag)
 
 
 def ui_html():

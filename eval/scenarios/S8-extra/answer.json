@@ -75,6 +75,12 @@
       "location": "p.r-rtl",
       "extra_finding": "VISIBLE_AD",
       "note": "대조군: direction:rtl만으로는 한글 순서가 안 바뀜"
+    },
+    {
+      "url": "http://127.0.0.1:8200/search?q=%EC%B9%B4%EC%A7%80%EB%85%B8+%EA%B0%80%EC%9E%85%EC%BD%94%EB%93%9C+TEST801+%40test_promo_801",
+      "location": "title",
+      "extra_finding": "ISAP_SEARCH_REFLECTION",
+      "note": "인기 검색어 위젯의 광고 검색어가 <title>에 반사. 본문 반사(VISIBLE_AD)·제목(ATTR_META_AD)은 이 유형으로 합침"
     }
   ],
   "extra_decoys": [
@@ -85,6 +91,18 @@
     {
       "url": "http://127.0.0.1:8200/s5/decoy",
       "note": "히브리어·아랍어 rtl, 역순 메뉴, 정상 bidi-override, RLM 전화번호, order 카드. 추가 유형 0건"
+    },
+    {
+      "url": "http://127.0.0.1:8200/search?q=%EB%AF%BC%EC%9B%90+%EC%84%9C%EC%8B%9D+%EB%82%B4%EB%A0%A4%EB%B0%9B%EA%B8%B0",
+      "note": "정상 검색어 반사. 추가 유형 0건"
     }
-  ]
+  ],
+  "diagnosis": {
+    "/": "위험",
+    "/s1/safe": "안전(noindex)",
+    "/s1/body": "참고(본문만 반사)",
+    "/s1/post": "안전(POST)",
+    "/s1/external": "안전(외부 검색엔진)",
+    "/s4/meta": "판정 불가(검색창 없음)"
+  }
 }

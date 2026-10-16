@@ -31,7 +31,8 @@ TECH = {
 }
 EXTRA = {"INVISIBLE_CHAR": "추가 유형: 보이지 않는 문자 삽입", "VISIBLE_AD": "추가 유형: 그대로 보이는 광고",
          "HTML_COMMENT_AD": "추가 유형: HTML 주석 속 광고", "ATTR_META_AD": "추가 유형: 제목·메타·속성 속 광고",
-         "VISUAL_REORDER": "추가 유형: 화면 순서 뒤집기"}  # result_extra.json의 extra_finding
+         "VISUAL_REORDER": "추가 유형: 화면 순서 뒤집기",
+         "ISAP_SEARCH_REFLECTION": "추가 유형: 내부 검색 반사 광고"}  # result_extra.json의 extra_finding
 HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
@@ -139,7 +140,7 @@ def group(items, history, now):
         hack = any(not user_area(loc) and all((u, loc) in hidden for u in locs[loc]) for loc in rep) and not own_link(f)
         tech = f["technique"]
         # 그대로 보이는 광고는 시민이 바로 보는 게시물, 제목·메타 속 광고는 검색 결과에 뜨는 글이라 숨김과 같은 '위험'
-        risk = "심각" if hack else "위험" if tech in HIDDEN or f.get("extra_finding") in ("VISIBLE_AD", "ATTR_META_AD", "VISUAL_REORDER") else "참고"
+        risk = "심각" if hack else "위험" if tech in HIDDEN or f.get("extra_finding") in ("VISIBLE_AD", "ATTR_META_AD", "VISUAL_REORDER", "ISAP_SEARCH_REFLECTION") else "참고"
         kw = f.get("kw") or []
         groups.append({
             "fp": fp, "technique": tech, "tech_label": TECH.get(tech) or EXTRA.get(f.get("extra_finding"), "추가 유형"), "risk": risk, "cause": HACK if hack else POST,
@@ -348,7 +349,7 @@ def compare(base, meta, groups, status):
     return {"prev_at": prev["finished_at"], "new": count("신규"), "kept": count("지속"), "again": count("재발"), "resolved": gone}
 
 
-def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None):
+def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None, diag=None):
     base = main.base_dir()
     hist_path = os.path.join(base, "history.json")
     try:
@@ -374,6 +375,7 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
         "pages": pages or [],  # 방문한 전체 페이지와 발견 경로 (사이트 지도)
         "guide": GUIDE,
         "diff": diff,
+        "diag": diag or [],  # 사이트 진단 (extra.py): 검색 노출 위험 등
         "statuses": STATUSES,
         # R20: AI 판정은 todo/08에서 연결. 켜지면 rows에 [항목, 값] (후보·규칙 확정·전송·캐시·호출·거부·토큰·비용·바뀐 판정)
         "ai": {"enabled": False, "reason": "이 버전은 규칙만으로 판정합니다. 외부로 보낸 데이터 0건, 사용 토큰 0, 비용 0원."},

@@ -177,6 +177,7 @@ NOISE = {"device", "sca", "sfl", "stx", "sst", "sod", "sop", "spt", "searchcnd",
 LANG_URL = re.compile(r"[?&](?:lang|lang_type|locale|language)=(?!ko)", re.I)
 LANG_CODE = re.compile(r"lang|locale", re.I)
 PAGE_KEYS = {"page", "pageindex", "pageno", "pagenum", "currentpage", "curpage"}
+SEARCH_KEYS = {"q", "query", "keyword", "kwd", "searchwrd", "searchkeyword", "search", "sw", "stx", "word", "skeyword", "searchword"}
 ID_KEYS = {"id", "wr_id", "nttid", "no", "idx", "seq", "document_srl", "articleno", "bno", "num", "p", "nttsn", "postid"}
 DATE_KEYS = {"ym", "yyyymm", "year", "month", "day", "date", "yy", "mm", "dd", "caldate", "sdate", "edate", "week"}
 DATE_VAL = re.compile(r"^\d{4}[-./]?\d{2}(?:[-./]?\d{2})?$")
@@ -248,7 +249,8 @@ def signature(u):
 def priority(u):
     s = urllib.parse.urlsplit(u.lower())
     keys = {k for k, _ in urllib.parse.parse_qsl(s.query)}
-    if keys & ID_KEYS or re.search(r"view|read|detail|article", s.path):
+    # 검색어 붙은 주소: 인기 검색어 위젯 등으로 사이트 안에 퍼진 검색 반사 광고(ISAP)를 먼저 본다 (research/11 S-1)
+    if keys & ID_KEYS or keys & SEARCH_KEYS or re.search(r"view|read|detail|article", s.path):
         return 1
     if keys & PAGE_KEYS or re.search(r"list|board|bbs", s.path):
         return 2
