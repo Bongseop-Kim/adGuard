@@ -29,25 +29,48 @@ INIT = r"""
   const as = Element.prototype.attachShadow;
   Element.prototype.attachShadow = function (i) { return as.call(this, Object.assign({}, i, { mode: 'open' })); };
   // 3초 이하 setTimeout을 세어 둔다: 로드 뒤 JS가 넣는 광고를 기다리기 위해
+  // 타이머 안에서 다시 거는 200ms 이상 타이머(시계·롤링 배너의 반복)는 세지 않는다: 기다리면 끝없이 3초를 채운다 (research/14 §4)
+  // 반복으로 확인된 타이머의 코드 지문은 sessionStorage에 남겨 같은 사이트 다음 페이지에서는 처음부터 안 센다
   const st = window.setTimeout, ct = window.clearTimeout, ids = new Set();
+  let inCb = 0, rep = new Set();
+  try { rep = new Set(JSON.parse(sessionStorage.getItem('__adgRep') || '[]')); } catch (e) {}
+  const sig = f => typeof f === 'function' ? String(f).slice(0, 120) : String(f).slice(0, 120);
   window.__adgST = st; window.__adgT = ids;
   window.setTimeout = function (f, d, ...a) {
-    const id = st.call(window, function (...x) { ids.delete(id); return typeof f === 'function' ? f.apply(this, x) : (0, eval)(f); }, d, ...a);
-    if (!(d > 3000)) ids.add(id);
+    const id = st.call(window, function (...x) {
+      ids.delete(id); inCb++;
+      try { return typeof f === 'function' ? f.apply(this, x) : (0, eval)(f); } finally { inCb--; }
+    }, d, ...a);
+    if (inCb && d >= 200 && !rep.has(sig(f))) {
+      rep.add(sig(f)); try { sessionStorage.setItem('__adgRep', JSON.stringify([...rep].slice(-50))); } catch (e) {}
+    }
+    if (!(d > 3000) && !(d >= 200 && (inCb || rep.has(sig(f))))) ids.add(id);
     return id;
   };
   window.clearTimeout = function (id) { ids.delete(id); return ct.call(window, id); };
+  // 무한 스크롤 단서: scroll 리스너나 IntersectionObserver를 쓰는 페이지만 바닥까지 스크롤해 본다
+  const ael = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (t, ...a) {
+    if (t === 'scroll' || t === 'wheel') window.__adgScroll = true;
+    // 클릭 리스너가 걸린 목록 행(addEventListener로 연결한 글 이동): 클릭 후보로 표시
+    if (t === 'click' && this instanceof Element && /^(TR|LI|TD|DIV|SPAN|DT|DD|ARTICLE)$/.test(this.tagName)) this.setAttribute('data-adg-click', '');
+    return ael.call(this, t, ...a);
+  };
+  if (window.IntersectionObserver) { const IO = window.IntersectionObserver;
+    window.IntersectionObserver = function (...a) { window.__adgScroll = true; return new IO(...a); };
+    window.IntersectionObserver.prototype = IO.prototype; }
   // loading="lazy" iframe·img를 바로 불러온다 (안 그러면 프레임 evaluate가 무한 대기)
   const eager = n => { if (n.nodeType === 1) for (const e of [n, ...n.querySelectorAll('[loading]')]) if (e.loading === 'lazy') e.loading = 'eager'; };
   new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(eager); }).observe(document, { childList: true, subtree: true });
 })();
 """
 
-# DOM 변화가 300ms 없고 대기 중인 짧은 타이머가 없을 때까지 (최대 3초)
+# 요소가 새로 붙는 변화가 300ms 없고 대기 중인 짧은 타이머가 없을 때까지 (최대 3초)
+# 글자·속성만 바뀌는 변화(시계 숫자, 롤링 배너의 위치)는 안 센다: 끝나지 않는다 (research/14 §4)
 SETTLE_JS = r"""() => new Promise(res => {
   let last = Date.now(); const t0 = last, st = window.__adgST || setTimeout;
-  const mo = new MutationObserver(() => last = Date.now());
-  mo.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+  const mo = new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(n => n.nodeType === 1))) last = Date.now(); });
+  mo.observe(document, { subtree: true, childList: true });
   (function tick() {
     const now = Date.now();
     if ((now - last >= 300 && !(window.__adgT && window.__adgT.size)) || now - t0 > 3000) { mo.disconnect(); res(); }
@@ -59,11 +82,29 @@ LINKS_JS = r"""() => {
   const out = new Set(), texts = [];
   const abs = u => { try { return new URL(u.trim(), document.baseURI).href; } catch (e) { return null; } };
   const add = u => { const a = u && abs(u); if (a) out.add(a); };
+  // 쪽 이동 폼: 글을 쓰는 칸 없이 숨은 값·select·버튼만 있는 폼. GET은 select 값마다 주소로, POST는 본문과 함께 (research/14 §3-5)
+  const posts = [];
+  const form = f => {
+    const method = (f.getAttribute('method') || 'get').toLowerCase(), action = f.getAttribute('action') || location.href;
+    if (method === 'get') add(action);
+    const els = [...f.elements].filter(x => x.name && !x.disabled);
+    if (!els.length || els.some(x => x.tagName === 'TEXTAREA' || (x.tagName === 'INPUT' && !/^(hidden|submit|button|image|radio|checkbox)$/.test(x.type)))) return;
+    const base = els.filter(x => x.tagName !== 'SELECT' && !/^(submit|button|image)$/.test(x.type) && (!/^(radio|checkbox)$/.test(x.type) || x.checked)).map(x => [x.name, x.value]);
+    const sel = els.find(x => x.tagName === 'SELECT');
+    const combos = sel ? [...sel.options].slice(0, 50).map(o => base.concat([[sel.name, o.value]])) : [base];
+    for (const c of combos) {
+      const q = new URLSearchParams(c).toString();
+      if (method === 'get') { const u = abs(action); if (u) { const x = new URL(u); x.search = q; out.add(x.href); } }
+      else if (method === 'post') { const u = abs(action); if (u) posts.push([u, q]); }
+    }
+  };
   const walk = root => {
-    for (const e of root.querySelectorAll('a[href],area[href],[data-href],[data-url],form[action],meta[http-equiv],[onclick]')) {
+    for (const e of root.querySelectorAll('a[href],area[href],link[rel~=next][href],link[rel~=prev][href],[data-href],[data-url],form,meta[http-equiv],[onclick],select[onchange]')) {
       const t = e.tagName;
       if (t === 'A' || t === 'AREA') { if (!/^(ko|$)/i.test(e.getAttribute('hreflang') || '')) continue; add(e.getAttribute('href')); }
-      else if (t === 'FORM') { if ((e.getAttribute('method') || 'get').toLowerCase() === 'get') add(e.getAttribute('action')); }
+      else if (t === 'LINK') add(e.getAttribute('href'));
+      else if (t === 'FORM') form(e);
+      else if (t === 'SELECT') { if (/location|href|open\(/.test(e.getAttribute('onchange'))) for (const o of e.options) if (o.value) add(o.value); }
       else if (t === 'META') { const m = /url\s*=\s*['"]?([^'"]+)/i.exec(e.getAttribute('content') || ''); if (m) add(m[1]); }
       add(e.getAttribute('data-href')); add(e.getAttribute('data-url'));
       if (e.hasAttribute('onclick')) texts.push(['q', e.getAttribute('onclick')]);
@@ -77,8 +118,13 @@ LINKS_JS = r"""() => {
   // 문자열 속 URL: 스크립트·onclick은 따옴표 안, 주석은 공백 뒤 경로
   const Q = /["'`]((?:https?:)?\/[^"'`\s<>]*)["'`]/g, C = /(?:^|[\s:("'=])((?:https?:\/\/|\/)[^\s"'<>()]+)/g;
   for (const [k, t] of texts) for (const m of (t || '').matchAll(k === 'q' ? Q : C)) add(m[1]);
-  return { links: [...out], scripts: [...document.querySelectorAll('script[src]')].map(s => s.src) };
+  return { links: [...out], posts, scripts: [...document.querySelectorAll('script[src]')].map(s => s.src) };
 }"""
+
+SIZE_JS = "() => document.documentElement.textContent.length"
+# 화면 내용 지문: 글자 수가 같은 쪽 교체(글 1-1 → 글 2-1)도 잡는다
+SIG_JS = """() => { const t = document.documentElement.textContent; let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; }"""
 
 # 같은 페이지에 내용을 덧붙이는 버튼: 보이고, 다른 주소로 가는 href가 없는 것
 EXPAND_JS = r"""() => {
@@ -94,17 +140,23 @@ EXPAND_JS = r"""() => {
   return out;
 }"""
 
-CAND = '[onclick],a[href^="javascript:" i]'
+CAND = '[onclick],a[href^="javascript:" i],[data-adg-click]'
 CANDS_JS = r"""(sel) => [...document.querySelectorAll(sel)].map(e => {
   const h = e.getAttribute('href') || '';
   let js = ''; try { js = /^javascript:/i.test(h) ? decodeURIComponent(h.slice(11)) : ''; } catch (x) {}
-  return [(e.getAttribute('onclick') || '') + ';' + js, (e.textContent || '').trim().slice(0, 40)];
+  const code = (e.getAttribute('onclick') || '') + ';' + js;
+  // 코드 없이 리스너만 있으면 태그·클래스로 묶는다
+  return [code === ';' && e.hasAttribute('data-adg-click') ? '@ev:' + e.tagName + '.' + (e.classList[0] || '') : code,
+          (e.textContent || '').trim().slice(0, 40)];
 })"""
 CLICK_JS = "([sel, i]) => { const e = document.querySelectorAll(sel)[i]; if (e) e.click(); }"
 
 # 누르거나 방문하면 안 되는 것 (research/03 §1)
 # URL·onclick 코드는 영어 토큰으로, 버튼 글자는 이름 전체가 위험 단어일 때만 ("전입신고 안내"·"추천 도서"는 통과)
-DANGER = re.compile(r"delete|remove|update|write|insert|logout|logoff|signout|vote|print|modify|"
+# 지우기·로그아웃은 부분 일치로, 쓰기·인쇄 등은 낱말일 때만 (/updates/, /blueprint/, /writer/는 통과. research/14 §3-5)
+# ctx.route에도 쓰므로 JS 정규식으로도 옮겨지는 문법만 쓴다
+DANGER = re.compile(r"delete|remove|logout|logoff|signout|withdraw|"
+                    r"(?<![a-z])(?:update|write|insert|vote|print|modify)(?:form|proc|ok|act|action|article|post|comment|confirm|exec|submit)?(?![a-z])|"
                     r"act=disp\w*(?:delete|modify|write|reply)|act=dispmember|sns_send|sharer?\.php", re.I)
 DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|답글|로그아웃|탈퇴|추천|신고|스크랩|인쇄|검색|delete|edit|write|"
                           r"logout|print)(?:하기)?\s*$", re.I)
@@ -114,6 +166,9 @@ INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back
 DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down|bbs/link\.php", re.I)
 SKIP_EXT = re.compile(r"\.(pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|"
                       r"wmv|wav|css|js|json|xml|txt|exe|msi|apk|woff2?|ttf)$", re.I)
+# 쿼리 값의 확장자: 이미지·영상은 늘 건너뛰고(view_image.php?fn=a.jpg), 문서는 내려받기 경로일 때만 (preview?file=a.hwp는 HTML 미리보기)
+MEDIA_EXT = re.compile(r"\.(jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|wmv|wav)$", re.I)
+DOWNLOAD_PATH = re.compile(r"down|file|attach|get_?file", re.I)
 # 글 내용을 바꾸지 않는 정렬·검색·분류 꼬리표 (그누보드 $qstr·device, 전자정부 search*, XE·라이믹스)
 NOISE = {"device", "sca", "sfl", "stx", "sst", "sod", "sop", "spt", "searchcnd", "searchwrd", "searchkeyword", "searchcondition",
          "searchtype", "searchword", "sort", "order", "orderby", "sortorder", "sortfield",
@@ -140,7 +195,8 @@ META_REFRESH = re.compile(r"<meta[^>]+http-equiv\s*=\s*[\"']?refresh[^>]*content
 NET_ERR = re.compile(r"Timeout|net::ERR_")
 # 서버가 버거워서 생긴 실패가 아닌 것: 다른 호스트로 보내진 뒤 DNS·인증서 실패, 리다이렉트 반복(사이트 설정 오류), 차단한 요청 (P11)
 NOT_SERVER = re.compile(r"ERR_NAME_NOT_RESOLVED|ERR_TOO_MANY_REDIRECTS|ERR_CERT|ERR_ABORTED|ERR_BLOCKED|ERR_UNKNOWN_URL_SCHEME|ERR_INVALID")
-CAP_DATE, CAP_PATTERN = 24, 500  # ponytail: 패턴당 고정 상한, 실제 사이트에서 모자라면 조정
+# 패턴당 상한. 날짜형(무한 달력)은 넘으면 버리고, 그 밖은 CAP_PATTERN을 넘으면 맨 뒤로 미뤘다가 CAP_HARD에서 버린다 (research/03 결론 5)
+CAP_DATE, CAP_PATTERN, CAP_HARD = 24, 500, 3000
 
 
 def norm(u):
@@ -294,7 +350,8 @@ class Crawler:
             s = urllib.parse.urlsplit(url)
             # 쿼리 값의 확장자도 본다: view_image.php?fn=a.jpg (P12)
             if not self.in_scope(url) or SKIP_EXT.search(s.path) or LANG_URL.search(url) or \
-                    any(SKIP_EXT.search(v) for _, v in urllib.parse.parse_qsl(s.query)):
+                    any(MEDIA_EXT.search(v) or SKIP_EXT.search(v) and DOWNLOAD_PATH.search(s.path)
+                        for _, v in urllib.parse.parse_qsl(s.query)):
                 return
             if DANGER.search(url) or DOWNLOAD.search(url):
                 self.blocked += key not in self.seen
@@ -306,11 +363,11 @@ class Crawler:
         self.via[key] = via
         sig, is_date = signature(url)
         self.sig_count[sig] = n = self.sig_count.get(sig, 0) + 1
-        if n > (CAP_DATE if is_date else CAP_PATTERN):
+        if n > (CAP_DATE if is_date else CAP_HARD):
             self.dropped += 1
             return
         self.seq += 1
-        heapq.heappush(self.heap, (priority(url), depth, self.seq, url, post))
+        heapq.heappush(self.heap, (priority(url) + (10 if n > CAP_PATTERN else 0), depth, self.seq, url, post))
 
     def same(self, url, key):
         """url이 key(본문 해시·canonical)로 본 페이지와 같다. 같은 페이지의 주소들이 파라미터 하나만 다르면 그 파라미터를 근거로 모으고,
@@ -563,8 +620,12 @@ class Crawler:
             self.same(url, ("h", h))
         if h in self.hashes:  # 같은 글이 다른 URL로 (꼬리표·세션 등): 대표 URL만 짧은 것으로 바꾼다
             r = self.results[self.hashes[h]]
-            if len(final) < len(r["url"]) and not any(norm(x["url"]) == norm(final) for x in self.results):
-                r["url"] = final  # 다른 결과가 이미 쓰는 주소로는 바꾸지 않는다 (결과 주소가 겹치면 한 쪽이 덮인다)
+            # POST로 연 주소(action, 쿼리 없음)는 대표로 안 쓴다: 같은 목록의 GET 주소에서 쿼리가 빠진다
+            # POST로 먼저 기록된 글은 GET 주소로. 쿼리를 통째로 잃는 짧은 주소(…List.do?bbsId=X → …List.do)는 대표로 안 쓴다
+            shorter = len(final) < len(r["url"]) and (urllib.parse.urlsplit(final).query or not urllib.parse.urlsplit(r["url"]).query)
+            better = post is None and (r.get("post") or shorter)
+            if better and not any(norm(x["url"]) == norm(final) for x in self.results):
+                r["url"], r["post"] = final, False  # 다른 결과가 이미 쓰는 주소로는 바꾸지 않는다 (결과 주소가 겹치면 한 쪽이 덮인다)
             return
 
         caught, state = [], {"armed": False, "aborted": False}
@@ -579,13 +640,24 @@ class Crawler:
             else:
                 await route.continue_()
 
-        async def act(frame_url, js, arg):
+        async def reopen():
+            try:  # abort하면 오류 페이지가 되므로 다시 연다
+                await self.open(page, url, post)
+            except Exception:  # 오류 페이지로 가는 이동과 겹치면 끊긴다 ("interrupted by another navigation")
+                await asyncio.sleep(0.3)
+                await self.open(page, url, post)
+            await with_timeout(page.wait_for_load_state("load"), 5)
+            await with_timeout(page.evaluate(SETTLE_JS), 4)
+
+        async def act(frame_url, js, arg, watch=None):
             """프레임에서 js(클릭)를 실행하고 상위 페이지 이동 요청을 가로챈다. 이동했으면 페이지를 다시 연다.
+            watch(결과 항목)를 주면 이동 없이 화면만 바뀐 클릭(AJAX 쪽 교체·탭·모달)에서 링크를 모으고 다시 분석해 합친 뒤 다시 연다.
             반환: (가로챈 요청 또는 None, 페이지를 다시 열었는지)"""
             f = next((f for f in page.frames if f.url == frame_url), None)
             if f is None:
                 return None, False
             caught.clear()
+            size0 = watch is not None and await with_timeout(page.evaluate(SIG_JS), 3)
             before, state["aborted"], state["armed"] = page.url, False, True
             await with_timeout(f.evaluate(js, arg), 3)
             for _ in range(20):  # setTimeout 뒤 이동까지 1초 기다림
@@ -595,14 +667,14 @@ class Crawler:
             state["armed"] = False
             got = caught[0] if caught else (("GET", page.url, None) if page.url != before else None)
             if state["aborted"] or page.url != before:
-                try:  # abort하면 오류 페이지가 되므로 다시 연다
-                    await self.open(page, url, post)
-                except Exception:  # 오류 페이지로 가는 이동과 겹치면 끊긴다 ("interrupted by another navigation")
-                    await asyncio.sleep(0.3)
-                    await self.open(page, url, post)
-                await with_timeout(page.wait_for_load_state("load"), 5)
-                await with_timeout(page.evaluate(SETTLE_JS), 4)
+                await reopen()
                 return got, True
+            if watch is not None:
+                await with_timeout(page.evaluate(SETTLE_JS), 4)
+                if size0 and await with_timeout(page.evaluate(SIG_JS), 3) != size0:
+                    await self.harvest(page, depth, final, watch, "클릭 뒤 바뀐 화면")
+                    await reopen()
+                    return "changed", True
             return got, False
 
         await page.route("**/*", intercept)
@@ -610,33 +682,46 @@ class Crawler:
             await self.expand(page, act, depth, final)
             for f in page.frames:
                 got = await with_timeout(f.evaluate(LINKS_JS), 5) or {}
-                for u in got.get("links", []):
-                    self.push(u, depth + 1, via=(final, "링크"))
+                self.take(got, depth, final, "링크")
                 for js in got.get("scripts", []):
                     await self.js_links(page, js, depth, final)
 
+            if page.url.startswith("http") and norm(minimize(page.url)) not in (norm(landed), norm(url)):
+                # 분석 전에 JS가 다른 곳으로 보냈다 (지연 리다이렉트): 원래 주소로 기록하지 않고 새 주소를 연다
+                self.push(page.url, depth + 1, via=(url, "자동 이동(스크립트)"))
+                return
             result = None
             if self.analyze:
                 result = await self.analyze(page, final)
             self.hashes[h] = len(self.results)
             self.canons.add(norm(final))
-            self.results.append({"url": final, "result": result, "path": self.path(url), "mobile": mobile})
+            self.results.append({"url": final, "result": result, "path": self.path(url), "mobile": mobile, "post": post is not None})
             self.log("[%d] %s" % (len(self.results), final))
 
-            await self.clicks(page, url, act, depth, final)
+            await self.clicks(page, url, act, depth, final, self.results[-1] if self.results[-1]["url"] == final else None)
         finally:
             await with_timeout(page.unroute("**/*", intercept), 3)
 
     async def expand(self, page, act, depth, parent):
         """'더보기'·'댓글 더보기'처럼 같은 페이지에 내용을 덧붙이는 버튼을 내용이 안 늘 때까지 누른다 (research/03 §2).
         ponytail: 덧붙이는 방식만. 탭·댓글 쪽번호처럼 내용을 바꿔 끼우는 AJAX는 상태별 분석이 필요해서 안 함"""
-        size = "() => document.documentElement.textContent.length"
-        for _ in range(5):
+        size = SIZE_JS
+        t_end = time.monotonic() + 8  # 회수 대신 시간으로 (댓글 더보기 6번 이상, research/14 §3-5)
+        for _ in range(30):
+            if time.monotonic() > t_end:
+                break
+            before = await with_timeout(page.evaluate(size), 3)
+            # 바닥까지 스크롤: 무한 스크롤이 다음 묶음을 붙인다 (스크롤을 듣는 페이지만)
+            scroll = await with_timeout(page.evaluate(
+                "() => !!window.__adgScroll && (window.scrollTo(0, document.documentElement.scrollHeight), true)"), 2)
             n = await with_timeout(page.evaluate(EXPAND_JS), 5) or []
             n = [k for k, text in n if not DANGER_LABEL.match(text)][:10]
             if not n:
+                if scroll:
+                    await with_timeout(page.evaluate(SETTLE_JS), 4)
+                    if await with_timeout(page.evaluate(size), 3) != before:
+                        continue
                 break
-            before = await with_timeout(page.evaluate(size), 3)
             for k in n:
                 got, reloaded = await act(page.main_frame.url, "(k) => { const e = document.querySelector('[data-adg-x=\"' + k + '\"]'); if (e) e.click(); }", k)
                 if got:
@@ -657,7 +742,23 @@ class Crawler:
         for m in re.finditer(r"[\"'`]((?:https?:)?/[^\"'`\s<>]*)[\"'`]", text):
             self.push(urllib.parse.urljoin(page.url, m.group(1)), depth + 1, via=(parent, "스크립트 속 주소"))
 
-    async def clicks(self, page, url, act, depth, parent):
+    def take(self, got, depth, parent, how):
+        for u in got.get("links", []):
+            self.push(u, depth + 1, via=(parent, how))
+        for u, body in got.get("posts", []):
+            self.push(u, depth + 1, body, via=(parent, "쪽 이동 폼(POST)"))
+
+    async def harvest(self, page, depth, parent, entry, how):
+        """지금 화면의 링크를 모으고 다시 분석해 entry 결과에 합친다 (location·technique이 같으면 1건)"""
+        for f in page.frames:
+            self.take(await with_timeout(f.evaluate(LINKS_JS), 5) or {}, depth, parent, how)
+        if self.analyze and entry is not None:
+            have = {(x["location"], x["technique"]) for x in entry["result"] or []}
+            for x in await self.analyze(page, parent) or []:
+                if (x["location"], x["technique"]) not in have:
+                    entry["result"] = (entry["result"] or []) + [dict(x, reason=x.get("reason", "") + " (%s)" % how)]
+
+    async def clicks(self, page, url, act, depth, parent, entry=None):
         """모든 프레임의 onclick·javascript: 링크를 눌러 상위 페이지 이동 요청을 가로챈다.
         함수마다 1번만 누르고 나머지는 인자 치환 (research/03 §3-4). 배운 템플릿은 같은 패턴 페이지에서 재사용"""
         sig = signature(url)[0]
@@ -669,6 +770,9 @@ class Crawler:
             for i, (code, text) in enumerate(cands):
                 if DANGER.search(code) or DANGER_LABEL.match(text) or LANG_CODE.search(code):
                     continue
+                if code.startswith("@ev:"):  # 리스너만 있는 요소: 묶음별로 하나씩 눌러 본다 (인자 치환 불가)
+                    groups.setdefault(code, []).append((i, None))
+                    continue
                 name, args = call_of(code)
                 if name and not args and "search" in name.lower():
                     continue  # 빈 검색 버튼: "검색어를 입력하세요" 경고만 뜬다. 인자가 있으면 쪽 이동일 수 있어 누른다
@@ -676,16 +780,42 @@ class Crawler:
                     groups.setdefault(name, []).append((i, args))
             for name, members in groups.items():
                 key = (sig, signature(furl)[0], name)
+                if name.startswith("@ev:"):
+                    if self.templates.get(key, 1) is None:
+                        continue  # 이 패턴 페이지에서 눌러 봐도 이동이 없던 묶음
+                    moved = False
+                    for i, _ in members[:10]:  # ponytail: 묶음당 10개, 쪽마다 전체 클릭 예산 안에서
+                        if budget <= 0:
+                            return
+                        budget -= 1
+                        r, _ = await act(furl, CLICK_JS, [CAND, i])
+                        if r:
+                            moved = True
+                            self.add_request(r, depth + 1, (parent, "클릭(목록 행)"))
+                        elif not moved:
+                            break
+                    self.templates[key] = 1 if moved else None
+                    continue
                 if key not in self.templates:  # 처음 2개까지 눌러 보고, 이동이 잡힌 것만 템플릿으로 쓴다
                     for i, args in members[:2]:
                         if budget <= 0:
                             return
                         budget -= 1
-                        got, _ = await act(furl, CLICK_JS, [CAND, i])
+                        got, _ = await act(furl, CLICK_JS, [CAND, i], entry)
+                        if got == "changed":  # AJAX로 화면만 바꾸는 함수(goPage 등): 나머지도 하나씩 누른다
+                            self.templates[key] = "ajax"
+                            break
                         if got:
                             self.templates[key] = (got, args)
                             break
                 tpl = self.templates.get(key)
+                if tpl == "ajax":
+                    for i, _ in members[1:]:
+                        if budget <= 0:
+                            return
+                        budget -= 1
+                        await act(furl, CLICK_JS, [CAND, i], entry)
+                    continue
                 if not tpl:
                     continue
                 req, args0 = tpl

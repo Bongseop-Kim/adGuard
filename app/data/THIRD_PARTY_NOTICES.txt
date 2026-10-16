@@ -1,0 +1,21 @@
+adGuard 제3자 구성 요소 고지 (Third-Party Notices)
+
+adGuard 실행 파일에는 아래 오픈소스 구성 요소가 함께 들어 있다. 각 라이선스 전문은 표기한 주소에서 볼 수 있다.
+
+| 구성 요소 | 버전 | 라이선스 | 출처 |
+|---|---|---|---|
+| Python | 3.12 | PSF License 2.0 | https://docs.python.org/3/license.html |
+| Playwright for Python | 1.64.0 | Apache License 2.0 | https://github.com/microsoft/playwright-python |
+| Chromium (headless shell, browsers/ 폴더) | Playwright 1.64 동봉판 | BSD 3-Clause 외 Chromium 구성 요소 라이선스 (browsers/ 안의 LICENSE 파일들) | https://www.chromium.org/ |
+| pyee, greenlet, typing_extensions (Playwright 의존성) | | MIT / MIT·PSF / PSF | PyPI 각 패키지 |
+| pywebview | 6.2.1 | BSD 3-Clause | https://github.com/r0x0r/pywebview |
+| pythonnet, proxy_tools, bottle (pywebview 의존성) | | MIT | PyPI 각 패키지 |
+| Microsoft Edge WebView2 Runtime | Windows 11 기본 설치본 (동봉하지 않음) | Microsoft 소프트웨어 사용 조건 | https://developer.microsoft.com/microsoft-edge/webview2/ |
+| PyInstaller 부트로더 | 6.22.3 | GPL 2.0 + 부트로더 예외 (실행 파일 배포 허용) | https://pyinstaller.org/en/stable/license.html |
+
+데이터
+
+- app/data/confusables_ascii.tsv: Unicode confusables.txt(UTS #39, 2026-08-06)에서 ASCII 1글자로 가는 항목만 추린 것.
+  Unicode License v3, https://www.unicode.org/license.txt
+- textcheck.py의 한글 닮은꼴 표(LOOK) 일부는 KOTOX iconic_dictionary(MIT)와 korcen(MIT)의 규칙을 참고해 다시 정리했다.
+- 화면 디자인은 KRDS(범정부 UI/UX 디자인 시스템)의 색·글자 단계 기준을 따랐다. 글꼴·이미지 파일은 동봉하지 않았다.
