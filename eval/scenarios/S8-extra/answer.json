@@ -4,13 +4,87 @@
   "answers": [],
   "decoys": [],
   "extra": [
-    {"url": "http://127.0.0.1:8200/s4/comment", "location": "div.news-body", "extra_finding": "HTML_COMMENT_AD", "note": "주석 속 광고"},
-    {"url": "http://127.0.0.1:8200/s4/meta", "location": "head > title", "extra_finding": "ATTR_META_AD", "note": "<title> 광고 (본문에 없음)"},
-    {"url": "http://127.0.0.1:8200/s4/meta", "location": "head > meta:nth-of-type(2)", "extra_finding": "ATTR_META_AD", "note": "<meta description> 광고"},
-    {"url": "http://127.0.0.1:8200/s4/attr", "location": "li.photo-1 > img", "extra_finding": "ATTR_META_AD", "note": "img alt 광고"},
-    {"url": "http://127.0.0.1:8200/s4/attr", "location": "li.photo-2 > a", "extra_finding": "ATTR_META_AD", "note": "a title 광고"}
+    {
+      "url": "http://127.0.0.1:8200/s4/comment",
+      "location": "div.news-body",
+      "extra_finding": "HTML_COMMENT_AD",
+      "note": "주석 속 광고"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s4/meta",
+      "location": "head > title",
+      "extra_finding": "ATTR_META_AD",
+      "note": "<title> 광고 (본문에 없음)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s4/meta",
+      "location": "head > meta:nth-of-type(2)",
+      "extra_finding": "ATTR_META_AD",
+      "note": "<meta description> 광고"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s4/attr",
+      "location": "li.photo-1 > img",
+      "extra_finding": "ATTR_META_AD",
+      "note": "img alt 광고"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s4/attr",
+      "location": "li.photo-2 > a",
+      "extra_finding": "ATTR_META_AD",
+      "note": "a title 광고"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "p.r-bidi > span",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "bidi-override rtl '노지카 라카바' → '바카라 카지노' (보이는 글, Inky 2019)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "p.r-rlo",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "U+202E '롯슬' → '슬롯'"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "div.r-rev",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "flex row-reverse"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "div.r-order",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "flex order '튀먹' → '먹튀'"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "p.r-rel",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "position:relative left로 글자 자리 바꿈 (flex 아님)"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "p.r-plain",
+      "extra_finding": "VISIBLE_AD",
+      "note": "대조군: 순서 그대로 → VISUAL_REORDER 아님"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/reorder",
+      "location": "p.r-rtl",
+      "extra_finding": "VISIBLE_AD",
+      "note": "대조군: direction:rtl만으로는 한글 순서가 안 바뀜"
+    }
   ],
   "extra_decoys": [
-    {"url": "http://127.0.0.1:8200/s4/decoy", "note": "예방 교육 주석·제목·메타·alt·aria-label·title. 추가 유형 0건이어야 함"}
+    {
+      "url": "http://127.0.0.1:8200/s4/decoy",
+      "note": "예방 교육 주석·제목·메타·alt·aria-label·title. 추가 유형 0건이어야 함"
+    },
+    {
+      "url": "http://127.0.0.1:8200/s5/decoy",
+      "note": "히브리어·아랍어 rtl, 역순 메뉴, 정상 bidi-override, RLM 전화번호, order 카드. 추가 유형 0건"
+    }
   ]
 }

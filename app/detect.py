@@ -186,6 +186,49 @@ function vtext(e) {
   return t;
 }
 
+// 화면 순서를 바꾸는 신호 (todo/08 S-5 VISUAL_REORDER): 방향 제어 문자, bidi override, flex·grid 역순·order,
+// 자식의 상대·절대 위치 이동·float. 이런 요소에서만 글자 좌표를 잰다 (비용 통제, research/11 신규 1)
+const BIDI_CH = /[\u202a-\u202e\u2066-\u2069]/;
+function reorderish(e) {
+  const txt = e.textContent;
+  if (txt.length > 300) return false;  // 광고 문구는 짧다. 본문 블록 전체를 재지 않는다
+  if (BIDI_CH.test(txt)) return true;
+  const s = cs(e);
+  if (/override/.test(s.unicodeBidi)) return true;
+  if (!/^horizontal/.test(s.writingMode)) return false;  // 세로쓰기는 DOM 순서가 곧 읽는 순서
+  const flex = /flex|grid/.test(s.display), rev = /reverse/.test(s.flexDirection) || /reverse/.test(s.flexWrap);
+  if (flex && rev) return true;
+  for (const k of e.children) {
+    const ks = cs(k);
+    if (/override/.test(ks.unicodeBidi) || (flex && ks.order !== '0')) return true;
+    if (!INLINE.has(k.tagName)) continue;  // 글자 자리 바꾸기는 인라인 조각에서. 레이아웃 상자의 float·위치는 흔하다
+    if (ks.float !== 'none') return true;
+    if (/relative|absolute/.test(ks.position) && ((ks.left !== 'auto' && parseFloat(ks.left)) || (ks.right !== 'auto' && parseFloat(ks.right)))) return true;
+    if (ks.transform !== 'none' && /matrix\(([^,]+,){4}\s*-?[1-9]/.test(ks.transform)) return true;  // translateX
+  }
+  return false;
+}
+// 글자마다 Range 좌표를 재서 줄(위→아래), 줄 안(왼→오른) 순서로 다시 읽는다. 그려지지 않는 글자는 빠진다
+function visualText(e) {
+  const ch = [], w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT), r = document.createRange();
+  while (w.nextNode() && ch.length < 500) {
+    const n = w.currentNode, p = n.parentElement;
+    if (!p || SKIP.has(p.tagName) || parseFloat(cs(p).fontSize) <= 1) continue;
+    const v = n.nodeValue;
+    for (let i = 0; i < v.length && ch.length < 500; ) {
+      const c = String.fromCodePoint(v.codePointAt(i)), j = i + c.length;
+      r.setStart(n, i); r.setEnd(n, j); i = j;
+      const b = r.getBoundingClientRect();
+      if (b.width <= 0 || b.height <= 0) continue;
+      ch.push({ c, x: b.left + b.width / 2, y: b.top + b.height / 2, h: b.height });
+    }
+  }
+  ch.sort((a, b) => a.y - b.y);
+  const lines = [];
+  for (const c of ch) { const l = lines[lines.length - 1]; if (l && Math.abs(c.y - l.y) < l.h / 2) l.c.push(c); else lines.push({ y: c.y, h: c.h, c: [c] }); }
+  return lines.map(l => l.c.sort((a, b) => a.x - b.x).map(c => c.c).join('')).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 // ---------- location ----------
 const STATE = new Set(['active', 'on', 'open', 'show', 'hover', 'focus', 'selected', 'current', 'visible', 'in', 'fade']);
 const HASH = /^(css|sc|jsx|emotion|styled|svelte)-|^_[\w-]{5,}$|_[a-zA-Z0-9]{5}$|[bcdfghjklmnpqrstvwxz]{4,}|\d[^\d]*\d[^\d]*\d|[a-z]\d+[a-z]+\d|\d[a-z]+\d+[a-z]|^(?=[a-z0-9]*\d[a-z])[a-z0-9]{4,8}$|^(is|has|ng|aos|swiper-slide|slick)-/i;
@@ -258,15 +301,17 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
       if (sp && (sp.off.length || sp.tr.length)) continue;
     }
     shown.set(e, !sg.off.length && !sg.tr.length && !sg.diff);
-    if (!all_ && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw) && !contactish.test(raw) && !KW.test(raw.replace(/\s+/g, ''))) continue;
+    const ro = reorderish(e);
+    if (!all_ && !ro && !sg.off.length && !sg.tr.length && !sg.diff && !sg.marquee && !odd.test(raw) && !contactish.test(raw) && !KW.test(raw.replace(/\s+/g, ''))) continue;
     const vt = vtext(e).replace(/\s+/g, ' ').trim();
+    const vis = ro ? visualText(e) : '';
     const i = C.push(e) - 1;
     e.__adgI = i;
     let anc = null;
     for (let n = up(e); n; n = up(n)) if (n.__adgI !== undefined && C[n.__adgI] === n) { anc = n.__adgI; break; }
     let rootSame = null;
     if (sg.root && sg.root !== e && sg.root.textContent.replace(/\s+/g, '') === e.textContent.replace(/\s+/g, '')) rootSame = C.push(sg.root) - 1;
-    out.push({ i, anc, block, raw: raw.slice(0, 500), text: vt.slice(0, 500), off: sg.off, tr: sg.tr, diff: sg.diff, marquee: sg.marquee, root: rootSame });
+    out.push({ i, anc, block, raw: raw.slice(0, 500), text: vt.slice(0, 500), vis, off: sg.off, tr: sg.tr, diff: sg.diff, marquee: sg.marquee, root: rootSame });
   }
   // 숨긴 글이 같은 페이지에 그대로 보이면 광고를 감추려는 숨김이 아니다: 접근성 제목(그누보드 #hd_h1), 댓글 수정 폼 등 (research/13 §1)
   // ponytail: 보이는 쪽 글만 본다. 화면 어디에도 없는 sr-only 광고는 그대로 검출. iframe이 숨겨져 있으면(all_) 따지지 않음
@@ -482,6 +527,14 @@ async def analyze(page, url):
 
     async def judge(frame, prefix, inherit, c):
         t = textcheck.check(c["text"])
+        reorder = None  # 4종 밖 추가 유형 S-5: DOM 순서에는 없고 화면 순서로 읽어야 나오는 키워드
+        if c.get("vis"):
+            tv = textcheck.check(c["vis"])
+            new = textcheck.keywords(textcheck.base(c["vis"])) - textcheck.keywords(textcheck.base(textcheck.BIDI.sub("", c["raw"])))
+            if tv["ad"] and new:
+                reorder = "화면에 그려진 순서로 읽으면: " + ", ".join(sorted(new)) + " (" + c["vis"][:60] + ")"
+                if not t["ad"]:
+                    t = tv
         if not t["ad"] or c.get("dup"):  # dup: 같은 글이 화면에 보인다. 보이는 쪽에서 판정한다
             return {}
         tech = {}
@@ -509,9 +562,9 @@ async def analyze(page, url):
                 tech[k] = t[k]
         # 4종 밖 추가 유형 VISIBLE_AD: 숨김·변형 없이 그냥 보이는 광고. 연락처·코드까지 있을 때만 (안내문 오탐 방지)
         visible = not tech and not off and not tr and (not c["diff"] or shot is False)
-        if visible and t["contact"]:
+        if visible and t["contact"] and not reorder:
             tech["VISIBLE_AD"] = "숨김·변형 없이 보이는 광고 (" + ", ".join(t["kw"]) + ")"
-        if not tech and not t["INVISIBLE"]:
+        if not tech and not t["INVISIBLE"] and not reorder:
             return {}
         loc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["i"])
         if not loc:
@@ -528,6 +581,9 @@ async def analyze(page, url):
         if t["INVISIBLE"]:  # 4종 밖 추가 유형: result_extra.json으로만 나간다 (모집요강 붙임4, technique "ETC")
             found.append({"location": prefix + loc, "technique": "ETC", "extra_finding": "INVISIBLE_CHAR",
                           "evidence_text": c["raw"], "reason": t["INVISIBLE"], "norm": t["norm"], "kw": t["kw"], **more})
+        if reorder:  # mine에 넣어 부모·자식이 같이 걸리면 안쪽만 남긴다
+            found.append(mine.setdefault("VISUAL_REORDER", {"location": prefix + loc, "technique": "ETC", "extra_finding": "VISUAL_REORDER",
+                          "evidence_text": c["raw"], "reason": reorder, "norm": t["norm"], "kw": t["kw"], **more}))
         # 숨김 루트가 광고만 감싸고 있으면 루트도 낸다 (04 §4.3)
         if c["root"] is not None and "OFFSCREEN" in tech:
             rloc = await ev(frame, "i => window.__adg.locate(window.__adg.C[i])", c["root"])

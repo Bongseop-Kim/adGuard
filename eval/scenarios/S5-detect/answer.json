@@ -390,6 +390,24 @@
         "J08"
       ],
       "note": "키워드 글자 사이 소프트 하이픈(U+00AD). 4종이 아니라 추가 유형 '보이지 않는 문자 삽입' (research/13 §3, 사이트 D)"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-bidi",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "숨긴 글의 화면 순서 뒤집기 (todo/08 S-5). 4종은 OFFSCREEN으로 따로"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "p.v-rlo",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "숨긴 글의 화면 순서 뒤집기 (todo/08 S-5). 4종은 OFFSCREEN으로 따로"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/vtext.html",
+      "location": "div.v-flex",
+      "extra_finding": "VISUAL_REORDER",
+      "note": "숨긴 글의 화면 순서 뒤집기 (todo/08 S-5). 4종은 OFFSCREEN으로 따로"
     }
   ]
 }

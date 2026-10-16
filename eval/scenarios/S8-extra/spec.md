@@ -10,5 +10,7 @@
 | `/s4/meta` | ATTR_META_AD ×2 | `<title>`·`<meta description>`에 광고, 본문에는 없음 |
 | `/s4/attr` | ATTR_META_AD ×2 | `img alt`, `a title`에 광고 |
 | `/s4/decoy` | (미끼) | 예방 교육 주석·제목·메타·alt, `aria-label="메뉴 열기"`, 본문과 같은 `title`. 추가 유형 0건 |
+| `/s5/reorder` | VISUAL_REORDER ×5, VISIBLE_AD ×2 | 보이는 글의 bidi-override, U+202E, flex row-reverse, order, position:relative left. 대조군: 순서 그대로, direction:rtl만 (→ VISIBLE_AD) |
+| `/s5/decoy` | (미끼) | 히브리어·아랍어 rtl, 역순 메뉴, 정상 bidi-override, RLM 전화번호, order 카드. 추가 유형 0건 |
 
 - 중복 제외: 같은 글이 화면에 보이면(제목 형식은 조각마다, NFKC 비교) 속성·제목 쪽은 내지 않는다 (S3 첫가끝 자모 제목 사례)
