@@ -7,6 +7,7 @@ import json
 import math
 import os
 import sys
+import urllib.parse
 from datetime import datetime
 
 TECH = {"HOMOGLYPH", "JAMO", "TRANSPARENT", "OFFSCREEN"}
@@ -17,6 +18,12 @@ def iso(s):
         return isinstance(s, str) and datetime.fromisoformat(s).tzinfo is not None
     except ValueError:
         return False
+
+
+def url_key(u):
+    """채점 규칙의 같은 페이지: 끝 /, http/https, # 이하 무시, 쿼리 순서 무시 (eval/scorer norm_url과 같음)"""
+    s = urllib.parse.urlsplit(str(u).strip())
+    return s.netloc.lower() + (s.path.rstrip("/") or "/") + "?" + "&".join(sorted(x for x in s.query.split("&") if x))
 
 
 def validate(path):
@@ -68,7 +75,7 @@ def validate(path):
         if f.get("id") in ids:
             p.append("%s.id 중복: %r" % (w, f.get("id")))
         ids.add(f.get("id"))
-        key = (f.get("url"), f.get("location"), f.get("technique"), f.get("extra_finding"))
+        key = (url_key(f.get("url")), f.get("location"), f.get("technique"), f.get("extra_finding"))
         if key in keys:
             p.append(w + " (url, location, technique) 중복")
         keys.add(key)

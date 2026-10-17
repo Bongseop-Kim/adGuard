@@ -66,6 +66,26 @@ function clipPathZero(v, b) {
   return false;
 }
 
+// 글자 밑에 실제로 칠해진 배경색: 그 점에 겹친 요소를 칠하는 순서대로 본다 (조상 아닌 형제 배경판 포함). 모르면 null
+function paintedBg(e) {
+  const r0 = rectsOf(e, false).find(r => r.width > 0 && r.height > 0);
+  if (!r0) return null;
+  const inView = r => r.left + 2 >= 0 && r.top + r.height / 2 >= 0 && r.left + 2 < innerWidth && r.top + r.height / 2 < innerHeight;
+  let r = r0;
+  if (!inView(r)) { e.scrollIntoView({ block: 'center', inline: 'nearest' }); r = rectsOf(e, false).find(r => r.width > 0 && r.height > 0); }
+  if (!r || !inView(r)) return null;
+  const st = document.elementsFromPoint(r.left + Math.min(r.width / 2, 4), r.top + r.height / 2), k = st.indexOf(e);
+  if (k < 0) return null;
+  let bg = [255, 255, 255, 1]; const layers = [];
+  for (const n of st.slice(k)) {
+    const s = cs(n);
+    if (s.backgroundImage !== 'none') return null;
+    const c = rgba(s.backgroundColor); if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break; }
+  }
+  for (const c of layers.reverse()) bg = over(c, bg);
+  return bg;
+}
+
 // 요소의 숨김 신호. box=true면 글자 대신 요소 박스로 본다 (iframe 요소용)
 function signals(e, box) {
   const off = [], tr = [];
@@ -132,7 +152,8 @@ function signals(e, box) {
     if (e.closest('marquee')) marquee = true;
   }
   // TRANSPARENT: 투명도는 조상까지 곱한다
-  if (s0.visibility !== 'visible') tr.push('visibility:' + s0.visibility);
+  // visibility:hidden은 모집요강 분류가 모호해 TRANSPARENT·OFFSCREEN 둘 다 낸다 (todo/12 결정)
+  if (s0.visibility !== 'visible') { tr.push('visibility:' + s0.visibility); off.push('visibility:' + s0.visibility); }
   let op = 1, blend = false, bgUnknown = false;
   for (let n = e; n && n.nodeType === 1; n = up(n)) {
     const s = cs(n); op *= parseFloat(s.opacity) * fop(s.filter);
@@ -154,7 +175,13 @@ function signals(e, box) {
     if (clipText) diff = true;
     else if (fill && fill[3] < 0.1 && !deco) tr.push('글자색 투명(' + (svg ? s0.fill : s0.webkitTextFillColor) + ')');
     else if (fill && !deco && !bgUnknown) {
-      const cr = contrast(over(fill, bg), bg);
+      let cr = contrast(over(fill, bg), bg);
+      // 조상이 아닌 형제 상자(position:absolute 배경판)가 글자 밑을 칠할 수 있으면 실제로 칠해진 배경으로 다시 잰다 (todo/12)
+      const p = e.previousElementSibling;
+      if (rendered && (cr < 1.25 || p && /absolute|fixed/.test(cs(p).position))) {
+        const pb = paintedBg(e);
+        if (pb) cr = contrast(over(fill, pb), pb);
+      }
       if (cr < 1.25) tr.push('글자색과 배경 대비 ' + cr.toFixed(2));
     }
     if ((bgUnknown || blend) && rendered && !tr.length && !off.length) diff = true;
@@ -250,11 +277,11 @@ function selectorIn(e) {
   const parts = [];  // [세그먼트, 다음과의 결합자]
   const join = () => parts.map((p, i) => p[0] + (i < parts.length - 1 ? p[1] : '')).join('');
   const one = sel => { try { const r = root.querySelectorAll(sel); return r.length === 1 && r[0] === e; } catch (x) { return false; } };
-  let joiner = ' > ';
+  let joiner = ' > ', sect = null;
   for (let n = e; n && n.nodeType === 1 && n.localName !== 'html'; n = n.parentElement) {
-    if (/^(tbody|thead|tfoot)$/.test(n.localName) && n.parentElement && n.parentElement.localName === 'table') { joiner = ' '; continue; }
+    if (/^(tbody|thead|tfoot)$/.test(n.localName) && n.parentElement && n.parentElement.localName === 'table') { joiner = ' '; sect = n.localName; continue; }
     const s = seg(n);
-    parts.unshift([s, joiner]); joiner = ' > ';
+    parts.unshift([s, joiner, sect]); joiner = ' > '; sect = null;
     if (one(join())) return join();
     if (!/:nth-of-type/.test(s)) { parts[0][0] = s + nth(n); if (one(join())) return join(); parts[0][0] = s; }
   }
@@ -265,6 +292,8 @@ function selectorIn(e) {
     if (n && !/:nth-of-type|\[src=/.test(p[0])) p[0] += nth(n);
     n = n && n.parentElement;
   }
+  // 그래도 2개 이상이면(표 안의 표: 자손 결합자가 안쪽 표의 행까지 잡음) 건너뛴 tbody를 적어 자식 결합자로 (todo/12)
+  if (!one(join())) for (const p of parts) if (p[2]) p[1] = ' > ' + p[2] + ' > ';
   return join();
 }
 // Shadow DOM 안이면 호스트 경로 >>> 안쪽 경로
@@ -332,13 +361,11 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
 }
 
 // 스크린샷 차분 준비: 직속 텍스트 노드를 span으로 감싸고 그 span만 visibility:hidden (09 §3)
+// 끝나면 감싼 span을 풀어 DOM을 되돌린다: 남겨 두면 형제 span의 nth-of-type 순번이 밀린다 (todo/12)
 function hideText(i, on) {
   const e = window.__adg.C[i];
-  if (!e.__adgWrapped) {
-    for (const t of textNodes(e)) { const s = document.createElement('span'); s.setAttribute('data-adg-w', ''); t.replaceWith(s); s.appendChild(t); }
-    e.__adgWrapped = true;
-  }
-  for (const s of e.querySelectorAll(':scope > span[data-adg-w]')) s.style.visibility = on ? 'hidden' : '';
+  if (on) for (const t of textNodes(e)) { const s = document.createElement('span'); s.setAttribute('data-adg-w', ''); s.style.visibility = 'hidden'; t.replaceWith(s); s.appendChild(t); }
+  else for (const s of e.querySelectorAll(':scope > span[data-adg-w]')) s.replaceWith(...s.childNodes);
 }
 // marquee 상자 안에 들어온 글자 면적 비율
 function marqueeSeen(i) {
@@ -358,7 +385,10 @@ function frameSeg(e) {
   const s = 'iframe[src="' + q(e.src) + '"]';
   const same = [...r.querySelectorAll('iframe')].filter(x => x.src === e.src);
   const pre = r instanceof ShadowRoot ? locate(r.host) + ' >>> ' : '';
-  return pre + (same.length === 1 ? s : selectorIn(e.parentElement) + ' > ' + s);
+  if (same.length === 1) return pre + s;
+  // 같은 부모 안에 같은 src가 또 있으면 순번을 붙인다 (상위 경로만으로는 2개를 가리킴, todo/12)
+  const sib = [...e.parentElement.children].filter(x => x.localName === 'iframe' && x.src === e.src).length;
+  return pre + selectorIn(e.parentElement) + ' > ' + s + (sib > 1 ? nth(e) : '');
 }
 // 화면에 그려지지 않는 글: HTML 주석, <title>, <meta> 설명, alt·title·aria-label 속성 (todo/08 S-4)
 // 같은 글이 화면에 보이거나 그 요소의 본문과 같으면 뺀다: 보이는 쪽(또는 숨김 4종)에서 이미 판정한다
@@ -459,13 +489,13 @@ async def text_invisible(page, frame, i):
         a = await page.screenshot(clip=clip, animations="disabled", caret="hide", timeout=5000)
         await ev(frame, "i => window.__adg.hideText(i, true)", i)
         b = await page.screenshot(clip=clip, animations="disabled", caret="hide", timeout=5000)
-        await ev(frame, "i => window.__adg.hideText(i, false)", i)
         (w, hh, bpp, pa), (_, _, _, pb) = png_rgb(a), png_rgb(b)
         changed = sum(1 for k in range(0, len(pa), bpp) if max(abs(pa[k + j] - pb[k + j]) for j in range(3)) > 24)
         return changed < max(1, w * hh * 0.01)
     except Exception:
         return False
     finally:
+        await ev(frame, "i => window.__adg.hideText(i, false)", i)
         await h.dispose()
 
 
@@ -511,11 +541,15 @@ async def analyze(page, url):
                 a = by_i[a]["anc"] if a in by_i else None
         # span 조각(inline) 부모는 자손 하나라도 검출되면 뺀다: 조각 하나가 이미 광고면 합친 글이 아니라 따로 쓴 글이다
         for (a, k), kids in under.items():
-            if by_i[a].get("block") != "hide" or len(kids) >= 2:
+            if all(hits[d][k].get("lone") for d in kids) and not hits[a][k].get("lone"):
+                for d in kids:  # 자손은 광고 낱말 조각뿐이고 부모 글이 광고: 부모를 남긴다 (bidi로 뒤집은 "노지카" + 연락처)
+                    hits[d][k]["drop"] = True
+            elif by_i[a].get("block") != "hide" or len(kids) >= 2:
                 hits[a][k]["drop"] = True
+        live = lambda i: any(not f.get("drop") for f in hits.get(i, {}).values())  # noqa: E731
         # 보이는 부모 글에 숨긴 자식 광고가 섞였으면(보이는 문단 + 투명 span) 부모는 VISIBLE_AD가 아니다: 광고는 자식
         for c in cands:
-            if not hits[c["i"]]:
+            if not live(c["i"]):
                 continue
             a = c["anc"]
             while a is not None:
@@ -525,7 +559,7 @@ async def analyze(page, url):
         for c in cands:
             if c.get("block") == "inline" and hits[c["i"]]:
                 a = c["i"]
-                if any(hits.get(d["i"]) for d in cands if d["anc"] == a):
+                if any(live(d["i"]) for d in cands if d["anc"] == a):
                     for f in hits[a].values():
                         f["drop"] = True
         # 4종 밖 추가 유형 S-4: 주석·<title>·<meta>·속성 속 광고 (result_extra.json으로만)
@@ -547,10 +581,11 @@ async def analyze(page, url):
             await walk(child, prefix + seg + " >>> ", inh)
 
     async def judge(frame, prefix, inherit, c):
-        t = textcheck.check(c["text"])
+        off, tr = c["off"] + inherit["OFFSCREEN"], c["tr"] + inherit["TRANSPARENT"]
+        t = textcheck.check(c["text"], bool(off or tr))
         reorder = None  # 4종 밖 추가 유형 S-5: DOM 순서에는 없고 화면 순서로 읽어야 나오는 키워드
         if c.get("vis"):
-            tv = textcheck.check(c["vis"])
+            tv = textcheck.check(c["vis"], bool(off or tr))
             new = textcheck.keywords(textcheck.base(c["vis"])) - textcheck.keywords(textcheck.base(textcheck.BIDI.sub("", c["raw"])))
             if tv["ad"] and new:
                 reorder = "화면에 그려진 순서로 읽으면: " + ", ".join(sorted(new)) + " (" + c["vis"][:60] + ")"
@@ -558,7 +593,6 @@ async def analyze(page, url):
                     t = tv
         if c.get("dup"):  # dup: 같은 글이 화면에 보인다. 보이는 쪽에서 판정한다
             return {}
-        off, tr = c["off"] + inherit["OFFSCREEN"], c["tr"] + inherit["TRANSPARENT"]
         # AI 광고성 판정 (research/07 §6.4, eval/ai_exp.py로 합격 확인): 규칙만으로 애매한 경계 구간만 묻는다
         #   규칙 광고 + 연락처·코드 없음 → q < 0.4면 뺀다 / 규칙 광고 아님 + 광고 낱말 + 숨김·변형 신호 → q ≥ 0.4면 넣는다
         #   규칙 확실 양성(광고 + 연락처·코드)은 AI가 뒤집지 못한다 (주입 문장 대비). 실패·거부·꺼짐이면 규칙 그대로
@@ -608,7 +642,7 @@ async def analyze(page, url):
         more = await ev(frame, STYLE_JS, c["i"]) or {}
         mine = {}
         for k, why in tech.items():
-            mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why,
+            mine[k] = {"location": prefix + loc, "technique": k, "evidence_text": c["raw"], "reason": why, "lone": t.get("lone", False),
                        "norm": t["norm"], "kw": t["kw"], **more, **({"ai": t["ai"]} if "ai" in t else {})}
             if k == "VISIBLE_AD":  # result_extra.json으로만 (모집요강 붙임4, technique "ETC")
                 mine[k].update(technique="ETC", extra_finding="VISIBLE_AD")

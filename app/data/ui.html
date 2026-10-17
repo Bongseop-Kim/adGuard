@@ -6,9 +6,9 @@
 <title>adGuard 불법광고 점검 보고서</title>
 <!-- 앱 화면(pywebview)과 단일 HTML 보고서가 함께 쓰는 렌더러 (todo/06).
      보고서는 아래 id="data" 자리에 결과 JSON이 들어간다. 원문은 모두 textContent로만 넣는다 (innerHTML 금지) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-gov-dynamic-subset.min.css">
 <style>
-/* 인터넷이 없으면 글꼴만 시스템 글꼴로 바뀐다 */
+/* 글꼴: main.ui_html()이 아래 자리에 app/data/adguard-sans.woff2(Pretendard GOV 부분 글꼴, OFL)를 data URI로 넣는다. 인터넷 없이 같은 글꼴 */
+/*FONT*/
 /* KRDS 디자인 토큰 (krds_tokens.css 원시 색상 토큰, 공식 이름·값 그대로). 쓰는 단계만 옮겼다 */
 :root {
   --krds-color-light-primary-5: #ecf2fe; --krds-color-light-primary-10: #d8e5fd; --krds-color-light-primary-50: #256ef4; --krds-color-light-primary-60: #0b50d0; --krds-color-light-primary-70: #083891;
@@ -36,7 +36,7 @@
 :root[data-contrast="high"] button, :root[data-contrast="high"] input, :root[data-contrast="high"] select { border-width: 2px; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); font: 400 17px/1.5 "Pretendard GOV", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0; word-break: keep-all; }
+body { margin: 0; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); font: 400 17px/1.5 "adGuard Sans", "Pretendard GOV", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0; word-break: keep-all; }
 a { color: var(--krds-color-light-primary-60); text-underline-offset: 3px; }
 :focus-visible { outline: 2px solid var(--krds-color-light-primary-50); outline-offset: 2px; border-radius: 2px; }
 .skip { position: absolute; left: 16px; top: -60px; background: var(--krds-color-light-gray-90); color: var(--krds-color-light-gray-0); padding: 10px 16px; border-radius: 6px; z-index: 10; }
@@ -480,7 +480,7 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
     <div class="picks">
       <label class="pick"><span class="pl">시간 상한</span>
         <select id="minutes" aria-describedby="minhint" title="상한에 닿으면 그때까지 찾은 결과를 저장합니다">
-          <option value="5">5분</option><option value="10">10분</option><option value="15">15분</option><option value="20" selected>20분</option><option value="25">25분</option><option value="30">30분</option>
+          <option value="5">5분</option><option value="10">10분</option><option value="15">15분</option><option value="20" selected>20분</option><option value="25">25분</option>
         </select></label>
       <button class="pick" type="button" aria-haspopup="dialog" onclick="$('#aidlg').showModal()"><span class="pl">AI 결정 모델</span><span id="aist" class="ai-st"><i></i>확인 중</span></button>
     </div>
@@ -676,12 +676,11 @@ function poll() {
       $('#p-cur').textContent = s.stopping ? '진행 중인 페이지를 마친 뒤 그때까지의 결과를 저장합니다.'
         : s.current ? '살펴보는 페이지: ' + s.current : '시작 주소를 여는 중…';
     } else if (s.phase === 'report') {
-      // 검출 시간은 "탐지 시작"~"탐지 완료"(모집요강 붙임2). 완료를 먼저 크게 알리고 시계를 멈춘다. 캡처는 시간 밖의 부속 단계
+      // 검출 시간은 "탐지 시작"~"탐지 완료"(모집요강 붙임2). 보고서까지 끝나야 탐지 완료라 시계는 계속 간다 (todo/12 결정)
       const [n, t] = s.shot || [0, 0];
-      ptitle('✔ 탐지 완료 · ' + fmtSec(s.scan_sec || 0), 'ok');
-      $('#p-time').textContent = t ? '캡처 ' + n + ' / ' + t : '보고서 작성 중';
-      meter(t ? n / t : 0);
-      $('#p-cur').textContent = '결과 파일(result.json)을 저장했습니다. 보고서에 넣을 증거 화면을 찍는 중입니다 (탐지 시간에 포함되지 않음).';
+      ptitle('보고서 작성 중');
+      if (s.elapsed != null) { $('#p-time').replaceChildren(fmtSec(s.elapsed) + ' ', h('small', {}, '/ ' + (s.minutes || 20) + '분')); meter(s.elapsed / ((s.minutes || 20) * 60)); }
+      $('#p-cur').textContent = '페이지 탐색을 마쳤습니다. 증거 화면을 찍고 보고서를 만드는 중입니다' + (t ? ' (캡처 ' + n + ' / ' + t + ')' : '') + '. 보고서까지 끝나면 탐지 완료입니다.';
       $('#stopbtn').hidden = true;
     } else if (s.phase === 'error') {
       ptitle('오류로 점검을 마치지 못했습니다', 'err');
@@ -690,7 +689,10 @@ function poll() {
       $('#go').disabled = false;
       return;
     }
-    if (s.phase === 'ready') { swap(() => { renderReport(s.data); show('result'); window.scrollTo(0, 0); }); return; }
+    if (s.phase === 'ready') {
+      ptitle('✔ 탐지 완료 · ' + fmtSec(((s.data || {}).meta || {}).elapsed_sec || s.elapsed || 0), 'ok'); meter(1);
+      setTimeout(() => swap(() => { renderReport(s.data); show('result'); window.scrollTo(0, 0); }), 800); return;
+    }
     setTimeout(poll, 500);
   }).catch(() => setTimeout(poll, 1000));
 }

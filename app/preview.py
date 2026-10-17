@@ -10,6 +10,8 @@ import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import main
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI = os.path.join(HERE, "data", "ui.html")
 SLOT = '<script type="application/json" id="data">null</script>'
@@ -40,8 +42,7 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/v":
             body = str(os.stat(UI).st_mtime_ns).encode()
         else:
-            with open(UI, encoding="utf-8") as f:
-                body = f.read().replace(SLOT, SLOT.replace("null", BLOB), 1).replace("</body>", RELOAD, 1).encode()
+            body = main.ui_html().replace(SLOT, SLOT.replace("null", BLOB), 1).replace("</body>", RELOAD, 1).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")

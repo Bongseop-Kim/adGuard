@@ -351,6 +351,18 @@
         "F09"
       ],
       "note": "모집요강 예시 f_004 재현. 게시판 상세 템플릿 공통 위젯 iframe(src=\"/widget/notice\" 상대 경로 → 절대 URL로 기재). position:absolute; left:-9999px. 상세 페이지마다 1건"
+    },
+    {
+      "id": "a_027",
+      "url": "http://127.0.0.1:8110/board/view?id=1192",
+      "location": "div.article-body > p:nth-of-type(5) > span",
+      "technique": "OFFSCREEN",
+      "evidence_text": "성인 출장안마 예약 night24.test",
+      "covers": [
+        "T09",
+        "F01"
+      ],
+      "note": "visibility:hidden은 분류가 모호해 OFFSCREEN도 낸다 (todo/12 결정 3)"
     }
   ],
   "decoys": [

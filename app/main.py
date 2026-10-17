@@ -6,6 +6,7 @@
 - 결과: exe 폴더에 result.json(채점용), result_extra.json(추가 유형), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
 """
 import asyncio
+import base64
 import json
 import os
 import pathlib
@@ -17,6 +18,8 @@ from datetime import datetime, timedelta, timezone
 
 VERSION = "1.0.0"
 KST = timezone(timedelta(hours=9))
+# 시간 상한 안에서 크롤 마감 뒤에 남겨 두는 몫(초): 진행 중 페이지 대기 30초·브라우저 닫기, 보고서 단계(진단·캡처·보고서, S2·S3·S7 실측 50~80초)
+TAIL_SEC, REPORT_SEC = 45, 150
 
 
 def base_dir():
@@ -28,16 +31,24 @@ ENV_NAMES = (".env", ".env.txt")  # 메모장 "확장자 숨기기"로 .env.txt�
 AI_MODEL = "gpt-6-luna"
 
 
+def read_text(p):
+    """메모장 BOM·한글 Windows 기본 인코딩(CP949)으로 저장한 .env도 읽는다"""
+    raw = open(p, "rb").read()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp949", "replace")
+
+
 def load_env():
     """exe 옆 .env를 읽어 환경변수에 넣는다. PC에 같은 이름이 있어도 .env가 이긴다 (심사위원 키가 확실히 쓰이게)"""
     for name in ENV_NAMES:
         p = os.path.join(base_dir(), name)
         if os.path.isfile(p):
-            with open(p, encoding="utf-8-sig") as f:  # 메모장 BOM 허용
-                for line in f:
-                    k, eq, v = line.strip().partition("=")
-                    if eq and not k.startswith("#"):
-                        os.environ[k.strip().removeprefix("export ")] = v.strip().strip("'\"")
+            for line in read_text(p).splitlines():
+                k, eq, v = line.strip().partition("=")
+                if eq and not k.startswith("#"):
+                    os.environ[k.strip().removeprefix("export ")] = v.strip().strip("'\"")
             return p
     return None
 
@@ -51,7 +62,7 @@ def save_key(key):
     path = next((p for p in (os.path.join(base_dir(), n) for n in ENV_NAMES) if os.path.isfile(p)),
                 os.path.join(base_dir(), ".env"))
     try:
-        lines = open(path, encoding="utf-8-sig").read().splitlines() if os.path.isfile(path) else []
+        lines = read_text(path).splitlines() if os.path.isfile(path) else []
         lines = [l for l in lines if l.strip().partition("=")[0].strip() != "OPENAI_API_KEY"]
         if key:
             lines.append("OPENAI_API_KEY=" + key)
@@ -94,8 +105,20 @@ def write_json(path, data):
     os.replace(tmp, path)
 
 
-def scan(url, log=print, ctl=None, minutes=20):
-    """탐지하고 result.json을 쓴다. 반환: (meta, 검출 목록(보고서용 근거 포함))"""
+def meta_of(url, started, t0):
+    return {"topic": "TOPIC", "entry_url": url, "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": datetime.now(KST).isoformat(timespec="seconds"), "elapsed_sec": round(time.monotonic() - t0, 2),
+            "tool_version": VERSION}
+
+
+def write_results(meta, findings, extras):
+    write_json(os.path.join(base_dir(), "result.json"), {"meta": meta, "findings": findings})
+    write_json(os.path.join(base_dir(), "result_extra.json"), {"meta": meta, "findings": extras})
+
+
+def scan(url, log=print, ctl=None, minutes=20, report=False):
+    """탐지하고 result.json을 쓴다. report면 보고서 단계 몫을 남기고 크롤을 마감한다 (보고서까지가 시간 상한 안).
+    반환: (meta, 검출 목록(보고서용 근거 포함))"""
     browsers = os.path.join(base_dir(), "browsers")
     if os.path.isdir(browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers  # PC에 같은 환경변수가 있어도 동봉본을 쓴다
@@ -106,8 +129,11 @@ def scan(url, log=print, ctl=None, minutes=20):
     ai.setup()  # .env 키가 있으면 경계 후보만 AI에 묻는다 (없으면 규칙만)
     ctl = {} if ctl is None else ctl
     started, t0 = datetime.now(KST), time.monotonic()
+    ctl["t0"], ctl["end"] = t0, t0 + minutes * 60 - 10  # end: 보고서까지 끝낼 시각 (파일 쓰기 여유 10초)
+    # 시작하자마자 이번 주소의 빈 결과로 덮는다: 강제 종료돼도 이전 점검(다른 주소)의 결과가 남지 않게
+    write_results(meta_of(url, started, t0), [], [])
     try:
-        asyncio.run(crawl(url, analyze, log=log, ctl=ctl, time_limit=minutes * 60))
+        asyncio.run(crawl(url, analyze, log=log, ctl=ctl, time_limit=max(30, minutes * 60 - TAIL_SEC - (REPORT_SEC if report else 0))))
     except Exception as e:
         log("오류로 탐색 중단, 그때까지의 결과를 저장합니다: %r" % e)
     finally:  # 크롤이 죽어도 파싱 가능한 result.json은 남긴다 (파일이 없거나 깨지면 0점)
@@ -127,18 +153,10 @@ def scan(url, log=print, ctl=None, minutes=20):
                 if out is extras:
                     out[-1]["extra_finding"] = f["extra_finding"]
                 items.append(dict(f, **out[-1], path=pg.get("path") or [], mobile=pg.get("mobile", False)))
-        meta = {
-            "topic": "TOPIC",
-            "entry_url": url,
-            "started_at": started.isoformat(timespec="seconds"),
-            "finished_at": datetime.now(KST).isoformat(timespec="seconds"),
-            "elapsed_sec": round(time.monotonic() - t0, 2),
-            "tool_version": VERSION,
-        }
-        out = os.path.join(base_dir(), "result.json")
-        write_json(out, {"meta": meta, "findings": findings})
-        write_json(os.path.join(base_dir(), "result_extra.json"), {"meta": meta, "findings": extras})
-    log("탐지 완료: %d쪽, %d건(추가 유형 %d건) -> %s" % (len(pages), len(findings), len(extras), out))
+        meta = meta_of(url, started, t0)
+        write_results(meta, findings, extras)  # 보고서 모드에서는 안전 사본: 보고서가 끝나면 meta만 고쳐 다시 쓴다
+    log("%s: %d쪽, %d건(추가 유형 %d건) -> %s" % ("탐지 단계 완료, 보고서 작성" if report else "탐지 완료", len(pages), len(findings),
+                                            len(extras), os.path.join(base_dir(), "result.json")))
     if ai.STATS["enabled"]:
         s = ai.STATS
         log("AI 판정: 후보 %d, 캐시 %d, 호출 %d, 거부 %d, 실패 %d, 토큰 %d, 바꾼 판정 %d" % (
@@ -147,11 +165,12 @@ def scan(url, log=print, ctl=None, minutes=20):
 
 
 def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
-    """탐지(result.json) → on_done(meta, items) → 보고서(report.html, result.csv). 보고서 단계는 검출 시간 밖이다"""
+    """탐지(result.json 안전 사본) → on_done(meta, items) → 보고서(report.html, result.csv) → 탐지 완료.
+    검출 시간은 보고서까지 포함한다 (todo/12 결정): 보고서가 끝난 시각으로 result.json·result_extra.json의 meta를 고쳐 쓴다"""
     import report
 
     ctl = {} if ctl is None else ctl
-    meta, items = scan(url, log, ctl, minutes)
+    meta, items = scan(url, log, ctl, minutes, report=True)
     if on_done:
         on_done(meta, items)
     c = ctl.get("crawler")
@@ -166,10 +185,10 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
             error += " (오류: %s)" % (m.group(0) if m else c.errors[0][1][:120])
         log("점검 실패: " + error)
     diag = []
-    if pages:  # 사이트 진단 (todo/08): 탐지 시간 밖. 클로킹 검출만 result_extra.json에 덧붙인다
+    if pages:  # 사이트 진단 (todo/08): 보고서 단계(검출 시간 안, 상한 ctl["end"]에 맞춰 줄임). 클로킹 검출만 result_extra.json에 덧붙인다
         import extra
         try:
-            diag, found = asyncio.run(extra.run(url, log, pages))
+            diag, found = asyncio.run(extra.run(url, log, pages, ctl.get("end")))
             if found:
                 path = os.path.join(base_dir(), "result_extra.json")
                 with open(path, encoding="utf-8") as f:
@@ -187,12 +206,29 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
                 log("진단 검출 %d건을 result_extra.json에 더했습니다" % len(found))
         except Exception as e:
             log("진단 단계 오류(보고서는 진단 없이 만듦): %r" % e)
-    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag)
+
+    def finish(m):
+        m.update(finished_at=datetime.now(KST).isoformat(timespec="seconds"), elapsed_sec=round(time.monotonic() - ctl["t0"], 2))
+        for name in ("result.json", "result_extra.json"):
+            p = os.path.join(base_dir(), name)
+            with open(p, encoding="utf-8") as f:
+                write_json(p, dict(json.load(f), meta=m))
+        log("탐지 완료(보고서 포함): %.1f초" % m["elapsed_sec"])
+    return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag, finish)
 
 
 def ui_html():
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ui.html"), encoding="utf-8") as f:
-        return f.read()
+    """화면 HTML. 동봉 글꼴을 data URI로 넣는다: 창 모드·report.html 모두 인터넷 없이, 보고서 파일을 옮겨도 같은 글꼴 (todo/13)"""
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    with open(os.path.join(d, "ui.html"), encoding="utf-8") as f:
+        page = f.read()
+    try:
+        with open(os.path.join(d, "adguard-sans.woff2"), "rb") as f:
+            font = base64.b64encode(f.read()).decode()
+    except OSError:  # 글꼴이 없으면 시스템 글꼴(맑은 고딕)로
+        return page
+    return page.replace("/*FONT*/", '@font-face { font-family: "adGuard Sans"; src: url(data:font/woff2;base64,%s) format("woff2"); '
+                                    'font-weight: 400 700; font-display: swap; }' % font, 1)
 
 
 class Api:
@@ -209,7 +245,7 @@ class Api:
         url = (url or "").strip()
         if "://" not in url:
             url = "http://" + url
-        minutes = max(1, min(30, int(minutes or 20)))
+        minutes = max(1, min(25, int(minutes or 20)))  # 25분: 보고서까지 끝나도 평가 상한 30분에 여유
         self._s, self._ctl, self._t0 = {"phase": "running", "log": [], "url": url, "minutes": minutes}, {}, time.monotonic()
         threading.Thread(target=self._run, args=(url, minutes), daemon=True).start()
 
@@ -284,9 +320,8 @@ class Api:
                 pass
 
         try:
-            # on_done이 "탐지 완료" 시점: 화면은 바로 완료를 표시하고 보고서는 뒤에서 만든다
-            self._s["data"] = run_all(url, log, self._ctl, minutes, lambda meta, items: self._s.update(
-                phase="report", scan_sec=meta["elapsed_sec"], found=len(items)))
+            # 탐지 중 → (on_done) 보고서 작성 중 → (run_all 끝) 탐지 완료. 시계는 보고서까지 간다
+            self._s["data"] = run_all(url, log, self._ctl, minutes, lambda meta, items: self._s.update(phase="report", found=len(items)))
             self._s["phase"] = "ready"
         except Exception as e:
             log("오류: %r" % e)

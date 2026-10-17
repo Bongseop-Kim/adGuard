@@ -236,7 +236,8 @@ async def capture(groups, log, ctl=None):
             return tabs[mobile]
 
         for n, g in enumerate(groups):
-            if n >= SHOT_MAX or time.monotonic() - t0 > SHOT_SEC:
+            # 시간 상한(ctl["end"]) 전에 끝나게: 캡처 1건은 재시도까지 최대 50초
+            if n >= SHOT_MAX or time.monotonic() - t0 > SHOT_SEC or time.monotonic() > ctl.get("end", 1e18) - 55:
                 g["shot"] = {"error": "캡처 생략(보고서 크기·시간 상한)"}
                 continue
             it = g["items"][0]
@@ -257,8 +258,7 @@ async def capture(groups, log, ctl=None):
 
 
 def html_report(data):
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ui.html"), encoding="utf-8") as f:
-        page = f.read()
+    page = main.ui_html()
     blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")  # 원문 속 </script>가 태그를 닫지 못하게
     return page.replace('<script type="application/json" id="data">null</script>',
                         '<script type="application/json" id="data">%s</script>' % blob, 1)
@@ -352,7 +352,7 @@ def compare(base, meta, groups, status):
     return {"prev_at": prev["finished_at"], "new": count("신규"), "kept": count("지속"), "again": count("재발"), "resolved": gone}
 
 
-def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None, diag=None):
+def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=None, ctl=None, diag=None, done=None):
     base = main.base_dir()
     hist_path = os.path.join(base, "history.json")
     try:
@@ -371,6 +371,8 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
             asyncio.run(capture(groups, log, ctl))
         except Exception as e:
             log("캡처 단계 오류(보고서는 캡처 없이 만듦): %r" % e)
+    if done:  # 탐지 완료 시각 확정 (보고서 파일 쓰기만 남음)
+        done(meta)
     data = {
         "meta": dict(meta, visited=visited, stopped=stopped, minutes=minutes, findings=len(items), error=error,
                      report_at=datetime.now(main.KST).isoformat(timespec="seconds")),

@@ -132,7 +132,10 @@ def judge(text, norm=""):
         if k in _cache:
             STATS["cache"] += 1
             return dict(_cache[k], sent=sent, cached=True)
-        limit = int(os.environ.get("ADGUARD_AI_MAX_CALLS", "200") or 200)
+        try:
+            limit = int(os.environ.get("ADGUARD_AI_MAX_CALLS", "200") or 200)
+        except ValueError:  # 숫자가 아닌 값: 기본값
+            limit = 200
         if STATS["calls"] >= limit or time.monotonic() - _t0 > 60 or STATS.get("dead"):
             STATS["skipped"] += 1
             return None
@@ -147,15 +150,20 @@ def judge(text, norm=""):
             if getattr(e, "code", None) in (401, 403):  # 키·권한 문제는 다시 물어도 같다: 이번 실행은 규칙만
                 STATS["dead"] = True
         return None
-    a = {x.get("name"): x for x in r.get("answers", [])}
     with _lock:
         STATS["latency"].append(round(time.monotonic() - t, 2))
-        STATS["tokens"] += (r.get("usage") or {}).get("input_tokens", 0)
-        if a.get("is_illegal_ad", {}).get("type") != "predicate":  # 거부(refusal) 또는 형식 오류
-            STATS["refused"] += 1
+        try:
+            a = {x.get("name"): x for x in r.get("answers", [])}
+            STATS["tokens"] += (r.get("usage") or {}).get("input_tokens", 0)
+            if a.get("is_illegal_ad", {}).get("type") != "predicate":  # 거부(refusal)
+                STATS["refused"] += 1
+                return None
+            out = {"q": float(a["is_illegal_ad"]["probability"]), "warning": (a.get("is_public_warning") or {}).get("probability"),
+                   "category": (a.get("ad_category") or {}).get("choice"), "model": r.get("model")}
+        except (AttributeError, KeyError, TypeError, ValueError):  # 형식이 다른 응답(probability 없음 등): 규칙 판정
+            STATS["failed"] += 1
+            STATS["reason"] = "최근 실패: 응답 형식 오류"
             return None
-        out = {"q": a["is_illegal_ad"]["probability"], "warning": (a.get("is_public_warning") or {}).get("probability"),
-               "category": (a.get("ad_category") or {}).get("choice"), "model": r.get("model")}
         _cache[k] = out
     return dict(out, sent=sent, cached=False)
 

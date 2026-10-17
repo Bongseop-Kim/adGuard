@@ -62,6 +62,12 @@ INDEX = page("시험 누리집", """
 <li><a href="/hov/">R39 hover AJAX 메뉴</a></li>
 <li><a href="/ev/list">R40 addEventListener 행 클릭</a></li>
 <li><a href="/fp/list">R41 POST form submit 버튼</a></li>
+<li><a href="/ib/list?id=free">R42 게시판 ID가 id인 목록 2쪽</a></li>
+<li><a href="/aeb/">R44·R45 리스너 button·void 링크</a></li>
+<li><a href="/lx/list">R46 리스너 클릭 뒤 화면만 바뀜</a></li>
+<li><a href="/cn/list">R47 모든 글 canonical이 목록</a></li>
+<li><a href="/late/">R48 4초 뒤 iframe</a></li>
+<li><a href="/enc/">R49 원래 표기 그대로</a></li>
 <li><a href="/err/">R16 404/500 섞임</a></li>
 %s
 </ul>""" % ('<li><a href="/big/list?page=1">R12 대형 게시판</a></li>' if BIG else ""))
@@ -610,6 +616,72 @@ def _bigv(h, q):
 def _gif(h, q):
     h.send(b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;", ctype="image/gif")
 
+
+# ---------- todo/12 재현 (10/17) ----------
+@r("/ib/list")
+def _ib(h, q):  # R42 게시판 ID가 id인 목록의 2쪽: ?id=free&page=2는 ?id=free와 다른 페이지
+    pg = q.get("page", "1")
+    nxt = '<a href="/ib/list?id=free&amp;page=2">2</a>' if pg == "1" else ""
+    h.send(page("R42 목록 %s쪽" % pg, list_html(["글 %s-%d" % (pg, i) for i in (1, 2)]) + nxt + (ad("R42") if pg == "2" else "")))
+
+
+@r("/aeb/")
+def _aeb(h, q):  # R44 addEventListener로 건 button, R45 javascript:void(0) 링크 + 리스너
+    js = """<script>document.querySelector('.go44').addEventListener('click',()=>{location.href='/aeb/t44';});
+document.querySelector('.go45').addEventListener('click',e=>{e.preventDefault();location.href='/aeb/t45';});</script>"""
+    h.send(page("R44 버튼", '<button type=button class=go44>상세 보기</button> <a href="javascript:void(0)" class=go45>자세히</a>' + js))
+
+
+@r("/aeb/t44")
+def _aeb44(h, q):
+    h.send(target("R44"))
+
+
+@r("/aeb/t45")
+def _aeb45(h, q):
+    h.send(target("R45"))
+
+
+@r("/lx/list")
+def _lx(h, q):  # R46 리스너 클릭이 이동 없이 화면만 바꿈 (상세를 같은 페이지에 그림)
+    rows = ['<div class=card data-no="%d">글 %d</div>' % (i, i) for i in (1, 2)]
+    js = """<script>document.querySelectorAll('.card').forEach(e=>e.addEventListener('click',()=>{
+document.getElementById('detail').innerHTML = e.dataset.no === '2' ? '<p>글 2 본문</p>' + %s : '<p>글 1 본문</p>';}));</script>""" % json.dumps(ad("R46"))
+    h.send(page("R46 목록", "".join(rows) + '<div id=detail></div>' + js))
+
+
+@r("/cn/list")
+def _cn(h, q):  # R47 모든 글의 canonical이 목록을 가리킴: 글마다 따로 기록해야 함
+    h.send(page("R47 목록", list_html(['<a href="/cn/view?id=%d">글 %d</a>' % (i, i) for i in (1, 2, 3)])))
+
+
+@r("/cn/view")
+def _cnv(h, q):
+    i = q.get("id", "")
+    body = "<p>R47 글 %s 본문 %s</p>" % (i, i * 30) + (ad("R47") if i == "3" else "")
+    h.send(page("R47 글 " + i, body, head='<link rel="canonical" href="/cn/list?bid=notice">'))
+
+
+@r("/late/")
+def _late(h, q):  # R48 4초 뒤에 넣는 iframe (확인만)
+    js = """<script>setTimeout(()=>{const f=document.createElement('iframe');f.src='/late/frame';document.body.appendChild(f);},4000);</script>"""
+    h.send(page("R48 늦은 iframe", "<p>늦게 붙는 배너</p>" + js))
+
+
+@r("/late/frame")
+def _latef(h, q):
+    h.send("<html><body><p>배너</p>%s</body></html>" % ad("R48"))
+
+
+
+@r("/enc/")
+def _enc(h, q):  # R49 결과 url이 링크 원래 표기 그대로인지: %20, %2F, 값 없는 ?flag (todo/12 결정 6)
+    h.send(page("R49 인코딩", '<a href="/enc/view?q=a%20b&amp;path=x%2Fy&amp;flag">글</a>'))
+
+
+@r("/enc/view")
+def _encv(h, q):
+    h.send(target("R49") if q.get("path") == "x/y" else page("R49 없음", "<p>없음</p>"))
 
 def dump_log():
     with open(sys.argv[sys.argv.index("--log") + 1] if "--log" in sys.argv else "/dev/null", "w") as f:

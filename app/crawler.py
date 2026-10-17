@@ -52,8 +52,10 @@ INIT = r"""
   const ael = EventTarget.prototype.addEventListener;
   EventTarget.prototype.addEventListener = function (t, ...a) {
     if (t === 'scroll' || t === 'wheel') window.__adgScroll = true;
-    // 클릭 리스너가 걸린 목록 행(addEventListener로 연결한 글 이동): 클릭 후보로 표시
-    if (t === 'click' && this instanceof Element && /^(TR|LI|TD|DIV|SPAN|DT|DD|ARTICLE)$/.test(this.tagName)) this.setAttribute('data-adg-click', '');
+    // 클릭 리스너가 걸린 목록 행·버튼(addEventListener로 연결한 글 이동): 클릭 후보로 표시
+    // 링크는 다른 주소로 가는 href가 없을 때만 (#, javascript:void(0), 없음). href 있는 링크는 링크로 모은다
+    if (t === 'click' && this instanceof Element && (/^(TR|LI|TD|DIV|SPAN|DT|DD|ARTICLE|BUTTON)$/.test(this.tagName) ||
+        this.tagName === 'A' && /^\s*(#|javascript:|$)/i.test(this.getAttribute('href') || ''))) this.setAttribute('data-adg-click', '');
     return ael.call(this, t, ...a);
   };
   if (window.IntersectionObserver) { const IO = window.IntersectionObserver;
@@ -144,6 +146,7 @@ CAND = '[onclick],a[href^="javascript:" i],[data-adg-click]'
 CANDS_JS = r"""(sel) => [...document.querySelectorAll(sel)].map(e => {
   const h = e.getAttribute('href') || '';
   let js = ''; try { js = /^javascript:/i.test(h) ? decodeURIComponent(h.slice(11)) : ''; } catch (x) {}
+  js = js.replace(/^\s*(void\s*\(?\s*0\s*\)?|return\s+false)?\s*;?\s*$/i, '');  // javascript:void(0)은 코드 없음: 리스너만 있는 링크
   const code = (e.getAttribute('onclick') || '') + ';' + js;
   // 코드 없이 리스너만 있으면 태그·클래스로 묶는다
   return [code === ';' && e.hasAttribute('data-adg-click') ? '@ev:' + e.tagName + '.' + (e.classList[0] || '') : code,
@@ -215,21 +218,28 @@ def norm(u):
     return "%s%s%s" % (s.netloc.lower(), path, "?" + q if q else "")
 
 
+def qkey(x):
+    """쿼리 조각 'k=v'의 키"""
+    return urllib.parse.unquote_plus(x.partition("=")[0])
+
+
 def minimize(u, extra=None):
     """방문·출력용 URL: # 제거, ;jsessionid 제거, 꼬리표 제거, 글 ID가 있으면 쪽번호 제거.
-    extra(POST 본문)는 쿼리에 합치고 빈 값은 버린다."""
+    extra(POST 본문)는 쿼리에 합치고 빈 값은 버린다. 남는 조각은 원래 표기 그대로 (%20→+, ?flag→?flag= 같은 재인코딩 없음, todo/12)"""
     s = urllib.parse.urlsplit(u)
     path = re.sub(r";jsessionid=[^/?#]*", "", s.path, flags=re.I)
-    q = urllib.parse.parse_qsl(s.query, keep_blank_values=True)
+    q = [x for x in s.query.split("&") if x]
     if extra is not None:
-        body = urllib.parse.parse_qsl(extra, keep_blank_values=True)
-        keys = {k for k, _ in body}
-        q = [(k, v) for k, v in q if k not in keys] + body
-        q = [(k, v) for k, v in q if v != ""]
-    keys = {k.lower() for k, _ in q}
-    drop = NOISE | (PAGE_KEYS if keys & ID_KEYS else set())
-    q = [(k, v) for k, v in q if k.lower() not in drop]
-    return urllib.parse.urlunsplit((s.scheme, s.netloc, path, urllib.parse.urlencode(q), ""))
+        body = [x for x in extra.split("&") if x]
+        keys = {qkey(x) for x in body}
+        q = [x for x in q if qkey(x) not in keys] + body
+        q = [x for x in q if x.partition("=")[2] != ""]
+    keys = {qkey(x).lower() for x in q}
+    # 쪽번호는 글 ID가 있을 때만 뺀다. 게시판 ID로도 쓰는 id는 상세 경로(view·read·detail)일 때만 (?id=free&page=2는 목록 2쪽)
+    post = keys & (ID_KEYS - {"id"}) or "id" in keys and re.search(r"view|read|detail", path, re.I)
+    drop = NOISE | (PAGE_KEYS if post else set())
+    q = [x for x in q if qkey(x).lower() not in drop]
+    return urllib.parse.urlunsplit((s.scheme, s.netloc, path, "&".join(q), ""))
 
 
 def section(u):
@@ -308,9 +318,11 @@ class Crawler:
         self.seen, self.sig_count = set(), {}
         self.hashes, self.results = {}, []  # 내용 해시 → results 인덱스
         self.canons = set()  # 결과로 남긴 페이지의 대표 주소(norm)
+        self.canon_of = {}  # canonical(norm) → 처음 그것을 가리킨 주소
         # 무관한 파라미터 학습 (research/13 §4-4): 같은 페이지 키(본문 해시·canonical) → 방문 주소들, 근거, 배운 것
         self.groups, self.evidence, self.learned = {}, {}, set()  # learned: (호스트, 경로, 파라미터)
         self.templates = {}  # (페이지 패턴, 함수명) → (요청, 인자) 또는 None(이동 없음)
+        self.ev_miss = {}  # 리스너 묶음(@ev:태그.클래스) → 눌러도 얻은 게 없던 페이지 수
         self.visited = 0
         self.errors = []
         self.own = set()
@@ -332,7 +344,8 @@ class Crawler:
     def in_scope(self, u):
         s = urllib.parse.urlsplit(u)
         host = (s.hostname or "").lower()
-        return s.scheme in ("http", "https") and (s.netloc.lower() == self.netloc or host.endswith("." + self.base))
+        # www.x.kr로 넣었는데 x.kr로 보내는 사이트: 맨도메인도 범위 안
+        return s.scheme in ("http", "https") and (s.netloc.lower() == self.netloc or host == self.base or host.endswith("." + self.base))
 
     def requeue(self, url, post, depth, prio):
         self.seq += 1
@@ -343,10 +356,10 @@ class Crawler:
         url = minimize(url, body)
         if self.learned and body is None:  # 내용을 안 바꾼다고 배운 파라미터는 뺀다
             s = urllib.parse.urlsplit(url)
-            q = urllib.parse.parse_qsl(s.query, keep_blank_values=True)
-            q2 = [(k, v) for k, v in q if (s.netloc.lower(), s.path, k) not in self.learned]
+            q = [x for x in s.query.split("&") if x]
+            q2 = [x for x in q if (s.netloc.lower(), s.path, qkey(x)) not in self.learned]
             if len(q2) != len(q):
-                url = urllib.parse.urlunsplit((s.scheme, s.netloc, s.path, urllib.parse.urlencode(q2), ""))
+                url = urllib.parse.urlunsplit((s.scheme, s.netloc, s.path, "&".join(q2), ""))
         key = norm(url)
         if key != self.start:
             s = urllib.parse.urlsplit(url)
@@ -460,7 +473,7 @@ class Crawler:
             for t in pending:
                 t.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
-            await browser.close()
+            await with_timeout(browser.close(), 10)
         self.log("크롤 완료: 렌더링 %d쪽, 결과 페이지 %d개, 상한으로 제외 %d개, 위험·내려받기 주소라 제외 %d개, %.1f초"
                  % (self.visited, len(self.results), self.dropped, self.blocked, time.monotonic() - t0))
         return self.results
@@ -585,7 +598,8 @@ class Crawler:
         await with_timeout(asyncio.gather(*[f.wait_for_load_state("load") for f in page.frames]), 3)
 
         # 리다이렉트 뒤 최종 URL. POST로만 열리는 글은 GET이 되면 GET 표기, 안 되면 action URL (research/03 §8)
-        final = minimize(page.url) if page.url.startswith("http") else url
+        final = minimize(page.url) if page.url.startswith("http") else url  # 중복 판정 키용
+        shown = page.url.split("#")[0] if page.url.startswith("http") else url  # 출력 주소: 실제로 연 주소에서 #만 뺀다 (todo/12 결정)
         if not mobile and norm(final) != norm(url) and any(MOBILE_ONLY.search(m) for m in page.adg_dialogs):
             # "모바일 전용입니다" 경고 뒤 다른 곳으로 보냄: 모바일 화면으로 다시 열고, 같은 게시판 글도 처음부터 모바일로
             self.mobile |= {norm(url), section(url)}
@@ -602,7 +616,10 @@ class Crawler:
             "() => { const l = document.querySelector('link[rel=canonical]'); return l ? l.href : null }"), 3)
         cs = urllib.parse.urlsplit(minimize(canon)) if canon and self.in_scope(canon) else None
         # 모든 쪽이 첫 화면을 가리키는 잘못된 canonical은 중복 판정에도, 결과 주소에도 쓰지 않는다
-        if cs and (cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path)):
+        # 글 ID가 다른 여러 주소가 같은 canonical(목록 등)을 가리키면 잘못 쓴 canonical: 글마다 따로 기록한다
+        ids = lambda u: sorted((k.lower(), v) for k, v in urllib.parse.parse_qsl(urllib.parse.urlsplit(u).query) if k.lower() in ID_KEYS)  # noqa: E731
+        if cs and (cs.query or not re.fullmatch(r"/*(?:index\.\w+)?/*", cs.path)) and \
+                not (ids(url) and ids(self.canon_of.setdefault(norm(minimize(canon)), url)) not in ([], ids(url))):
             final = minimize(canon)
             ckey = ("c", norm(final))
             if post is None:
@@ -624,10 +641,10 @@ class Crawler:
             r = self.results[self.hashes[h]]
             # POST로 연 주소(action, 쿼리 없음)는 대표로 안 쓴다: 같은 목록의 GET 주소에서 쿼리가 빠진다
             # POST로 먼저 기록된 글은 GET 주소로. 쿼리를 통째로 잃는 짧은 주소(…List.do?bbsId=X → …List.do)는 대표로 안 쓴다
-            shorter = len(final) < len(r["url"]) and (urllib.parse.urlsplit(final).query or not urllib.parse.urlsplit(r["url"]).query)
+            shorter = len(final) < len(r["key"]) and (urllib.parse.urlsplit(final).query or not urllib.parse.urlsplit(r["key"]).query)
             better = post is None and (r.get("post") or shorter)
-            if better and not any(norm(x["url"]) == norm(final) for x in self.results):
-                r["url"], r["post"] = final, False  # 다른 결과가 이미 쓰는 주소로는 바꾸지 않는다 (결과 주소가 겹치면 한 쪽이 덮인다)
+            if better and not any(norm(x["key"]) == norm(final) for x in self.results):
+                r["url"], r["key"], r["post"] = shown, final, False  # 다른 결과가 이미 쓰는 주소로는 바꾸지 않는다 (결과 주소가 겹치면 한 쪽이 덮인다)
             return
 
         caught, state = [], {"armed": False, "aborted": False}
@@ -697,10 +714,10 @@ class Crawler:
                 result = await self.analyze(page, final)
             self.hashes[h] = len(self.results)
             self.canons.add(norm(final))
-            self.results.append({"url": final, "result": result, "path": self.path(url), "mobile": mobile, "post": post is not None})
-            self.log("[%d] %s" % (len(self.results), final))
+            self.results.append({"url": shown, "key": final, "result": result, "path": self.path(url), "mobile": mobile, "post": post is not None})
+            self.log("[%d] %s" % (len(self.results), shown))
 
-            await self.clicks(page, url, act, depth, final, self.results[-1] if self.results[-1]["url"] == final else None)
+            await self.clicks(page, url, act, depth, final, self.results[-1] if self.results[-1]["key"] == final else None)
         finally:
             await with_timeout(page.unroute("**/*", intercept), 3)
 
@@ -783,20 +800,28 @@ class Crawler:
             for name, members in groups.items():
                 key = (sig, signature(furl)[0], name)
                 if name.startswith("@ev:"):
-                    if self.templates.get(key, 1) is None:
-                        continue  # 이 패턴 페이지에서 눌러 봐도 이동이 없던 묶음
-                    moved = False
+                    if self.templates.get(key, 1) is None or self.ev_miss.get(name, 0) >= 2:
+                        continue  # 이 패턴 페이지에서, 또는 다른 페이지 2곳에서 눌러 봐도 얻은 게 없던 묶음 (공통 영역의 펼침 버튼 등)
+                    moved, miss = False, 0
                     for i, _ in members[:10]:  # ponytail: 묶음당 10개, 쪽마다 전체 클릭 예산 안에서
                         if budget <= 0:
                             return
                         budget -= 1
-                        r, _ = await act(furl, CLICK_JS, [CAND, i])
+                        got = (len(self.seen), len((entry or {}).get("result") or []))
+                        r, _ = await act(furl, CLICK_JS, [CAND, i], entry)  # 이동 없이 화면만 바뀌면(상세를 같은 화면에) 다시 분석해 합친다
+                        if r == "changed" and got == (len(self.seen), len((entry or {}).get("result") or [])):
+                            r = None  # 화면만 바뀌고 새 주소·검출 없음 (메뉴 펼침·탭 등)
                         if r:
                             moved = True
-                            self.add_request(r, depth + 1, (parent, "클릭(목록 행)"))
+                            if r != "changed":
+                                self.add_request(r, depth + 1, (parent, "클릭(목록 행)"))
                         elif not moved:
-                            break
+                            miss += 1
+                            if miss >= 2:  # 처음 2개가 헛클릭이면 그만 (첫 행만 빈 상세일 수 있어 하나 더 본다)
+                                break
                     self.templates[key] = 1 if moved else None
+                    if not moved:
+                        self.ev_miss[name] = self.ev_miss.get(name, 0) + 1
                     continue
                 if key not in self.templates:  # 처음 2개까지 눌러 보고, 이동이 잡힌 것만 템플릿으로 쓴다
                     for i, args in members[:2]:
@@ -871,6 +896,11 @@ if __name__ == "__main__" and sys.argv[1:] == ["--self-test"]:  # 무관한 파�
                  ("K5", "http://s.kr/b?cfile=d"), ("K5", "http://s.kr/b?cfile=e")):
         c.same(u, k)  # K4는 여러 파라미터가 다른 안내 화면이라 근거에서 빠짐 → cfile은 근거 1곳
     assert c.learned == {("s.kr", "/v", "view")}, c.learned
+    w = Crawler("http://www.x.kr/", None, 1, 10, lambda m: None)  # www로 넣었는데 맨도메인으로 보내는 사이트
+    assert w.in_scope("http://x.kr/a") and w.in_scope("http://m.x.kr/") and not w.in_scope("http://evilx.kr/")
+    assert minimize("http://a/list?id=free&page=2") == "http://a/list?id=free&page=2"  # id가 게시판 ID인 목록 2쪽
+    assert minimize("http://a/view?id=3&page=2") == minimize("http://a/b.php?wr_id=3&page=2").replace("b.php?wr_", "view?") == "http://a/view?id=3"
+    assert minimize("http://a/s?q=a%20b&flag&x=%2F#f") == "http://a/s?q=a%20b&flag&x=%2F"  # 원래 표기 그대로
     print("통과")
 elif __name__ == "__main__":  # python app/crawler.py <URL>
     sys.stdout.reconfigure(encoding="utf-8")

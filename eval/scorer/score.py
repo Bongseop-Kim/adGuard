@@ -29,7 +29,7 @@ TECH = {"HOMOGLYPH", "JAMO", "TRANSPARENT", "OFFSCREEN"}
 TIME_TARGET = {"S2-realistic": 180, "S3-stress": 600}  # eval/README.md 통과 기준 (초)
 INIT = ("const o=Element.prototype.attachShadow;"
         "Element.prototype.attachShadow=function(i){return o.call(this,Object.assign({},i,{mode:'open'}))}")
-IFRAME_SRC = re.compile(r'^iframe\[src="([^"]+)"\]$')
+IFRAME_SRC = re.compile(r'^(.*? > )?iframe\[src="([^"]+)"\](:nth-of-type\(\d+\))?$')  # 같은 src가 한 부모에 둘이면 상위 경로·순번이 붙는다
 
 
 def norm_url(u):
@@ -124,9 +124,10 @@ class Resolver:
             for p in parts[:-1]:
                 scope = root or fr
                 m = IFRAME_SRC.match(p)
-                if m:
-                    want = norm_url(m.group(1))
-                    hs = [h for h in scope.query_selector_all("iframe") if norm_url(h.evaluate("e => e.src") or "") == want]
+                if m:  # src는 상대 경로일 수 있어 CSS 대신 .src(절대 주소)끼리 비교한다
+                    want = norm_url(m.group(2))
+                    hs = scope.query_selector_all((m.group(1) or "") + "iframe" + (m.group(3) or ""))
+                    hs = [h for h in hs if norm_url(h.evaluate("e => e.src") or "") == want]
                 else:
                     hs = scope.query_selector_all(p)
                 if len(hs) != 1:

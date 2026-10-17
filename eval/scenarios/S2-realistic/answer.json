@@ -756,6 +756,18 @@
         "H02"
       ],
       "note": "상세 본문 템플릿이 변형된 제목을 그대로 반복한다(제목과 같은 광고 문구). 규칙상 같은 기법의 별도 요소라 정답으로 추가(todo/04에서 발견)"
+    },
+    {
+      "id": "a_064",
+      "url": "http://127.0.0.1:8120/cop/bbs/selectArticleDetail.do?bbsId=BBSMSTR_11&nttId=1070",
+      "location": "div.view-cont > p.cont-extra",
+      "technique": "OFFSCREEN",
+      "evidence_text": "슬롯 카지노 첫충 @test_slot_15",
+      "covers": [
+        "T09",
+        "F01"
+      ],
+      "note": "visibility:hidden은 분류가 모호해 OFFSCREEN도 낸다 (todo/12 결정 3)"
     }
   ],
   "decoys": [

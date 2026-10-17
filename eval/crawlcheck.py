@@ -24,8 +24,9 @@ async def count(page, location):
         scope = root or fr
         m = score.IFRAME_SRC.match(p)
         if m:
-            want = score.norm_url(m.group(1))
-            hs = [h for h in await scope.query_selector_all("iframe") if score.norm_url(await h.evaluate("e => e.src") or "") == want]
+            want = score.norm_url(m.group(2))
+            hs = await scope.query_selector_all((m.group(1) or "") + "iframe" + (m.group(3) or ""))
+            hs = [h for h in hs if score.norm_url(await h.evaluate("e => e.src") or "") == want]
         else:
             hs = await scope.query_selector_all(p)
         if len(hs) != 1:

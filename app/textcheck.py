@@ -318,16 +318,20 @@ def homoglyph_tokens(raw):
     return hits
 
 
-def check(raw):
-    """raw(원문) → {"ad", "HOMOGLYPH": 근거 또는 None, "JAMO": 근거 또는 None, "norm", "kw", "INVISIBLE": 추가 유형 근거 또는 None}"""
+SPACED = re.compile(r"(?<![a-z0-9])[a-z](?:[\s.·_*-]+[a-z](?![a-z0-9])){2,}", re.I)  # b e t, c.a.s.i.n.o
+
+
+def check(raw, hidden=False):
+    """raw(원문) → {"ad", "HOMOGLYPH": 근거 또는 None, "JAMO": 근거 또는 None, "norm", "kw", "INVISIBLE": 추가 유형 근거 또는 None}
+    hidden: 화면에서 숨겨진 글 (숨긴 광고 낱말 하나만 있어도 광고로 본다)"""
     n1, n2, flags = variants(raw)
     c1, made1 = compose(n1)
     c2, made2 = compose(n2)
-    leet = [raw.lower().translate(LEET).replace("1", x) for x in "il"]
+    leet = [raw.lower().translate(LEET).replace("1", x) for x in "il"] + [re.sub(r"(?<![0-9])8(?=[a-z])", "b", raw.lower())]  # 8ET365
     kw_raw = keywords(base(raw))
     kw1, kw2 = keywords(c1), keywords(c2)
     kw_leet = set().union(*(keywords(x) for x in leet)) - kw_raw
-    kw_all = kw1 | kw2 | kw_leet | kw_raw
+    kw_all = kw1 | kw2 | kw_leet | kw_raw | keywords(SPACED.sub(lambda m: re.sub(r"[^a-z]", "", m.group().lower()), raw))  # 글자 사이 띄움: 광고성만
     # 키워드 글자 사이에 보이지 않는 글자를 끼움 (카\u00ad지노): 4종 밖 추가 유형, 회피 의도라 광고 신호로도 센다
     # 방향 제어 문자(RLO 등)는 화면 순서 바꾸기라 여기서 빼고 남긴다 (todo/08 VISUAL_REORDER)
     kw_inv = kw_raw - keywords(base(IGNORABLE.sub(lambda m: m.group() if BIDI.match(m.group()) else "\x01", raw)))
@@ -348,8 +352,6 @@ def check(raw):
     strong = len(kw_all - weak) + (len(cho) if contact or code else 0)
     ad = strong >= 1 and (contact or code or strong + len(weak) >= 2 or action or bool(kw_inv)) or bool(weak and (contact or code)) \
         or bool(len(weak) >= 2 and action)
-    if (neg or GUIDE.search(c2)) and not contact and not code:
-        ad = False
 
     res = {"ad": ad, "contact": contact or code, "HOMOGLYPH": None, "JAMO": None, "norm": c2, "kw": sorted(kw_all | {KW_CHO[t] for t in cho}),
            "INVISIBLE": "보이지 않는 글자를 지우면: " + ", ".join(sorted(kw_inv)) if kw_inv else None}
@@ -377,6 +379,12 @@ def check(raw):
         res["JAMO"] = "초성 약어: " + ", ".join("%s→%s" % (t, KW_CHO[t]) for t in cho)
     elif any(k.endswith("(받침)") for k in kw_all):
         res["JAMO"] = "받침을 지우면: " + ", ".join(k for k in sorted(kw_all) if k.endswith("(받침)"))
+    # 숨기거나 변형한 광고 낱말 하나 (ㅋㅏㅈㅣㄴㅗ, ｃａｓｉｎｏ, 숨긴 "토토사이트"): 강한 낱말 + (숨김 또는 HOMOGLYPH·JAMO)면 광고.
+    # 숨김·변형 없이 보이는 낱말 하나는 광고 아님 (todo/12 결정)
+    if not res["ad"] and strong >= 1 and (hidden or res["HOMOGLYPH"] or res["JAMO"]):
+        res["ad"] = res["lone"] = True  # lone: 낱말 하나로만 광고 (더 큰 광고 글의 조각이면 detect가 바깥 글을 남긴다)
+    if (neg or GUIDE.search(c2)) and not contact and not code:
+        res["ad"] = False
     return res
 
 
@@ -456,5 +464,12 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         if got != want or r["ad"] != ad:
             bad += 1
             print("실패:", raw, "기대", want, ad, "결과", got, r["ad"], r["kw"], r["norm"])
+    for raw, hid, ad in [("ㅋㅏㅈㅣㄴㅗ", False, True), ("ｃａｓｉｎｏ", False, True), ("토토사이트", True, True), ("온라인카지노", True, True),
+                         ("토토사이트", False, False), ("도박 예방 캠페인", True, False), ("카지노 단속 안내", True, False),
+                         ("성인", True, False), ("8ET365 가입코드 TEST1", False, True), ("b e t 365 가입코드 TEST1", False, True)]:
+        if check(raw, hid)["ad"] != ad:
+            bad += 1
+            print("실패(낱말 하나·띄움):", raw, hid, "기대", ad)
+    assert check("8ET365 가입코드 TEST1")["HOMOGLYPH"] and not check("b e t 365 가입코드 TEST1")["HOMOGLYPH"]
     assert check("카\u00ad지\u00ad노\u00ad커뮤니티")["INVISIBLE"] and not check("\u202e노지카\u202c 가입 @test_rlo")["INVISIBLE"]
     print("통과" if not bad else "%d건 실패" % bad)

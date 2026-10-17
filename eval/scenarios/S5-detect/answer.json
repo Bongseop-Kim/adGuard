@@ -250,6 +250,110 @@
         "H01"
       ],
       "note": "주소의 마침표를 。(U+3002)로 바꿈. NFKC로도 안 바뀌어 따로 되돌린다 (research/13 §3, 사이트 D)"
+    },
+    {
+      "id": "a_022",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "p.l-jamo",
+      "technique": "OFFSCREEN",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ",
+      "covers": [
+        "O01",
+        "J01"
+      ],
+      "note": "숨긴 자모 낱말 하나 (todo/12 결정 5)"
+    },
+    {
+      "id": "a_023",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "p.l-jamo",
+      "technique": "JAMO",
+      "evidence_text": "ㅋㅏㅈㅣㄴㅗ",
+      "covers": [
+        "J01",
+        "F01"
+      ],
+      "note": "숨긴 자모 낱말 하나: JAMO도"
+    },
+    {
+      "id": "a_024",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "span.l-fw",
+      "technique": "HOMOGLYPH",
+      "evidence_text": "ｃａｓｉｎｏ",
+      "covers": [
+        "H01"
+      ],
+      "note": "보이는 전각 낱말 하나 (변형 신호)"
+    },
+    {
+      "id": "a_025",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "span.l-toto",
+      "technique": "OFFSCREEN",
+      "evidence_text": "토토사이트",
+      "covers": [
+        "O03"
+      ],
+      "note": "숨긴 낱말 하나"
+    },
+    {
+      "id": "a_026",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "p.l-oc",
+      "technique": "TRANSPARENT",
+      "evidence_text": "온라인카지노",
+      "covers": [
+        "T01"
+      ],
+      "note": "흰 배경 흰 글자 낱말 하나"
+    },
+    {
+      "id": "a_027",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "p.g-mix > span:nth-of-type(2)",
+      "technique": "OFFSCREEN",
+      "evidence_text": "바카라 첫충 30% @test_gmixhid",
+      "covers": [
+        "O01",
+        "F06"
+      ],
+      "note": "부모가 그라데이션 배경(스크린샷 비교) 뒤에도 순번 그대로"
+    },
+    {
+      "id": "a_028",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "div.ifs > iframe[src=\"http://127.0.0.1:8150/c/frame-ad.html\"]:nth-of-type(1) >>> p.fa",
+      "technique": "OFFSCREEN",
+      "evidence_text": "슬롯 첫충 30% 가입 @test_ifr12",
+      "covers": [
+        "P07",
+        "O01"
+      ],
+      "note": "같은 src iframe 둘이 한 부모 안에: 순번으로 구분"
+    },
+    {
+      "id": "a_029",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "div.ifs > iframe[src=\"http://127.0.0.1:8150/c/frame-ad.html\"]:nth-of-type(2) >>> p.fa",
+      "technique": "OFFSCREEN",
+      "evidence_text": "슬롯 첫충 30% 가입 @test_ifr12",
+      "covers": [
+        "P07",
+        "O01"
+      ],
+      "note": "같은 src iframe 둘이 한 부모 안에: 순번으로 구분"
+    },
+    {
+      "id": "a_030",
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "div.sw > p.sw-txt",
+      "technique": "TRANSPARENT",
+      "evidence_text": "슬롯 첫충 가입 @test_sibw14",
+      "covers": [
+        "T01"
+      ],
+      "note": "어두운 조상 위 흰 형제 배경판 위의 흰 글자"
     }
   ],
   "decoys": [
@@ -288,6 +392,30 @@
         "D02"
       ],
       "note": "댓글 수정 폼(display:none)의 원문. 같은 글이 댓글로 보인다 (P5)"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "span.d-camp",
+      "covers": [
+        "D05"
+      ],
+      "note": "숨긴 예방 캠페인 문구"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "p.d-dan",
+      "covers": [
+        "D05"
+      ],
+      "note": "숨긴 단속 안내"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/todo12-vis.html",
+      "location": "p.d-vis",
+      "covers": [
+        "D07"
+      ],
+      "note": "보이는 낱말 하나는 광고 아님 (todo/12 결정 5)"
     }
   ],
   "extra": [
@@ -408,6 +536,15 @@
       "location": "div.v-flex",
       "extra_finding": "VISUAL_REORDER",
       "note": "숨긴 글의 화면 순서 뒤집기 (todo/08 S-5). 4종은 OFFSCREEN으로 따로"
+    },
+    {
+      "url": "http://127.0.0.1:8150/c/todo12.html",
+      "location": "div.sb > p.sb-txt",
+      "extra_finding": "VISIBLE_AD",
+      "covers": [
+        "D06"
+      ],
+      "note": "어두운 형제 배경판 위의 흰 글자: 보임 (TRANSPARENT 아님)"
     }
   ]
 }

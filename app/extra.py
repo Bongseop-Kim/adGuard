@@ -168,7 +168,7 @@ def pick(pages, entry, n):
     return out
 
 
-async def cloaking(p, browser, entry, pages, log):
+async def cloaking(p, browser, entry, pages, log, end=None):
     name = "검색봇 클로킹"
     t0, found, rows, blocked, compared = time.monotonic(), [], [], {}, 0
     req = await p.request.new_context(ignore_https_errors=True)
@@ -194,7 +194,7 @@ async def cloaking(p, browser, entry, pages, log):
 
     async def one(url):
         nonlocal compared
-        if time.monotonic() - t0 > CLOAK_SEC:
+        if time.monotonic() - t0 > CLOAK_SEC or end and time.monotonic() > end - 45:  # end: 보고서까지 끝낼 시각 (4쪽 1묶음 최대 약 30초)
             return
         try:
             (s1, h1, _), (s2, h2, _) = await asyncio.gather(get(url, DESKTOP), get(url, DESKTOP))
@@ -253,7 +253,7 @@ async def cloaking(p, browser, entry, pages, log):
                 "summary": "검색봇·검색 유입 모바일에게만 보이는 광고는 없었습니다." if compared else "비교할 페이지를 받지 못했습니다."}
 
 
-async def run(entry, log=print, pages=()):
+async def run(entry, log=print, pages=(), end=None):
     from playwright.async_api import async_playwright
     from crawler import INIT, launch
 
@@ -262,7 +262,7 @@ async def run(entry, log=print, pages=()):
         ctx = await browser.new_context(ignore_https_errors=True, service_workers="block", locale="ko-KR")
         await ctx.add_init_script(INIT)
         out = [await isap(ctx, entry, log)]
-        found, d = await cloaking(p, browser, entry, list(pages), log)
+        found, d = await cloaking(p, browser, entry, list(pages), log, end)
         out.append(d)
         await browser.close()
     for d in out:
