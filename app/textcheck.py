@@ -407,7 +407,9 @@ def check(raw, hidden=False):
     # 숨김·변형 없이 보이는 낱말 하나는 광고 아님 (todo/12 결정)
     if not res["ad"] and strong >= 1 and (hidden or res["HOMOGLYPH"] or res["JAMO"]):
         res["ad"] = res["lone"] = True  # lone: 낱말 하나로만 광고 (더 큰 광고 글의 조각이면 detect가 바깥 글을 남긴다)
-    if (neg or GUIDE.search(c2)) and not contact and not code:
+    # 약한 낱말뿐이면 연락처가 있어도 안내문 말투·예방·교육이 이긴다: 공공 안내문엔 늘 연락처가 붙는다
+    # ("성인 학습자 평생교육 과정 안내 문의 010-…", research/17). 강한 낱말이 있으면 지금처럼 연락처가 이긴다
+    if (neg or GUIDE.search(c2)) and (not contact and not code or not strong):
         res["ad"] = False
     return res
 
@@ -478,6 +480,9 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         ("Best online gambling - free spins at spin-test.example", set(), True),
         ("카톡 ID: casino77 첫충 이벤트", set(), True),
         ("성인반 수강 신청 문의", set(), False),
+        ("성인 학습자 평생교육 과정 안내 문의 010-1234-5678", set(), False),
+        ("외화 환전 안내 문의하세요 02-123-4567", set(), False),
+        ("오피 유흥 출장 24시 010-1234-5678", set(), True),
         ("해외 연수 참가자 외화 환전 안내: 가까운 은행에 문의하세요", set(), False),
         ("성인 독감 접종 일정 문의 1339", set(), False),
         ("오피스텔 분양 상담 문의", set(), False),
