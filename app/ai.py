@@ -73,12 +73,12 @@ def mask(s):
 STATS = {"enabled": False, "model": "", "candidates": 0, "cache": 0, "calls": 0, "refused": 0, "failed": 0, "tokens": 0,
          "latency": [], "masked": {}, "skipped": 0, "changed": [], "reason": ""}
 _lock = threading.Lock()
-_cache, _cache_path, _t0 = None, None, None
+_cache, _cache_path, _spent = None, None, 0.0
 
 
 def setup():
     """실행 시작 때 한 번: 키·모델·캐시를 읽는다. 키 확인은 첫 화면(main.ai_status)에서 했으므로 여기서는 호출하지 않는다"""
-    global _cache, _cache_path, _t0
+    global _cache, _cache_path, _spent
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     STATS.update(enabled=bool(key), model=os.environ.get("OPENAI_DECISIONS_MODEL", "").strip() or main.AI_MODEL,
                  candidates=0, cache=0, calls=0, refused=0, failed=0, tokens=0, latency=[], masked={}, skipped=0, changed=[], dead=False,
@@ -89,7 +89,7 @@ def setup():
             _cache = json.load(f)
     except (OSError, ValueError):
         _cache = {}
-    _t0 = time.monotonic()
+    _spent = 0.0
 
 
 def save():
@@ -117,6 +117,7 @@ def _call(payload, key):
 
 def judge(text, norm=""):
     """후보 글의 광고 확률. 원문을 받아 안에서 마스킹한다. 실패·거부·꺼짐·상한이면 None (규칙 판정 그대로)"""
+    global _spent
     if _cache is None:
         setup()
     if not STATS["enabled"]:
@@ -136,7 +137,7 @@ def judge(text, norm=""):
             limit = int(os.environ.get("ADGUARD_AI_MAX_CALLS", "200") or 200)
         except ValueError:  # 숫자가 아닌 값: 기본값
             limit = 200
-        if STATS["calls"] >= limit or time.monotonic() - _t0 > 60 or STATS.get("dead"):
+        if STATS["calls"] >= limit or _spent > 60 or STATS.get("dead"):  # 60초: 실행 동안 AI 호출에 쓴 시간의 합
             STATS["skipped"] += 1
             return None
         STATS["calls"] += 1
@@ -144,12 +145,14 @@ def judge(text, norm=""):
     try:
         r = _call({"model": STATS["model"], "input": inp, "questions": QUESTIONS}, os.environ.get("OPENAI_API_KEY", "").strip())
     except Exception as e:
+        _spent += time.monotonic() - t
         with _lock:
             STATS["failed"] += 1
             STATS["reason"] = "최근 실패: %s" % (getattr(e, "code", None) or type(e).__name__)
             if getattr(e, "code", None) in (401, 403):  # 키·권한 문제는 다시 물어도 같다: 이번 실행은 규칙만
                 STATS["dead"] = True
         return None
+    _spent += time.monotonic() - t
     with _lock:
         STATS["latency"].append(round(time.monotonic() - t, 2))
         try:

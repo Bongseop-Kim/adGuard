@@ -136,7 +136,8 @@ CONTACT = re.compile(r"(?<![a-z0-9_.])@[a-z][a-z0-9_]{3,31}(?![a-z0-9_@.])|t\.me
                      re.I)
 CODE = re.compile(r"코드\s*[:：]?\s*[a-z0-9]{3,}|(?:첫충|매충|충전|보너스|지급|입금)\D{0,8}\d{1,3}\s*%|\d{1,3}\s*%\s*(?:지급|보너스|충전)",
                   re.I)
-GOV = re.compile(r"\.(?:go|or|ac|re|mil|ne|pe|co)\.kr$|^(?:go|or|ac|re|mil)\.kr$")  # 기관·학교 도메인은 연락처로 안 침
+# 기관·학교·정부 포털 도메인은 연락처로 안 침. 포털(blog.naver.com 등)도: 신고·예방 안내에 늘 붙는다
+GOV = re.compile(r"\.(?:go|or|ac|re|mil|ne|pe|co)\.kr$|^(?:go|or|ac|re|mil|gov|korea)\.kr$|^(?:naver|daum|google|youtube)\.(?:com|net)$")
 KW_EN_RE = re.compile(r"(?<![a-z])(?:%s)(?![a-z])" % "|".join(KW_EN), re.I)
 
 
@@ -304,10 +305,25 @@ def jong_noise(s):
 
 def keywords(s):
     """정규화된 문자열에서 찾은 키워드 집합"""
-    sq = squash(s)
+    words = [squash(w) for w in s.split()]
     for w in NOT_KW:
-        sq = sq.replace(w, "|")
-    found = {k for k in KW_KO if k in sq}
+        words = [x.replace(w, "|") for x in words]
+    sq = "".join(words)
+    edge, n = {0}, 0  # 어절 경계 위치
+    for w in words:
+        n += len(w)
+        edge.add(n)
+
+    def fits(i, j):  # 한 어절 안이거나, 띄어 쓴 어절들을 통째로 덮는다 (토 토 ○, 포토 토크 ×, 총 판매액 ×)
+        return all(e <= i or e >= j for e in edge) or (i in edge and j in edge)
+
+    found = set()
+    for k in KW_KO:
+        i = sq.find(k)
+        while i >= 0 and not fits(i, i + len(k)):
+            i = sq.find(k, i + 1)
+        if i >= 0:
+            found.add(k)
     found |= {m.group(0).lower() for m in KW_EN_RE.finditer(s)}
     stripped = strip_jong(sq)  # 받침 노이즈 (3음절 이상 키워드만). 흔한 받침만 바뀐 것은 정상 낱말 (사다리게임 → 리게이 ≠ 릴게임)
     for k in KW_KO:
@@ -505,7 +521,11 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
             print("실패:", raw, "기대", want, ad, "결과", got, r["ad"], r["kw"], r["norm"])
     for raw, hid, ad in [("ㅋㅏㅈㅣㄴㅗ", False, True), ("ｃａｓｉｎｏ", False, True), ("토토사이트", True, True), ("온라인카지노", True, True),
                          ("토토사이트", False, False), ("도박 예방 캠페인", True, False), ("카지노 단속 안내", True, False),
-                         ("성인", True, False), ("8ET365 가입코드 TEST1", False, True), ("b e t 365 가입코드 TEST1", False, True)]:
+                         ("성인", True, False), ("8ET365 가입코드 TEST1", False, True), ("b e t 365 가입코드 TEST1", False, True),
+                         # 어절 경계를 넘는 낱말 (리뷰 10/18): 숨겨져도 광고 아님. 한 글자씩 띄운 것은 광고
+                         ("10월 25일(토) 토크콘서트 안내", True, False), ("포토 토크", True, False), ("총 판매액 공개", True, False),
+                         ("3개월 이내 구제신청", True, False), ("온 카드뉴스", True, False), ("토 토 사이트 첫충", True, True),
+                         ("불법 카지노 사이트 신고 안내 www.gov.kr", True, False)]:
         if check(raw, hid)["ad"] != ad:
             bad += 1
             print("실패(낱말 하나·띄움):", raw, hid, "기대", ad)

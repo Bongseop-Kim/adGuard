@@ -97,12 +97,29 @@ def ai_status(check=True):
         return dict(out, reason="OpenAI에 연결하지 못했습니다 (%s)" % getattr(e, "reason", e))
 
 
+def fix_url(url):
+    """주소에 http(s)://가 없으면 붙인다 (www.x.go.kr). 창 모드·명령줄 공통"""
+    url = (url or "").strip()
+    return url if "://" in url else "http://" + url
+
+
 def write_json(path, data):
     # UTF-8(BOM 없음), 임시 파일에 쓴 뒤 교체해서 반쯤 쓰인 파일이 남지 않게 한다
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    for _ in range(10):  # Windows: 백신·인덱서가 잠깐 잡고 있으면 교체가 거부된다 (WinError 5·32)
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            time.sleep(0.2)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:  # 끝내 교체가 안 되면 직접 덮어쓴다 (결과를 잃지 않게)
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
 
 
 def meta_of(url, started, t0):
@@ -212,7 +229,8 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
         for name in ("result.json", "result_extra.json"):
             p = os.path.join(base_dir(), name)
             with open(p, encoding="utf-8") as f:
-                write_json(p, dict(json.load(f), meta=m))
+                data = json.load(f)
+            write_json(p, dict(data, meta=m))  # 읽은 파일을 닫은 뒤 교체: Windows는 열린 파일을 바꾸지 못한다
         log("탐지 완료(보고서 포함): %.1f초" % m["elapsed_sec"])
     return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag, finish)
 
@@ -242,9 +260,7 @@ class Api:
     def start(self, url, minutes=20):
         if self._s["phase"] in ("running", "report"):
             return
-        url = (url or "").strip()
-        if "://" not in url:
-            url = "http://" + url
+        url = fix_url(url)
         minutes = max(1, min(25, int(minutes or 20)))  # 25분: 보고서까지 끝나도 평가 상한 30분에 여유
         self._s, self._ctl, self._t0 = {"phase": "running", "log": [], "url": url, "minutes": minutes}, {}, time.monotonic()
         threading.Thread(target=self._run, args=(url, minutes), daemon=True).start()
@@ -407,12 +423,14 @@ def main():
     args = sys.argv[1:]
     env = load_env()
     print("설정: %s" % (env or ".env 없음, AI 꺼짐"), flush=True)
+    if args[:1] in (["--smoke-gui"], ["--no-report"]) and len(args) < 2:
+        sys.exit("사용법: adguard.exe %s <URL>" % args[0])
     if args[:1] == ["--smoke-gui"]:
-        gui(args[1])
+        gui(fix_url(args[1]))
     elif args[:1] == ["--no-report"]:  # 탐지와 결과 파일만 (보고서·캡처 생략). 채점 자동화용
-        scan(args[1])
+        scan(fix_url(args[1]))
     elif args:
-        run_all(args[0])
+        run_all(fix_url(args[0]))
     else:
         gui()
 

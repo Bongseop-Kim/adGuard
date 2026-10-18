@@ -1,16 +1,21 @@
 adGuard 제3자 구성 요소 고지 (Third-Party Notices)
 
 adGuard 실행 파일에는 아래 오픈소스 구성 요소가 함께 들어 있다. 각 라이선스 전문은 표기한 주소에서 볼 수 있다.
+이 파일은 adguard.exe 옆과 _internal\data\ 두 곳에 있다.
 
 | 구성 요소 | 버전 | 라이선스 | 출처 |
 |---|---|---|---|
 | Python | 3.12 | PSF License 2.0 | https://docs.python.org/3/license.html |
 | Playwright for Python | 1.64.0 | Apache License 2.0 | https://github.com/microsoft/playwright-python |
+| playwright-core·Node.js (Playwright 드라이버, _internal\playwright\driver) | Playwright 1.64 동봉판 | Apache License 2.0 / MIT (드라이버 폴더의 ThirdPartyNotices·LICENSE) | https://github.com/microsoft/playwright, https://nodejs.org/ |
 | Chromium (headless shell, browsers/ 폴더) | Playwright 1.64 동봉판 | BSD 3-Clause 외 Chromium 구성 요소 라이선스 (browsers/ 안의 LICENSE 파일들) | https://www.chromium.org/ |
 | pyee, greenlet, typing_extensions (Playwright 의존성) | | MIT / MIT·PSF / PSF | PyPI 각 패키지 |
 | pywebview | 6.2.1 | BSD 3-Clause | https://github.com/r0x0r/pywebview |
-| pythonnet, proxy_tools, bottle (pywebview 의존성) | | MIT | PyPI 각 패키지 |
+| pythonnet, proxy_tools, bottle, clr_loader (pywebview 의존성) | | MIT | PyPI 각 패키지 |
+| cffi, pycparser (clr_loader 의존성) | | MIT / BSD 3-Clause | PyPI 각 패키지 |
+| Microsoft Edge WebView2 SDK (Microsoft.Web.WebView2.Core·WinForms.dll, WebView2Loader.dll, pywebview 동봉) | | Microsoft WebView2 SDK 라이선스 (BSD 3-Clause 형식) | https://www.nuget.org/packages/Microsoft.Web.WebView2 |
 | Microsoft Edge WebView2 Runtime | Windows 11 기본 설치본 (동봉하지 않음) | Microsoft 소프트웨어 사용 조건 | https://developer.microsoft.com/microsoft-edge/webview2/ |
+| OpenSSL, libffi, zlib 등 (Python 동봉 라이브러리) | | Apache 2.0 / MIT / zlib | https://docs.python.org/3/license.html |
 | PyInstaller 부트로더 | 6.22.3 | GPL 2.0 + 부트로더 예외 (실행 파일 배포 허용) | https://pyinstaller.org/en/stable/license.html |
 
 데이터

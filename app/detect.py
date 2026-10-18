@@ -505,7 +505,10 @@ def png_rgb(data):
 
 async def text_invisible(page, frame, i):
     """글자만 숨긴 스크린샷과 차이가 거의 없으면 안 보이는 글자 (차이 > 24인 픽셀이 글자 면적의 1% 미만)"""
-    h = await frame.evaluate_handle("i => window.__adg.C[i]", i)
+    try:  # 프레임이 다시 로드되면(순환 광고 iframe) 핸들 얻기부터 실패한다: 이 후보만 '판정 못 함'
+        h = await asyncio.wait_for(frame.evaluate_handle("i => window.__adg.C[i]", i), 5)
+    except Exception:
+        return False
     try:
         await asyncio.wait_for(h.scroll_into_view_if_needed(timeout=2000), 3)
         box = await h.bounding_box()
@@ -622,8 +625,9 @@ async def analyze(page, url):
         # AI 광고성 판정 (research/07 §6.4, eval/ai_exp.py로 합격 확인): 규칙만으로 애매한 경계 구간만 묻는다
         #   규칙 광고 + 연락처·코드 없음 → q < 0.4면 뺀다 / 규칙 광고 아님 + 광고 낱말 + 숨김·변형 신호 → q ≥ 0.4면 넣는다
         #   규칙 확실 양성(광고 + 연락처·코드)은 AI가 뒤집지 못한다 (주입 문장 대비). 실패·거부·꺼짐이면 규칙 그대로
+        #   숨기거나 변형한 광고 낱말 하나(lone, todo/12 결정 5)도 AI가 빼지 못한다: 낱말만으로는 AI가 광고가 아니라고 본다 (S5 todo12, q 0.0~0.38)
         signal = off or tr or c["diff"] or t["HOMOGLYPH"] or t["JAMO"] or t["INVISIBLE"] or reorder
-        if (t["ad"] and not t["contact"]) or (not t["ad"] and t["kw"] and signal):
+        if (t["ad"] and not t["contact"] and not t.get("lone")) or (not t["ad"] and t["kw"] and signal):
             r = await asyncio.to_thread(ai.judge, c["text"], t["norm"])
             if r is not None:
                 now = r["q"] >= 0.4

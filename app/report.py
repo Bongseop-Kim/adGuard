@@ -387,8 +387,11 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
     page = html_report(data)
     with open(os.path.join(base, "report.html"), "w", encoding="utf-8") as f:
         f.write(page)
-    save_record(base, data)
-    write_csv(os.path.join(base, "result.csv"), groups)
+    for name, fn in (("점검 기록", lambda: save_record(base, data)), ("result.csv", lambda: write_csv(os.path.join(base, "result.csv"), groups))):
+        try:  # Excel이 result.csv를 열어 두면 잠겨 있다: 탐지는 끝났으니 오류로 끝내지 않는다
+            fn()
+        except OSError as e:
+            log("%s 저장 실패(다른 프로그램이 열어 두었으면 닫고 다시 점검하세요): %s" % (name, e))
     log("보고서 저장: report.html, result.csv")
     return data
 

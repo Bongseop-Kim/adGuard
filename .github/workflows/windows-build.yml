@@ -21,7 +21,9 @@ jobs:
         run: pyinstaller --noconfirm --onedir --noupx --name adguard --add-data "app/data;data" app/main.py
 
       - name: .env 예시를 exe 옆에 (심사위원이 키만 넣으면 됨)
-        run: copy app\.env.example dist\adguard\.env.example
+        run: |
+          copy app\.env.example dist\adguard\.env.example
+          copy app\data\THIRD_PARTY_NOTICES.txt dist\adguard\THIRD_PARTY_NOTICES.txt
 
       - name: 빌드 크기
         shell: pwsh
@@ -37,7 +39,7 @@ jobs:
 
       - name: 한글·공백 경로로 복사해서 S0 사이트로 실행 (명령줄 + WebView2 창)
         shell: pwsh
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           $dest = "C:\테스트 폴더\adguard"
           New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
@@ -61,8 +63,29 @@ jobs:
           python eval/validate.py "$dest\result.json"
           if ($LASTEXITCODE -ne 0) { throw "result.json 스키마 위반" }
           python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert d['findings']==[], d" "$dest\result.json"
+          # 탐지 회귀: S1을 exe로 점검하고 채점해 100점(재현율·정밀도 100%)인지 본다
+          $srv = Start-Process python -ArgumentList "eval/scenarios/S1-baseline/serve.py" -PassThru
+          Start-Sleep -Seconds 3
+          & "$dest\adguard.exe" --no-report "http://127.0.0.1:8110/"
+          if ($LASTEXITCODE -ne 0) { throw "S1 adguard.exe 실패: $LASTEXITCODE" }
+          $env:PYTHONIOENCODING = "utf-8"
+          python eval/scorer/score.py S1-baseline "$dest\result.json" --json s1.json
+          Stop-Process -Id $srv.Id
+          python -c "import json; r=json.load(open('s1.json',encoding='utf-8')); print(r['hit'], r['answers'], r['recall'], r['precision']); assert r['recall'] == r['precision'] == 1 and r['answers'] > 0"
+          if ($LASTEXITCODE -ne 0) { throw "S1 점수가 100점이 아님" }
+
+      - name: 배포 zip (dist에서는 실행하지 않았으므로 .env·결과 파일이 없다) + SHA-256
+        shell: pwsh
+        run: |
+          $bad = Get-ChildItem dist\adguard -Force | Where-Object Name -match '^(\.env|\.env\.txt|result.*\.json|report\.html|result\.csv|history\.json|status\.json|records|logs|cache)$'
+          if ($bad) { throw "배포 폴더에 실행 산출물이 있음: $($bad.Name -join ', ')" }
+          Compress-Archive -Path dist\adguard -DestinationPath adguard.zip
+          (Get-FileHash adguard.zip -Algorithm SHA256).Hash | Tee-Object adguard.zip.sha256.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: adguard-windows
-          path: dist/adguard
+          path: |
+            adguard.zip
+            adguard.zip.sha256.txt
+          compression-level: 0

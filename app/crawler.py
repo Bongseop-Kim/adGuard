@@ -368,6 +368,12 @@ class Crawler:
         heapq.heappush(self.heap, (prio, depth, self.seq, url, post))
 
     def push(self, url, depth, body=None, via=(None, "링크")):
+        try:
+            self._push(url, depth, body, via)
+        except ValueError:  # 읽을 수 없는 주소 ("//[x/" → Invalid IPv6 URL 등): 버린다
+            pass
+
+    def _push(self, url, depth, body, via):
         post = (url, body) if body is not None else None  # POST로만 열리면 원래 action과 본문을 남겨 둔다
         url = minimize(url, body)
         if self.learned and body is None:  # 내용을 안 바꾼다고 배운 파라미터는 뺀다
@@ -402,6 +408,12 @@ class Crawler:
         # 첫 화면에서 바로 이어진 주소(깊이 1)는 사이트 메뉴: 이름에 list·board가 없는 게시판(/help)도 목록과 같은 순서로 본다
         prio = min(priority(url), 2) if depth <= 1 else priority(url)
         heapq.heappush(self.heap, (prio + min(n // 30, 5) + (10 if n > CAP_PATTERN else 0), depth, self.seq, url, post))
+
+    def push_rel(self, base, rel, depth, via):
+        try:
+            self.push(urllib.parse.urljoin(base, rel), depth, via=via)
+        except ValueError:
+            pass
 
     def same(self, url, key):
         """url이 key(본문 해시·canonical)로 본 페이지와 같다. 같은 페이지의 주소들이 파라미터 하나만 다르면 그 파라미터를 근거로 모으고,
@@ -444,7 +456,10 @@ class Crawler:
             k, _, v = line.partition(":")
             k, v = k.strip().lower(), v.split("#")[0].strip()
             if k == "sitemap" and v:
-                sitemaps.append(urllib.parse.urljoin(root, v))
+                try:
+                    sitemaps.append(urllib.parse.urljoin(root, v))
+                except ValueError:
+                    continue
                 self.via.setdefault(norm(sitemaps[-1]), (root + "/robots.txt", "robots.txt의 Sitemap"))
             elif k in ("allow", "disallow") and v.startswith("/") and v != "/":
                 self.push(root + re.split(r"[*$]", v)[0], 1, via=(root + "/robots.txt", "robots.txt"))
@@ -487,7 +502,10 @@ class Crawler:
             self.shared = await self.new_ctx()
             ctxs = [self.shared] * self.workers
             self.push(self.entry, 0, via=(None, "시작 주소"))
-            await self.seed(ctxs[0])
+            try:  # robots·sitemap(최대 50개 × 10초)이 크롤 시간을 다 쓰지 않게
+                await asyncio.wait_for(self.seed(ctxs[0]), 60)
+            except Exception as e:
+                self.log("robots·sitemap 확인을 중단했습니다 (%s)" % type(e).__name__)
             tasks = [asyncio.create_task(self.worker(c, i)) for i, c in enumerate(ctxs)]
             # 하드 데드라인: 시간이 다 되면 진행 중인 페이지도 끊고 모은 결과만 돌려준다
             _, pending = await asyncio.wait(tasks, timeout=max(1, self.deadline - time.monotonic()) + 30)
@@ -611,11 +629,11 @@ class Crawler:
         return page
 
     def on_dialog(self, page, d):
+        asyncio.ensure_future(with_timeout(d.dismiss(), 3))  # 먼저 닫는다: 아래 기록이 실패해도 페이지가 멈추지 않게
         page.adg_dialogs.append(d.message)
         if (page.url, d.message) not in self.dialogs:
             self.dialogs.append((page.url, d.message))
             self.log("경고창: %s (%s)" % (d.message.strip()[:60], page.url))
-        asyncio.ensure_future(with_timeout(d.dismiss(), 3))
 
     async def open(self, page, url, post):
         """GET으로 연다. POST로만 열리는 글은 같은 파라미터의 GET이 실패할 때만 POST로 연다 (research/03 §8)."""
@@ -647,14 +665,14 @@ class Crawler:
             return
         m = META_REFRESH.search(await with_timeout(resp.text(), 5) or "")
         if m:
-            self.push(urllib.parse.urljoin(resp.url, m.group(1).strip()), depth + 1, via=(url, "자동 이동(meta refresh)"))
+            self.push_rel(resp.url, m.group(1).strip(), depth + 1, via=(url, "자동 이동(meta refresh)"))
         await with_timeout(page.wait_for_load_state("load"), 5)
         await with_timeout(page.evaluate(SETTLE_JS), 4)
         await with_timeout(asyncio.gather(*[f.wait_for_load_state("load") for f in page.frames]), 3)
 
         # 리다이렉트 뒤 최종 URL. POST로만 열리는 글은 GET이 되면 GET 표기, 안 되면 action URL (research/03 §8)
         final = minimize(page.url) if page.url.startswith("http") else url  # 중복 판정 키용
-        shown = page.url.split("#")[0] if page.url.startswith("http") else url  # 출력 주소: 실제로 연 주소에서 #만 뺀다 (todo/12 결정)
+        shown = re.sub(r";jsessionid=[^/?#]*", "", page.url.split("#")[0], flags=re.I) if page.url.startswith("http") else url  # 출력 주소: 실제로 연 주소에서 #만 뺀다 (todo/12 결정)
         if not mobile and norm(final) != norm(url) and any(MOBILE_ONLY.search(m) for m in page.adg_dialogs):
             # "모바일 전용입니다" 경고 뒤 다른 곳으로 보냄: 모바일 화면으로 다시 열고, 같은 게시판 글도 처음부터 모바일로
             self.mobile |= {norm(url), section(url)}
@@ -712,7 +730,7 @@ class Crawler:
                     caught.append((r.method, r.url, r.post_data))
                 await route.abort()
             else:
-                await route.continue_()
+                await route.fallback()  # continue_()는 컨텍스트의 위험 주소 차단(new_ctx)을 건너뛴다
 
         async def reopen():
             try:  # abort하면 오류 페이지가 되므로 다시 연다
@@ -816,7 +834,7 @@ class Crawler:
         self.js_seen.add(js)
         text = await self.fetch(page.context, js) or ""
         for m in re.finditer(r"[\"'`]((?:https?:)?/[^\"'`\s<>]*)[\"'`]", text):
-            self.push(urllib.parse.urljoin(page.url, m.group(1)), depth + 1, via=(parent, "스크립트 속 주소"))
+            self.push_rel(page.url, m.group(1), depth + 1, via=(parent, "스크립트 속 주소"))
 
     def take(self, got, depth, parent, how):
         for u in got.get("links", []):
