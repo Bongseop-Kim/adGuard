@@ -356,6 +356,32 @@ function collect(all_) {  // all_: 상위 iframe이 숨겨져 있으면 자기 �
       const parts = o.raw.split(/\s[>|·:\-–—]\s/).map(x => x.replace(/\s+/g, '')).filter(Boolean);
       if ((o.off.length || o.tr.length) && parts.join('').length >= 6 && parts.every(x => vis.includes(x))) o.dup = true;
     }
+    // 사이트 화면 장치가 숨긴 글 (research/17 남은 것): 광고를 감추려는 숨김이 아니다
+    // ponytail: 모양으로만 가른다. 같은 사이트 링크 속 숨은 글·같은 클래스 탭으로 위장한 광고는 놓친다
+    const shownBox = n => { const s = getComputedStyle(n); return s.display !== 'none' && s.visibility === 'visible' && +s.opacity > 0 && n.getClientRects().length > 0; };
+    const hider = e => {  // 숨김을 만든 가장 가까운 상자
+      for (let n = e; n && n.parentElement; n = n.parentElement) {
+        const s = getComputedStyle(n);
+        if (s.display === 'none' || +s.opacity === 0 || (s.visibility !== 'visible' && getComputedStyle(n.parentElement).visibility === 'visible')) return n;
+      }
+      return null;
+    };
+    for (const o of out) {
+      if (o.dup || !(o.off.length || o.tr.length)) continue;
+      const e = C[o.i];
+      // 보이는 같은 사이트 링크 안의 숨은 말풍선: 마우스를 올리면 보이는 링크 설명 (XE 이전·다음 글 미리보기 a.bd_rd_prev > span.wrp)
+      const a = e.closest('a[href]');
+      if (a && a !== e && a.hostname === location.hostname && shownBox(a)) { o.dup = true; continue; }
+      const h = hider(e);
+      if (!h) continue;
+      // 스크롤하면 나타나는 효과(WOW.js·AOS·ScrollReveal·animate.css): 화면에 들어오기 전까지 visibility:hidden·opacity 0
+      if (h.closest('.wow, [data-aos], [data-sr-id], .animate__animated')) { o.dup = true; continue; }
+      // 탭·슬라이드의 안 보이는 패널: 같은 묶음 안에 같은 태그·클래스 패널이 보이고, 목록을 담고 있다
+      // 형제(ul.tab > li.panel)뿐 아니라 사촌도 본다 (신라대 dl.vnum1 isOn > dd.datalist 보임, dl.vnum3 > dd.datalist 숨김)
+      const group = h.parentElement && (h.parentElement.parentElement || h.parentElement);
+      if (h.className && group && h.querySelectorAll('li,tr,a').length >= 2 &&
+          [...group.querySelectorAll(h.localName)].some(x => x !== h && x.className === h.className && shownBox(x))) o.dup = true;
+    }
   }
   return out;
 }

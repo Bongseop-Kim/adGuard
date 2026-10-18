@@ -160,11 +160,16 @@ CLICK_JS = "([sel, i]) => { const e = document.querySelectorAll(sel)[i]; if (e) 
 # ctx.route에도 쓰므로 JS 정규식으로도 옮겨지는 문법만 쓴다
 DANGER = re.compile(r"delete|remove|logout|logoff|signout|withdraw|"
                     r"(?<![a-z])(?:update|write|insert|vote|print|modify)(?:form|proc|ok|act|action|article|post|comment|confirm|exec|submit)?(?![a-z])|"
-                    r"act=disp\w*(?:delete|modify|write|reply)|act=dispmember|sns_send|sharer?\.php", re.I)
+                    r"act=disp\w*(?:delete|modify|write|reply)|act=dispmember|sns_send|sharer?\.php|"
+                    # 쿼리 값이 동작 줄임말: ?mode=del&idx=3, ?act=edit (research/17 문제 3, 비밀번호 없는 게시판이면 GET으로 지워진다)
+                    r"[?&](?:mode|act|cmd|action|proc|job|type)=(?:del|delete|edit|modify|update|write|reply|reg|regist)(?=&|$)", re.I)
+# 함수명의 동작 줄임말: fnDel(3)·goEdit()·doReg3()·fn_del(). 대소문자로 낱말을 가른다 (model·Delivery·showEditor는 통과)
+DANGER_FN = re.compile(r"(?:^|_)(?:del|edit|reg)(?![a-z])|(?:Del|Edit|Reg)(?![a-z])")
 DANGER_LABEL = re.compile(r"^\s*(?:삭제|수정|등록|글쓰기|쓰기|답변|답글|로그아웃|탈퇴|추천|신고|스크랩|인쇄|검색|delete|edit|write|"
                           r"logout|print)(?:하기)?\s*$", re.I)
 INERT_FN = {"void", "blur", "focus", "print", "close", "alert", "confirm", "back", "forward", "go", "reload",
-            "preventDefault", "stopPropagation", "return", "toggle", "toggleClass", "addClass", "removeClass", "scrollTo"}
+            "preventDefault", "stopPropagation", "return", "toggle", "toggleClass", "addClass", "removeClass", "scrollTo",
+            "if", "for", "while", "switch", "function"}  # if(this.checked) 같은 문법을 함수로 읽지 않게
 # 첨부파일 내려받기 주소 (그누보드 download.php, 전자정부 FileDown.do 등)와 외부 링크 중계(그누보드 bbs/link.php): 페이지가 아니다
 DOWNLOAD = re.compile(r"download\.(?:php|do|jsp|aspx?)|file_?down|bbs/link\.php", re.I)
 SKIP_EXT = re.compile(r"\.(pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|bmp|svg|webp|ico|mp[34]|avi|mov|"
@@ -253,14 +258,16 @@ def signature(u):
     s = urllib.parse.urlsplit(u)
     q = urllib.parse.parse_qsl(s.query, keep_blank_values=True)
     is_date = any(k.lower() in DATE_KEYS or DATE_VAL.match(v) for k, v in q)
-    return (s.netloc.lower(), s.path, tuple(sorted({k for k, _ in q}))), is_date
+    # 경로 속 글 번호(/review/41428, XE /jayoo/400570)는 쿼리의 id처럼 같은 패턴으로 묶는다: 글마다 버튼을 다시 누르지 않게 (research/17 문제 2)
+    return (s.netloc.lower(), re.sub(r"/\d+(?=/|$)", "/N", s.path), tuple(sorted({k for k, _ in q}))), is_date
 
 
 def priority(u):
     s = urllib.parse.urlsplit(u.lower())
     keys = {k for k, _ in urllib.parse.parse_qsl(s.query)}
     # 검색어 붙은 주소: 인기 검색어 위젯 등으로 사이트 안에 퍼진 검색 반사 광고(ISAP)를 먼저 본다 (research/11 S-1)
-    if keys & ID_KEYS or keys & SEARCH_KEYS or re.search(r"view|read|detail|article", s.path):
+    # 경로 끝 숫자(/help/129462, XE /jayoo/400570)도 글. review·preview의 view는 글 표시가 아니다 (research/17 문제 2)
+    if keys & ID_KEYS or keys & SEARCH_KEYS or re.search(r"(?<!re)view|read|detail|article|/\d+/?$", s.path):
         return 1
     if keys & PAGE_KEYS or re.search(r"list|board|bbs", s.path):
         return 2
@@ -300,6 +307,10 @@ async def launch(p):
         return await p.chromium.launch(channel="msedge"), "Edge"  # 동봉 Chromium이 막히면 Edge로
 
 
+class Throttled(Exception):
+    """서버가 429·503으로 요청을 줄여 달라고 했다. 인자: 기다릴 초"""
+
+
 async def with_timeout(coro, sec):
     try:
         return await asyncio.wait_for(coro, sec)
@@ -323,6 +334,9 @@ class Crawler:
         self.groups, self.evidence, self.learned = {}, {}, set()  # learned: (호스트, 경로, 파라미터)
         self.templates = {}  # (페이지 패턴, 함수명) → (요청, 인자) 또는 None(이동 없음)
         self.ev_miss = {}  # 리스너 묶음(@ev:태그.클래스) → 눌러도 얻은 게 없던 페이지 수
+        # 인자 없는 함수: 처음 눌러 본 (페이지 패턴, 결과). 다른 패턴에서도 결과가 같으면 사이트 공통 버튼(머리말·꼬리말)으로 보고 더 안 누른다
+        # 결과로 비교한다: moveList()처럼 인자가 없어도 페이지 안 폼 값을 읽어 게시판마다 다른 곳으로 가는 함수가 있다 (research/17 문제 2)
+        self.fn_first, self.fn_common = {}, set()
         self.visited = 0
         self.errors = []
         self.own = set()
@@ -331,6 +345,8 @@ class Crawler:
         self.mobile = set()  # 모바일 화면으로만 열리는 주소·게시판 (norm, section)
         self.retried = set()
         self.limit, self.fails, self.oks = self.workers, 0, 0  # 지금 쓰는 병렬 수, 연속 실패·성공 수
+        self.shared = None  # 처음에 모든 워커가 같이 쓰는 컨텍스트
+        self.pause_until = 0  # 429·503을 받으면 모든 워커가 이 시각까지 새 페이지를 꺼내지 않는다
         self.dialogs = []  # (URL, 경고창 문구)
         self.via = {}  # norm(URL) → (찾은 페이지 URL 또는 None, 찾은 방법). 보고서의 발견 경로
         # 사용자가 직접 넣은 시작 주소는 명시적 의도라 위험·내려받기 필터를 건너뛴다 (research/13 §5, RFC 9110 GET은 안전)
@@ -382,7 +398,10 @@ class Crawler:
             self.dropped += 1
             return
         self.seq += 1
-        heapq.heappush(self.heap, (priority(url) + (10 if n > CAP_PATTERN else 0), depth, self.seq, url, post))
+        # 같은 패턴 주소가 쌓일수록 30개마다 한 단계 뒤로: 글 많은 게시판 하나가 시간을 다 쓰고 다른 게시판을 못 보는 것을 막는다 (research/17 문제 2)
+        # 첫 화면에서 바로 이어진 주소(깊이 1)는 사이트 메뉴: 이름에 list·board가 없는 게시판(/help)도 목록과 같은 순서로 본다
+        prio = min(priority(url), 2) if depth <= 1 else priority(url)
+        heapq.heappush(self.heap, (prio + min(n // 30, 5) + (10 if n > CAP_PATTERN else 0), depth, self.seq, url, post))
 
     def same(self, url, key):
         """url이 key(본문 해시·canonical)로 본 페이지와 같다. 같은 페이지의 주소들이 파라미터 하나만 다르면 그 파라미터를 근거로 모으고,
@@ -464,7 +483,9 @@ class Crawler:
             self.phone = p.devices["iPhone 13"]
             self.log("브라우저: %s %s, 병렬 %d" % (kind, browser.version, self.workers))
             self.browser = browser
-            ctxs = [await self.new_ctx() for _ in range(self.workers)]
+            # 처음엔 컨텍스트 하나를 같이 쓴다: 새 컨텍스트 여럿이 동시에 붙으면 페이지를 안 주는 서버가 있다 (bd.kma.go.kr: 6개면 4개 시간 초과)
+            self.shared = await self.new_ctx()
+            ctxs = [self.shared] * self.workers
             self.push(self.entry, 0, via=(None, "시작 주소"))
             await self.seed(ctxs[0])
             tasks = [asyncio.create_task(self.worker(c, i)) for i, c in enumerate(ctxs)]
@@ -507,7 +528,7 @@ class Crawler:
                     break
                 await asyncio.sleep(0.05)
                 continue
-            if n >= self.limit:  # 서버가 버거워해서 쉬는 워커
+            if n >= self.limit or time.monotonic() < self.pause_until:  # 서버가 버거워해서 쉬는 워커
                 await asyncio.sleep(0.5)
                 continue
             prio, depth, _, url, post = heapq.heappop(self.heap)
@@ -520,15 +541,44 @@ class Crawler:
             try:
                 await asyncio.wait_for(self.visit(page, url, post, depth, mobile), 60)
                 self.ok()
+            except Throttled as e:
+                # 요청 과다(429)·일시 중단(503): 다 같이 쉬고, 병렬을 반으로, 이 주소는 1번 더 (research/17 문제 5)
+                self.pause_until = max(self.pause_until, time.monotonic() + e.args[0])
+                self.limit = max(1, self.limit // 2)
+                self.log("서버가 요청을 줄여 달라고 해서 %d초 쉬고 동시 접속을 %d개로 줄입니다 (%s)" % (e.args[0], self.limit, url))
+                if norm(url) not in self.retried:
+                    self.retried.add(norm(url))
+                    self.requeue(url, post, depth, prio)
+                else:
+                    self.errors.append((url, "HTTP 429/503 (서버가 요청을 줄여 달라고 함)"))
             except Exception as e:
                 r = repr(e)
                 self.errors.append((url, r[:200]))
                 m = re.search(r"net::\w+|Timeout", r)
                 self.log("열지 못함(%s): %s" % (m.group(0) if m else type(e).__name__, url))
                 await with_timeout(page.close(), 3)
+                if "ERR_TOO_MANY_REDIRECTS" in r and norm(url) == self.start:
+                    # 서버 한 대가 자기 자신으로 301을 보내는 사이트: 새 연결(새 컨텍스트)로 다른 서버에 붙어 2번 더 (research/17 문제 4)
+                    # 큐에 다시 넣지 않고 이 워커가 바로 연다: 다른 워커는 같은 연결을 쓰고, 큐가 비면 먼저 끝나 버린다
+                    for _ in range(2):
+                        if ctx is not self.shared:
+                            await with_timeout(ctx.close(), 5)
+                        ctx = await self.new_ctx(mobile)
+                        page = await self.new_page(ctx)
+                        self.log("시작 주소를 새 연결로 다시 엽니다: %s" % url)
+                        try:
+                            await asyncio.wait_for(self.visit(page, url, post, depth, mobile), 60)
+                            self.ok()
+                            break
+                        except Exception as e2:
+                            if "ERR_TOO_MANY_REDIRECTS" not in repr(e2):
+                                break
+                    tabs[mobile] = (ctx, page)
+                    continue
                 if NET_ERR.search(r) and not NOT_SERVER.search(r):
-                    # 끝나지 않는 요청이 서버 세션을 잠갔을 수 있다: 쿠키가 새로운 컨텍스트로 바꾼다
-                    await with_timeout(ctx.close(), 5)
+                    # 끝나지 않는 요청이 서버 세션을 잠갔을 수 있다: 이 워커만 쿠키가 새로운 자기 컨텍스트로 옮긴다
+                    if ctx is not self.shared:  # 같이 쓰는 컨텍스트는 다른 워커가 쓰고 있어 닫지 않는다
+                        await with_timeout(ctx.close(), 5)
                     ctx = await self.new_ctx(mobile)
                     self.fail()
                     # 서버 전체가 힘든 때(연결 실패, 연속 실패)만 나중에 1번 더. 혼자 멈추는 함정 페이지는 다시 기다리지 않는다
@@ -539,7 +589,8 @@ class Crawler:
             finally:
                 self.active -= 1
         for c, _ in tabs.values():
-            await with_timeout(c.close(), 5)
+            if c is not self.shared:
+                await with_timeout(c.close(), 5)
 
     def ok(self):
         self.fails, self.oks = 0, self.oks + 1
@@ -582,10 +633,14 @@ class Crawler:
         return resp
 
     async def visit(self, page, url, post, depth, mobile=False):
+        t0 = time.monotonic()
         page.adg_dialogs.clear()
         resp = await self.open(page, url, post)
         self.visited += 1
         ctype = resp.headers.get("content-type") or "html" if resp else ""
+        if resp is not None and resp.status in (429, 503):
+            ra = (resp.headers.get("retry-after") or "").strip()
+            raise Throttled(min(60, int(ra)) if ra.isdigit() else 30)
         if resp is None or resp.status >= 400 or "html" not in ctype:
             if norm(url) == self.start and resp is not None:
                 self.start_fail = "HTTP %d" % resp.status if resp.status >= 400 else "웹 페이지가 아닌 파일(%s)" % ctype.split(";")[0]
@@ -717,7 +772,9 @@ class Crawler:
             self.results.append({"url": shown, "key": final, "result": result, "path": self.path(url), "mobile": mobile, "post": post is not None})
             self.log("[%d] %s" % (len(self.results), shown))
 
-            await self.clicks(page, url, act, depth, final, self.results[-1] if self.results[-1]["key"] == final else None)
+            # 클릭마다 다시 여는 느린 사이트는 30번이면 60초를 넘는다: 남은 시간만 누르고, 분석한 페이지를 실패로 세지 않는다
+            await with_timeout(self.clicks(page, url, act, depth, final, self.results[-1] if self.results[-1]["key"] == final else None),
+                               max(5, t0 + 50 - time.monotonic()))
         finally:
             await with_timeout(page.unroute("**/*", intercept), 3)
 
@@ -793,6 +850,8 @@ class Crawler:
                     groups.setdefault(code, []).append((i, None))
                     continue
                 name, args = call_of(code)
+                if name and DANGER_FN.search(name.split(".")[-1]):
+                    continue
                 if name and not args and "search" in name.lower():
                     continue  # 빈 검색 버튼: "검색어를 입력하세요" 경고만 뜬다. 인자가 있으면 쪽 이동일 수 있어 누른다
                 if name:
@@ -824,6 +883,9 @@ class Crawler:
                         self.ev_miss[name] = self.ev_miss.get(name, 0) + 1
                     continue
                 if key not in self.templates:  # 처음 2개까지 눌러 보고, 이동이 잡힌 것만 템플릿으로 쓴다
+                    plain = not any(args for _, args in members)
+                    if plain and name in self.fn_common:
+                        continue
                     for i, args in members[:2]:
                         if budget <= 0:
                             return
@@ -835,6 +897,11 @@ class Crawler:
                         if got:
                             self.templates[key] = (got, args)
                             break
+                    tpl = self.templates.setdefault(key, None)  # 얻은 게 없으면 같은 패턴 페이지에서 다시 누르지 않는다
+                    if plain and tpl != "ajax":  # 화면만 바꾸는 함수는 게시판마다 내용이 달라 공통으로 보지 않는다
+                        first = self.fn_first.setdefault(name, (key, tpl))
+                        if first[0] != key and first[1] == tpl:
+                            self.fn_common.add(name)
                 tpl = self.templates.get(key)
                 if tpl == "ajax":
                     for i, _ in members[1:]:
@@ -901,6 +968,17 @@ if __name__ == "__main__" and sys.argv[1:] == ["--self-test"]:  # 무관한 파�
     assert minimize("http://a/list?id=free&page=2") == "http://a/list?id=free&page=2"  # id가 게시판 ID인 목록 2쪽
     assert minimize("http://a/view?id=3&page=2") == minimize("http://a/b.php?wr_id=3&page=2").replace("b.php?wr_", "view?") == "http://a/view?id=3"
     assert minimize("http://a/s?q=a%20b&flag&x=%2F#f") == "http://a/s?q=a%20b&flag&x=%2F"  # 원래 표기 그대로
+    for u in ("http://a/?pCode=request&mode=del&idx=436", "http://a/b.php?act=edit", "http://a/b?cmd=delete&no=1", "http://a/b?mode=reg"):
+        assert DANGER.search(u), u
+    for u in ("http://a/?mode=view&idx=1", "http://a/b?type=model", "http://a/b?mode=editorial", "http://a/delivery/1"):
+        assert not DANGER.search(u), u
+    assert signature("http://a/review/41428")[0] == signature("http://a/review/7600")[0] != signature("http://a/review")[0]
+    assert call_of("if(this.checked) return confirm('x')") == (None, None)
+    assert priority("http://a/help/129462") == priority("http://a/bbs/boardView.do") == 1 and priority("http://a/review") == 3
+    for n in ("fnDel", "goEdit", "doReg3", "fn_del", "del", "fileDel", "board.fnDel"):
+        assert DANGER_FN.search(n.split(".")[-1]), n
+    for n in ("model", "goDelivery", "showEditor", "fn_region", "goRegular", "fn_view", "moveList"):
+        assert not DANGER_FN.search(n), n
     print("통과")
 elif __name__ == "__main__":  # python app/crawler.py <URL>
     sys.stdout.reconfigure(encoding="utf-8")

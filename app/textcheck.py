@@ -114,7 +114,7 @@ KW_KO = ["카지노", "바카라", "슬롯", "토토", "먹튀", "첫충", "매�
 # 일반어로도 쓰는 말: 연락처·코드(또는 다른 약한 말 + 행동어)가 함께 있을 때만 광고 신호 ("성인반 수강 신청 문의", "외화 환전 안내", "의회 생중계")
 # 모집요강 예시 "무료 슬롯 체험 바로가기"처럼 연락처 없는 광고가 있으므로 슬롯·토토 같은 도박 용어는 WEAK에 넣지 않는다
 WEAK = {"성인", "환전", "마약", "급전", "무직자", "대출", "출장", "중계", "사설", "롤링", "유흥", "오피", "도박", "일수", "spins"}
-NOT_KW = ["오피스"]  # 키워드를 품은 정상 낱말
+NOT_KW = ["오피스", "성인지"]  # 키워드를 품은 정상 낱말 (성인지 감수성 교육, research/17)
 # 안내문 어미: 광고는 짧은 문구라 이런 말투를 거의 안 쓴다. 연락처·코드가 없으면 정상 안내로 본다 ("…당첨금 지급 문의는 고객센터로 하시기 바랍니다")
 GUIDE = re.compile(r"바랍니다|하시기|하십시오|안내해\s*드립니다|문의하세요|확인하세요")
 KW_EN = ["casino", "baccarat", "slot", "slots", "toto", "bet", "poker", "holdem", "jackpot", "roulette", "sportsbook",
@@ -270,16 +270,32 @@ def squash(s):
     return "".join(c for c in s if c not in SEP).lower()
 
 
-def jong_noise(sq):
-    """두 글자 키워드에 받침을 덧붙인 글자 (먺튅 → 먹튀). 덧붙인 받침이 있어야 한다 (스스로 ≠ 슬롯)"""
-    out = set()
+# 받침 노이즈로 보는 받침: ㄲ·겹받침·ㅋ. 흔한 받침(ㄱㄴㄹㅁㅂㅅㅇ 등)만 바뀌면 정상 낱말이 걸린다
+# (만약→마약, 청춘→첫충, 확정→환전, research/17). 스팸은 먺튅(ㄲ·ㄵ)처럼 드문 받침을 쓴다
+RARE_JONG = {2, 3, 5, 6, 9, 10, 11, 12, 13, 14, 15, 18, 24}
+
+
+def jong_variant(sub, k):
+    """sub가 키워드 k의 받침 노이즈: 받침만 다르고, 바뀐 받침 중 드문 받침이 있다 (캃짆놁 → 카지노)"""
+    return sub != k and strip_jong(sub) == strip_jong(k) and \
+        any(a != b and is_syl(a) and (ord(a) - 0xAC00) % 28 in RARE_JONG for a, b in zip(sub, k))
+
+
+def jong_noise(s):
+    """두 글자 키워드에 받침을 덧붙인 글자 (먺튅 → 먹튀). 덧붙인 받침이 있어야 한다 (스스로 ≠ 슬롯)
+    두 낱말에 걸친 글자는 안 묶는다 ("만약 동의" → 약동 → 야동). 한 글자씩 띄운 것(먺 튅)은 묶는다 (research/17)"""
+    words = [squash(w) for w in re.split(r"\s+", s)]
+    out, sq = set(), "".join(words)
+    # 글자마다 낱말 번호와 그 낱말 길이: 다른 낱말끼리는 둘 다 한 글자일 때만 잇는다
+    wid = [(n, len(w)) for n, w in enumerate(words) for _ in w]
     for k in KW_KO:
         if len(k) != 2 or k in sq:
             continue
-        sk = strip_jong(k)
         for i in range(len(sq) - 1):
             sub = sq[i:i + 2]
-            if sub != k and strip_jong(sub) == sk and all(is_syl(c) and (ord(c) - 0xAC00) % 28 for c in sub):
+            if wid[i][0] != wid[i + 1][0] and (wid[i][1] > 1 or wid[i + 1][1] > 1):
+                continue
+            if all(is_syl(c) and (ord(c) - 0xAC00) % 28 for c in sub) and jong_variant(sub, k):
                 out.add(k + "(받침)")
     return out
 
@@ -291,8 +307,16 @@ def keywords(s):
         sq = sq.replace(w, "|")
     found = {k for k in KW_KO if k in sq}
     found |= {m.group(0).lower() for m in KW_EN_RE.finditer(s)}
-    stripped = strip_jong(sq)  # 받침 노이즈 (3음절 이상 키워드만)
-    found |= {k + "(받침)" for k in KW_KO if len(k) >= 3 and k not in sq and strip_jong(k) in stripped}
+    stripped = strip_jong(sq)  # 받침 노이즈 (3음절 이상 키워드만). 흔한 받침만 바뀐 것은 정상 낱말 (사다리게임 → 리게이 ≠ 릴게임)
+    for k in KW_KO:
+        if len(k) < 3 or k in sq:
+            continue
+        sk, i = strip_jong(k), stripped.find(strip_jong(k))
+        while i >= 0:  # 받침을 지운 꼴이 나온 자리만 본다
+            if jong_variant(sq[i:i + len(k)], k):
+                found.add(k + "(받침)")
+                break
+            i = stripped.find(sk, i + 1)
     return found
 
 
@@ -348,7 +372,7 @@ def check(raw, hidden=False):
     weak = {k for k in kw_all if k.removesuffix("(받침)") in WEAK}
     # 두 글자 키워드 받침 노이즈 (먺튅): 연락처·코드가 있을 때만
     if contact or code:
-        kw_all |= jong_noise(sq)
+        kw_all |= jong_noise(c2)
     strong = len(kw_all - weak) + (len(cho) if contact or code else 0)
     ad = strong >= 1 and (contact or code or strong + len(weak) >= 2 or action or bool(kw_inv)) or bool(weak and (contact or code)) \
         or bool(len(weak) >= 2 and action)
@@ -442,6 +466,11 @@ if __name__ == "__main__":  # 자체 확인: python app/textcheck.py
         ("무직자대출 당일 승인 ０１０－００００－５５８２", {H}, True),
         ("ㄱㄱㅗㅇㅁㅓㄴㅣ 지급 @test_kkong", {J}, True),
         ("먺튅 검증 사이트 가입 @test_mt", {J}, True),
+        ("먺 튅 검증 사이트 가입 @test_mt", {J}, True),
+        ("만약 동의하시지 않을 경우에는 전화로 문의주시면 감사드립니다. 전화문의 : 1833-6432 / 010-3258-3141", set(), False),
+        ("청춘농활대 마을회관으로 오세요. 장소가 확정되면 공지합니다 010-1234-5678", set(), False),
+        ("비트코인 사다리게임 홀짝게임 바카라 텔레 @test_bit", set(), True),
+        ("교육대학원 성인지 오프라인 교육 진행 첨부파일 - KakaoTalk_20250416_133959818.jpg", set(), False),
         ("릴게임 바다이야기 무료쿠폰 지급 텔레 @test_reel", set(), True),
         ("오피 출장 1인샵 24시 예약 010-0000-1234", set(), True),
         ("해외 스포츠중계 무료 시청 가입 bit.ly/test123", set(), True),
