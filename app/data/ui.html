@@ -328,6 +328,8 @@ ol.top li b { color: var(--krds-color-light-danger-60); }
 .b-chg.again { color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-60); font-weight: 700; }
 .stbox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .stbox input { flex: 1 1 240px; min-width: 0; }
+.stbox input.owner { flex: 0 1 140px; }
+.applied select.bulk { height: 36px; font-size: 15px; margin-left: auto; }
 .diff { margin-top: 16px; }
 .diff ul { margin: 8px 0 0; padding-left: 20px; }
 .b-fail { background: var(--krds-color-light-gray-5); color: var(--krds-color-light-gray-70); border-color: var(--krds-color-light-gray-30); }
@@ -730,7 +732,7 @@ function poll() {
 // 결과 파일 메뉴: 자동 저장된 파일을 용도와 함께 연다
 function filesMenu() {
   const items = [['report', '보고서', 'report.html · 인쇄·공유용'], ['csv', 'Excel', 'result.csv · 목록 정리용'],
-    ['json', '제출 파일', 'result.json · 적격평가 형식'], ['folder', '결과 폴더 열기', '세 파일이 있는 곳']];
+    ['ledger', '기록대장', 'ledger.csv · 삭제게시물 기록대장'], ['json', '제출 파일', 'result.json · 적격평가 형식'], ['folder', '결과 폴더 열기', '결과 파일이 있는 곳']];
   const btn = h('button', { type: 'button', 'aria-expanded': 'false', 'aria-controls': 'fmenu' }, '결과 파일', ICON_CHEV());
   const menu = h('ul', { id: 'fmenu', class: 'menu', hidden: true }, items.map(([k, t, d]) => h('li', {},
     h('button', { type: 'button', onclick: () => { api('open', k); toggle(false); } }, h('b', {}, t), h('span', {}, d)))));
@@ -742,6 +744,10 @@ function filesMenu() {
 }
 const ICON_CHEV = () => { const e = document.createElement('span'); e.innerHTML = '<svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; return e.firstChild; };
 const urlsOf = g => [...new Set(g.items.map(i => i.url))];
+// 한 묶음 = 광고 문구 하나, 기법은 여러 개일 수 있다 (done/15 P1). 10/19 전 기록은 묶음마다 기법 하나
+const techsOf = g => g.techniques || [g.technique];
+const itemTechs = (g, i) => i.f ? [...new Set(i.f.map(x => x[1]))] : [g.technique];
+const infoOf = g => ({ text: g.evidence_text, urls: urlsOf(g), label: g.tech_label, cause: g.cause });
 function renderReport(D) {
   const m = D.meta, G = D.groups, root = $('#result');
   root.textContent = '';
@@ -773,7 +779,7 @@ function renderReport(D) {
       h('span', { class: 'muted' }, m.visited + '쪽을 살펴봤습니다.')));
   } else {
     const RISKS = [['심각', 'crit'], ['위험', 'warn'], ['참고', 'info']].map(([r, c]) => [r, c, G.filter(g => g.risk === r).length]);
-    const byTech = TECHS.map(t => [t, G.filter(g => g.technique === t).reduce((a, g) => a + g.items.length, 0)]).sort((a, b) => b[1] - a[1]);
+    const byTech = TECHS.map(t => [t, G.reduce((a, g) => a + g.items.filter(i => itemTechs(g, i).includes(t)).length, 0)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
     const pages = {};
     for (const g of G) for (const i of g.items) pages[i.url] = (pages[i.url] || 0) + 1;
     const top = Object.entries(pages).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -781,7 +787,7 @@ function renderReport(D) {
     const short = u => { try { const x = new URL(u), e = new URL(m.entry_url); return x.host === e.host ? (x.pathname + x.search) || '/' : u; } catch (e) { return u; } };
     C.append(h('div', { class: 'dash' },
       h('div', { class: 'card' },
-        h('div', { class: 'big' }, h('b', {}, G.length), h('span', {}, '종의 광고 문구 · ' + m.findings + '곳')),
+        h('div', { class: 'big' }, h('b', {}, G.length), h('span', {}, '종의 광고 문구 · ' + G.reduce((a, g) => a + g.items.length, 0) + '곳')),
         h('div', { class: 'seg', role: 'img', 'aria-label': RISKS.map(([r, , n]) => r + ' ' + n).join(', ') },
           RISKS.filter(x => x[2]).map(([, c, n]) => h('i', { class: c, style: 'flex:' + n }))),
         h('div', { class: 'legend' }, RISKS.map(([r, c, n]) => h('span', {}, h('i', { class: c }), r + ' ', h('b', {}, n)))),
@@ -808,22 +814,30 @@ function renderReport(D) {
     const fs = h('select', { id: 'f-st', 'aria-label': '조치 상태', onchange: () => fill() }, h('option', { value: '' }, '조치 상태 전체'), (D.statuses || []).map(t => h('option', { value: t }, t)));
     const so = h('select', { id: 'f-s', 'aria-label': '정렬', onchange: () => fill() }, [['risk', '위험도 높은 순'], ['pages', '영향 페이지 많은 순'], ['new', '최근 발견 순']].map(([v, t]) => h('option', { value: v }, t)));
     const pickR = new Set(), pickT = new Set();
-    const chips = (label, set, vals, key, name, dot) => h('div', { class: 'fchips', role: 'group', 'aria-label': label }, h('span', { class: 'flbl' }, label),
-      vals.map(v => { const n = G.filter(g => g[key] === v).length;
+    const chips = (label, set, vals, has, name, dot) => h('div', { class: 'fchips', role: 'group', 'aria-label': label }, h('span', { class: 'flbl' }, label),
+      vals.map(v => { const n = G.filter(g => has(g, v)).length;
         return h('button', { type: 'button', class: 'fchip', 'aria-pressed': 'false', disabled: !n || null, 'data-v': v,
           onclick: e => { set.has(v) ? set.delete(v) : set.add(v); e.currentTarget.setAttribute('aria-pressed', set.has(v)); fill(); } },
           dot ? h('i', { class: 'fdot fd-' + v }) : null, name(v), h('b', {}, n)); }));
-    const chR = chips('위험도', pickR, ['심각', '위험', '참고'], 'risk', v => v, true);
-    const chT = chips('기법', pickT, byTech.map(([t]) => t), 'technique', v => TECH_SHORT[v]);  // 요약 카드(기법별 위치 수)와 같은 순서
+    const chR = chips('위험도', pickR, ['심각', '위험', '참고'], (g, v) => g.risk === v, v => v, true);
+    const chT = chips('기법', pickT, byTech.map(([t]) => t), (g, v) => techsOf(g).includes(v), v => TECH_SHORT[v]);  // 요약 카드(기법별 위치 수)와 같은 순서
     C.append(h('div', { class: 'toolbar noprint', role: 'search' }, h('div', { class: 'frow' }, q, D.statuses ? fs : null, so), chR, chT));
     const count = h('p', { 'aria-live': 'polite' }), applied = h('div', { class: 'applied' }, count);
+    let shown = [];
+    const bulk = APP() && D.statuses ? h('select', { class: 'bulk noprint', 'aria-label': '목록의 조치 상태 한꺼번에 바꾸기', onchange: e => {
+      const to = e.target.value; e.target.value = '';
+      const rows = shown.filter(g => stOf(g) !== to);
+      if (!to || !rows.length || !confirm('광고 문구 ' + rows.length + '개를 \'' + to + '\'(으)로 바꿀까요?')) return;
+      Promise.all(rows.map(g => Promise.resolve(api('set_status', g.fp, to, (g.status || {}).memo || '', (g.status || {}).owner || '', infoOf(g)))
+        .then(ok => { if (ok) g.status = Object.assign({}, g.status, { status: to, at: new Date().toISOString() }); }))).then(fill);
+    } }, h('option', { value: '' }, '목록 전체 상태 바꾸기'), D.statuses.map(t => h('option', { value: t }, t))) : null;
     const list = h('ul', { class: 'glist' });
     C.append(applied, list);
     const reset = () => { q.value = fs.value = ''; pickR.clear(); pickT.clear(); document.querySelectorAll('.fchip').forEach(b => b.setAttribute('aria-pressed', 'false')); fill(); q.focus(); };
     const fill = () => {
       list.textContent = '';
       const s = q.value.trim().toLowerCase();
-      const rows = G.filter(g => (!pickR.size || pickR.has(g.risk)) && (!pickT.size || pickT.has(g.technique)) && (!fs.value || stOf(g) === fs.value) &&
+      const rows = G.filter(g => (!pickR.size || pickR.has(g.risk)) && (!pickT.size || techsOf(g).some(t => pickT.has(t))) && (!fs.value || stOf(g) === fs.value) &&
         (!s || [g.evidence_text, g.norm, ...g.items.flatMap(i => [i.url, i.location])].join('\n').toLowerCase().includes(s)));
       // 기본 순서(위험도 → 영향 페이지 수)는 report.py가 정해 둔 그대로
       if (so.value === 'pages') rows.sort((a, b) => urlsOf(b).length - urlsOf(a).length);
@@ -831,7 +845,8 @@ function renderReport(D) {
       // 켜진 칩이 곧 적용된 조건이라 따로 태그를 늘어놓지 않는다. 결과 수와 초기화만
       const any = s || fs.value || pickR.size || pickT.size;
       count.replaceChildren('광고 문구 ', h('b', {}, rows.length), '개' + (any ? ' (전체 ' + G.length + '개 중)' : ''));
-      applied.replaceChildren(count, any ? h('button', { type: 'button', class: 'freset noprint', onclick: reset }, '조건 초기화') : '');
+      shown = rows;
+      applied.replaceChildren(count, any ? h('button', { type: 'button', class: 'freset noprint', onclick: reset }, '조건 초기화') : '', rows.length && bulk ? bulk : '');
       if (!rows.length) list.append(h('li', { class: 'gi' }, h('div', { class: 'clean' }, h('b', { style: 'color:var(--krds-color-light-gray-90)' }, '조건에 맞는 검출이 없습니다'),
         h('span', { class: 'muted' }, '검색어를 줄이거나 조건을 해제해 보세요.'))));
       rows.forEach((g, k) => {
@@ -1055,7 +1070,8 @@ function detail(g, D) {
   const one = g.items.length === 1;
   const path = g.items[0].path || [];
   // 판정 근거(reason)에 해당하는 이 요소의 CSS 속성만 (상위 요소가 숨긴 경우는 근거 행으로 충분)
-  const keys = [...new Set(Object.entries(REASON_CSS).filter(([w]) => (g.reason || '').includes(w)).flatMap(([, k]) => k))];
+  const reasons = g.reasons || [[g.technique, g.tech_label, g.reason]];
+  const keys = [...new Set(Object.entries(REASON_CSS).filter(([w]) => reasons.some(r => (r[2] || '').includes(w))).flatMap(([, k]) => k))];
   const bad = hidden ? keys.filter(k => g.style && g.style[k] && !DEFAULT_CSS.includes(g.style[k])).map(k => [k, g.style[k]]) : [];
   const tech = [
     bad.length && ['숨긴 속성', h('div', { class: 'props' }, bad.map(([k, v]) => h('span', {}, k + ': ' + v)))],
@@ -1067,12 +1083,14 @@ function detail(g, D) {
   return h('div', { class: 'det' },
     h('table', { class: 'fact' },
       row('증거 화면', isData(sh.before, 'image/') && sh.pos ? shotFig(sh, hidden) : h('span', { class: 'muted' }, sh.error || '캡처 없음')),
-      row(hidden ? '숨김 방법' : '변형 방법', g.reason ? h('b', {}, g.reason) : null, g.reason ? ' — ' : null, TECH_DESC[g.technique]),
+      reasons.map(([t, label, why]) => row(t === 'TRANSPARENT' || t === 'OFFSCREEN' ? '숨김 방법' : '변형 방법',
+        reasons.length > 1 ? h('div', { class: 'k' }, label) : null, why ? h('b', {}, why) : null, why ? ' — ' : null, TECH_DESC[t])),
       row('광고 근거',
         g.chars.length ? [h('div', { class: 'raw' }, raw), norm ? h('div', {}, '풀어 읽으면: ', h('b', {}, norm)) : null] : null,
         g.kw.length ? h('div', { class: 'chips' }, '키워드 ', g.kw.map(k => h('span', {}, k))) : (g.chars.length ? null : '-')),
       one ? [row('페이지', link(g.items[0].url)), row('요소 위치', sel(g.items[0]))]
-        : row('발견 위치 ' + g.items.length + '곳', h('ol', { class: 'locs' }, g.items.map(i => h('li', {}, link(i.url), h('br'), sel(i))))),
+        : row('발견 위치 ' + g.items.length + '곳', h('ol', { class: 'locs' }, g.items.map(i => h('li', {}, link(i.url), h('br'), sel(i),
+          techsOf(g).length > 1 ? h('span', { class: 'muted' }, ' ' + itemTechs(g, i).map(t => TECH_SHORT[t]).join('·')) : null)))),
       row('조치', h('a', { href: '#s-guide', onclick: e => { e.preventDefault(); const el = document.getElementById('s-guide'); el.scrollIntoView(); el.focus({ preventScroll: true }); } }, '조치 안내 보기 (' + g.cause + ') →')),
       tech.length ? row('기술 상세', h('div', { class: 'why' }, tech.map(t => h('div', {}, h('div', { class: 'k' }, t[0]), t[1])))) : null,
       row('조치 상태', statusBox(g, D)),
@@ -1087,19 +1105,20 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('button.g
 const stOf = g => (g.status && g.status.status) || '미조치';
 function statusBox(g, D) {
   const st = g.status || {};
-  if (!APP() || !D.statuses) return [h('b', {}, stOf(g)), st.memo ? ' · ' + st.memo : '', st.at ? h('span', { class: 'muted' }, ' (' + fmtTime(st.at) + ')') : ''];
+  if (!APP() || !D.statuses) return [h('b', {}, stOf(g)), st.owner ? ' · ' + st.owner : '', st.memo ? ' · ' + st.memo : '', st.at ? h('span', { class: 'muted' }, ' (' + fmtTime(st.at) + ')') : ''];
   const id = 'st-' + g.fp;
   const sel = h('select', { id, 'aria-label': '조치 상태' }, D.statuses.map(t => h('option', { value: t, selected: t === stOf(g) }, t)));
-  const memo = h('input', { type: 'text', value: st.memo || '', placeholder: '메모 (예: 게시판 관리자에게 삭제 요청, 10/20)', 'aria-label': '조치 메모', maxlength: 500 });
+  const owner = h('input', { type: 'text', class: 'owner', value: st.owner || '', placeholder: '담당자', 'aria-label': '담당자', maxlength: 50 });
+  const memo = h('input', { type: 'text', value: st.memo || '', placeholder: '메모', 'aria-label': '조치 메모', maxlength: 500 });
   const msg = h('span', { class: 'muted', 'aria-live': 'polite' });
   const save = h('button', { type: 'button' }, '저장');
-  save.onclick = () => Promise.resolve(api('set_status', g.fp, sel.value, memo.value)).then(ok => {
+  save.onclick = () => Promise.resolve(api('set_status', g.fp, sel.value, memo.value, owner.value, infoOf(g))).then(ok => {
     if (!ok) { msg.textContent = '저장하지 못했습니다'; return; }
-    g.status = { status: sel.value, memo: memo.value, at: new Date().toISOString() };
+    g.status = { status: sel.value, memo: memo.value, owner: owner.value, at: new Date().toISOString() };
     const l = document.getElementById('stl-' + g.fp); if (l) l.textContent = sel.value;
-    msg.textContent = '저장했습니다 (다음 점검에도 이어집니다)';
+    msg.textContent = '저장했습니다';
   });
-  return h('div', { class: 'stbox' }, sel, memo, save, msg);
+  return h('div', { class: 'stbox' }, sel, owner, memo, save, msg);
 }
 
 // ---------- 점검 기록 (앱 전용): records/index.json 목록을 첫 화면 아래에 → 누르면 그때 결과 화면 ----------

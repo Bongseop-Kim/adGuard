@@ -449,13 +449,19 @@ class Api:
 
     def open(self, what):
         import webbrowser
-        name = {"report": "report.html", "csv": "result.csv", "json": "result.json", "folder": ""}[what]
+        import report
+        name = {"report": "report.html", "csv": "result.csv", "json": "result.json", "ledger": "ledger.csv", "folder": ""}[what]
+        if what == "ledger":  # 열 때마다 status.json에서 새로 만든다 (Excel이 열어 두었으면 그 파일을 연다)
+            try:
+                report.write_ledger(base_dir())
+            except OSError:
+                pass
         webbrowser.open(pathlib.Path(base_dir(), name).as_uri())
 
-    def set_status(self, fp, status, memo=""):
+    def set_status(self, fp, status, memo="", owner="", info=None):
         """조치 상태 저장(status.json). 지금 화면 데이터에도 반영해 다시 그려도 남는다"""
         import report
-        ok = report.set_status(base_dir(), fp, status, memo)
+        ok = report.set_status(base_dir(), fp, status, memo, owner, info)
         for g in (self._s.get("data") or {}).get("groups", []):
             if ok and g["fp"] == fp:
                 g["status"] = report.load_status(base_dir())[fp]

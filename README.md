@@ -20,7 +20,8 @@
 - `report.html`: 단일 파일 보고서 (브라우저로 연다)
 - `result.csv`: Excel용 (UTF-8 BOM)
 - `history.json`: 지문별 최초 발견일
-- `status.json`: 지문별 조치 상태·메모 (결과 화면에서 저장, 다음 점검의 '지난 점검 대비'에 쓰임)
+- `status.json`: 지문별 조치 상태·담당자·메모 (결과 화면에서 저장, 다음 점검의 '지난 점검 대비'에 쓰임)
+- `ledger.csv`: 삭제게시물 기록대장 ("조치 완료" 항목, 결과 파일 메뉴에서 열 때 만든다)
 - `schedules.json`: 예약 점검 목록 (첫 화면 "+ 예약 추가", 실행은 Windows 작업 스케줄러가 `adguard.exe --scheduled <id>`로)
 - `records/`: 점검 기록, `logs/`: 창 모드 진행 기록
 - 사용설명서·빌드 매뉴얼: [docs/submit/](docs/submit/)

@@ -94,7 +94,7 @@ jobs:
       - name: 배포 zip (dist에서는 실행하지 않았으므로 .env·결과 파일이 없다) + SHA-256
         shell: pwsh
         run: |
-          $bad = Get-ChildItem dist\adguard -Force | Where-Object Name -match '^(\.env|\.env\.txt|result.*\.json|report\.html|result\.csv|history\.json|status\.json|schedules\.json|records|logs|cache)$'
+          $bad = Get-ChildItem dist\adguard -Force | Where-Object Name -match '^(\.env|\.env\.txt|result.*\.json|report\.html|result\.csv|ledger\.csv|history\.json|status\.json|schedules\.json|records|logs|cache)$'
           if ($bad) { throw "배포 폴더에 실행 산출물이 있음: $($bad.Name -join ', ')" }
           Compress-Archive -Path dist\adguard -DestinationPath adguard.zip
           (Get-FileHash adguard.zip -Algorithm SHA256).Hash | Tee-Object adguard.zip.sha256.txt

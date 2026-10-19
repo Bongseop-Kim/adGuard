@@ -2,9 +2,9 @@
 
     data = make(meta, items, visited, stopped, minutes, log)   # report.html·result.csv도 쓴다
 
-- 묶음: 지문 = 기법 + 원문(공백 정리). 같은 지문의 위치별 검출이 한 행 (research/10 §1-2)
+- 묶음: 지문 = 원문(공백 정리). 같은 광고 문구는 기법이 여러 개여도 한 행, 위치(url+location)마다 검출 id·기법 목록 (done/15 P1)
 - 원인 유형(R14): 게시판 영역 밖에서 같은 지문이 2개 이상 페이지의 같은 위치에 숨겨져 있으면 해킹 삽입 의심, 아니면 게시물형
-- 위험도(R3): 심각 = 해킹 삽입 의심, 위험 = 숨김(OFFSCREEN·TRANSPARENT), 참고 = 보이는 변형 광고(HOMOGLYPH·JAMO)
+- 위험도(R3, done/15 P2): 심각 = 해킹 삽입 의심, 위험 = 연락처·가입코드가 있는 광고와 내부 검색 반사, 참고 = 광고 낱말만
 - 최초 발견일: exe 폴더 history.json (지문 → 처음 본 시각). R11 이력 비교·R18 예외 목록도 이 지문으로 확장한다
 - 숨김 드러내기(R6): 페이지를 다시 열어 광고 둘레 PAD_X·PAD_Y px을 원래 해상도로 찍고, 숨김을 푼 CSS를 넣어 한 번 더 찍는다
 - 시각 자료: 위 전·후 캡처 + 광고 위치 좌표, 발견 경로, 사이트 지도
@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 import unicodedata
 import urllib.parse
@@ -23,6 +24,7 @@ from datetime import datetime
 
 import ai
 import main
+import textcheck
 
 TECH = {
     "HOMOGLYPH": "유사 문자 치환",
@@ -36,6 +38,7 @@ EXTRA = {"INVISIBLE_CHAR": "추가 유형: 보이지 않는 문자 삽입", "VIS
          "ISAP_SEARCH_REFLECTION": "추가 유형: 내부 검색 반사 광고",
          "CLOAKING": "추가 유형: 검색봇 클로킹"}  # result_extra.json의 extra_finding
 HIDDEN = {"OFFSCREEN", "TRANSPARENT"}
+ORDER = ["OFFSCREEN", "TRANSPARENT", "HOMOGLYPH", "JAMO", "ETC"]  # 한 묶음의 대표 기법(캡처·숨김 방법) 고르는 순서
 RISK = ["심각", "위험", "참고"]
 HACK, POST = "해킹 삽입 의심", "게시물형"
 SHOT_MAX, SHOT_SEC = 100, 240  # ponytail: 캡처 상한. 넘는 묶음은 "캡처 생략"으로 표시
@@ -90,8 +93,14 @@ GUIDE = {
 }
 
 
-def fingerprint(technique, text):
-    return hashlib.sha1((technique + "\n" + " ".join(text.split())).encode()).hexdigest()[:10]
+def fingerprint(text, technique=None):
+    """지문 = 원문(공백 정리). technique를 주면 옛 지문(기법 + 원문): 10/19 전에 쌓인 history.json·status.json 키"""
+    key = " ".join(text.split())
+    return hashlib.sha1(((technique + "\n" if technique is not None else "") + key).encode()).hexdigest()[:10]
+
+
+def label_of(x):
+    return TECH.get(x["technique"]) or EXTRA.get(x.get("extra_finding"), "추가 유형")
 
 
 def odd_chars(raw):
@@ -130,29 +139,36 @@ def group(items, history, now):
     hidden = {(x["url"], x["location"]) for x in items if x["technique"] in HIDDEN}
     by = {}
     for it in items:
-        by.setdefault(fingerprint(it["technique"], it["evidence_text"]), []).append(it)
+        by.setdefault(fingerprint(it["evidence_text"]), []).append(it)
     groups = []
     for fp, its in by.items():
-        f = next((x for x in its if "norm" in x), its[0])  # 근거가 있는 것(숨김 상위 요소보다 실제 글자 요소)
-        urls = {x["url"] for x in its}
+        its.sort(key=lambda x: ORDER.index(x["technique"]))
+        techs = list(dict.fromkeys(x["technique"] for x in its))
+        f = next((x for x in its if "norm" in x), its[0])  # 근거가 있는 것(숨김 상위 요소보다 실제 글자 요소), 대표 기법 먼저
         locs = {}
         for x in its:
             locs.setdefault(x["location"], set()).add(x["url"])
         rep = [loc for loc, u in locs.items() if len(u) >= 2]  # 2개 이상 페이지에 같은 위치로 반복
         hack = any(not user_area(loc) and all((u, loc) in hidden for u in locs[loc]) for loc in rep) and not own_link(f)
-        hack = hack or f.get("extra_finding") == "CLOAKING"  # UA·Referer 분기는 서버 설정·템플릿 변조라야 가능하다
-        tech = f["technique"]
-        # 그대로 보이는 광고는 시민이 바로 보는 게시물, 제목·메타 속 광고는 검색 결과에 뜨는 글이라 숨김과 같은 '위험'
-        risk = "심각" if hack else "위험" if tech in HIDDEN or f.get("extra_finding") in ("VISIBLE_AD", "ATTR_META_AD", "VISUAL_REORDER", "ISAP_SEARCH_REFLECTION", "CLOAKING") else "참고"
-        kw = f.get("kw") or []
+        hack = hack or any(x.get("extra_finding") == "CLOAKING" for x in its)  # UA·Referer 분기는 서버 설정·템플릿 변조라야 가능하다
+        # 광고가 확실한가: 연락처·가입코드·충전 % (textcheck와 같은 기준). 내부 검색 반사는 사이트가 광고를 퍼뜨리는 것이라 위험
+        sure = textcheck.check(f["evidence_text"])["contact"] or any(x.get("extra_finding") == "ISAP_SEARCH_REFLECTION" for x in its)
+        kinds, places = {}, {}
+        for x in its:
+            k = kinds.setdefault((x["technique"], x.get("extra_finding")), [x["technique"], label_of(x), ""])
+            k[2] = k[2] or x.get("reason", "")
+            p = places.setdefault((x["url"], x["location"]), {"id": x["id"], "url": x["url"], "location": x["location"],
+                                                             "path": x.get("path") or [], "mobile": x.get("mobile", False), "f": []})
+            p["f"].append([x["id"], x["technique"], label_of(x)])
+        old = [fingerprint(f["evidence_text"], t) for t in techs]
+        seen = [history[k] for k in [fp, *old] if k in history]
+        history[fp] = min(seen) if seen else now
         groups.append({
-            "fp": fp, "technique": tech, "tech_label": TECH.get(tech) or EXTRA.get(f.get("extra_finding"), "추가 유형"), "risk": risk, "cause": HACK if hack else POST,
-            "first_seen": history.setdefault(fp, now), "evidence_text": f["evidence_text"],
-            "norm": f.get("norm", ""), "kw": kw, "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
-            "html": f.get("html", ""), "style": f.get("style", {}),
-            "items": [{"id": x["id"], "url": x["url"], "location": x["location"], "path": x.get("path") or [],
-                       "mobile": x.get("mobile", False)}
-                      for x in its],
+            "fp": fp, "old": old, "technique": techs[0], "techniques": techs, "tech_label": " · ".join(dict.fromkeys(k[1] for k in kinds.values())),
+            "reasons": list(kinds.values()), "risk": "심각" if hack else "위험" if sure else "참고", "cause": HACK if hack else POST,
+            "first_seen": history[fp], "evidence_text": f["evidence_text"],
+            "norm": f.get("norm", ""), "kw": f.get("kw") or [], "reason": f.get("reason", ""), "chars": odd_chars(f["evidence_text"]),
+            "html": f.get("html", ""), "style": f.get("style", {}), "items": list(places.values()),
         })
     # 정렬: 위험도 → 영향 페이지 수 → 최초 발견일(신규 먼저) (research/10 §1-6)
     groups.sort(key=lambda g: g["first_seen"], reverse=True)
@@ -302,13 +318,33 @@ def write_csv(path, groups):
     with open(path, "w", encoding="utf-8-sig", newline="") as f:  # BOM: Excel에서 더블클릭으로 한글이 열린다
         w = csv.writer(f)
         w.writerow(["id", "위험도", "원인 유형", "기법", "기법 코드", "URL", "위치(CSS 선택자)", "원문", "근거", "지문", "최초 발견",
-                    "지난 점검 대비", "조치 상태", "조치 메모"])
+                    "지난 점검 대비", "조치 상태", "담당자", "조치 메모"])
         for g in groups:
             st = g.get("status") or {}
+            why = {k[0]: k[2] for k in g["reasons"]}
             for it in g["items"]:
-                w.writerow([it["id"], g["risk"], g["cause"], g["tech_label"], g["technique"], it["url"], it["location"],
-                            g["evidence_text"], g["reason"], g["fp"], g["first_seen"], g.get("change", ""),
-                            st.get("status", "미조치"), st.get("memo", "")])
+                for fid, tech, label in it["f"]:
+                    w.writerow([fid, g["risk"], g["cause"], label, tech, it["url"], it["location"],
+                                g["evidence_text"], why.get(tech, ""), g["fp"], g["first_seen"], g.get("change", ""),
+                                st.get("status", "미조치"), st.get("owner", ""), st.get("memo", "")])
+
+
+LEDGER = ["조치일", "게시일", "게시자", "제목", "게시내용", "삭제 사유", "페이지 주소", "담당자", "확인자", "메모"]
+
+
+def write_ledger(base):
+    """삭제게시물 기록대장 (운영 가이드 부록2 서식): '조치 완료'로 둔 광고 전부(점검 회차와 상관없이 쌓인다), 조치일 순.
+    게시일·게시자·제목·확인자는 도구가 모르므로 빈칸"""
+    rows = sorted((v for v in load_status(base).values() if v.get("status") == "조치 완료"), key=lambda v: v.get("at", ""))
+    path = os.path.join(base, "ledger.csv")
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(LEDGER)
+        for v in rows:
+            i = v.get("info") or {}
+            w.writerow([v.get("at", "")[:10], "", "", "", i.get("text", ""), "불법광고 (%s, %s)" % (i.get("label", ""), i.get("cause", "")) if i else "불법광고",
+                        "\n".join(i.get("urls", [])), v.get("owner", ""), "", v.get("memo", "")])
+    return path
 
 
 # ---------- 조치 상태와 재점검 비교 (research/14 §6) ----------
@@ -324,11 +360,24 @@ def load_status(base):
         return {}
 
 
-def set_status(base, fp, status, memo=""):
+def set_status(base, fp, status, memo="", owner="", info=None):
+    """info: 기록대장에 쓸 광고 내용 {text, urls, label, cause} (화면이 보낸다. 길이만 자른다)"""
     if status not in STATUSES or not re.fullmatch(r"[0-9a-f]{6,40}", fp or ""):
         return False
+    i = info if isinstance(info, dict) else {}
+    with STATUS_LOCK:  # 일괄 변경은 화면이 동시에 여러 번 부른다: 읽고 고쳐 쓰는 사이에 끼면 앞 저장이 사라진다
+        return _set_status(base, fp, status, memo, owner, i)
+
+
+STATUS_LOCK = threading.Lock()
+
+
+def _set_status(base, fp, status, memo, owner, i):
     st = load_status(base)
-    st[fp] = {"status": status, "memo": (memo or "")[:500], "at": datetime.now(main.KST).isoformat(timespec="seconds")}
+    st[fp] = {"status": status, "memo": str(memo or "")[:500], "owner": str(owner or "")[:50],
+              "at": datetime.now(main.KST).isoformat(timespec="seconds"),
+              "info": {"text": str(i.get("text") or "")[:500], "urls": [str(u)[:500] for u in (i.get("urls") or [])[:20] if isinstance(u, str)],
+                       "label": str(i.get("label") or "")[:100], "cause": str(i.get("cause") or "")[:20]}}
     main.write_json(os.path.join(base, "status.json"), st)
     return True
 
@@ -340,13 +389,13 @@ def compare(base, meta, groups, status):
     old = prev and read_record(base, prev["file"])
     if not old:
         return None
-    before = {g["fp"]: g for g in old.get("groups", [])}
+    before = {fingerprint(g["evidence_text"]): g for g in old.get("groups", [])}  # 지난 기록의 옛 지문(기법 + 원문)도 새 지문으로
     for g in groups:
-        done = (status.get(g["fp"]) or {}).get("status") == "조치 완료"
+        done = (g.get("status") or {}).get("status") == "조치 완료"
         g["change"] = "재발" if done else "지속" if g["fp"] in before else "신규"
     now = {g["fp"] for g in groups}
     gone = [{"fp": fp, "evidence_text": g["evidence_text"], "tech_label": g["tech_label"],
-             "pages": len({i["url"] for i in g["items"]}), "status": (status.get(fp) or {}).get("status", "미조치")}
+             "pages": len({i["url"] for i in g["items"]}), "status": (status.get(fp) or status.get(g["fp"]) or {}).get("status", "미조치")}
             for fp, g in before.items() if fp not in now]
     count = lambda c: sum(g.get("change") == c for g in groups)  # noqa: E731
     return {"prev_at": prev["finished_at"], "new": count("신규"), "kept": count("지속"), "again": count("재발"), "resolved": gone}
@@ -363,8 +412,8 @@ def make(meta, items, visited, stopped, minutes, log=print, pages=None, error=No
     groups = group(items, history, meta["started_at"])
     main.write_json(hist_path, history)
     status = load_status(base)
-    for g in groups:
-        g["status"] = status.get(g["fp"]) or {}
+    for g in groups:  # 10/19 전 상태는 옛 지문(기법 + 원문)에 있다
+        g["status"] = status.get(g["fp"]) or next((status[k] for k in g["old"] if k in status), {})
     diff = compare(base, meta, groups, status)
     if groups:
         try:
@@ -401,7 +450,12 @@ if __name__ == "__main__":  # 자체 확인: python app/report.py
     gs = group([it("f_1", "a", "div > span", "OFFSCREEN", "카지노 @x"), it("f_2", "b", "div > span", "OFFSCREEN", "카지노  @x"),
                 it("f_3", "a", "td", "JAMO", "ㅋㅏㅈㅣㄴㅗ"), it("f_4", "a", "p", "TRANSPARENT", "토토"),
                 it("f_5", "b", "li", "TRANSPARENT", "토토")], {}, "t")
-    assert [(g["risk"], g["cause"], len(g["items"])) for g in gs] == [("심각", HACK, 2), ("위험", POST, 2), ("참고", POST, 1)], gs
+    assert [(g["risk"], g["cause"], len(g["items"])) for g in gs] == [("심각", HACK, 2), ("참고", POST, 2), ("참고", POST, 1)], gs
+    # 한 요소의 기법 2개 = 한 묶음·한 위치, 연락처가 있으면 위험, 옛 지문의 최초 발견일을 이어받는다
+    h0 = {fingerprint("ㅋr지노 @test_krzino", "JAMO"): "2026-10-01"}
+    gs = group([it("f_1", "a", "p", "HOMOGLYPH", "ㅋr지노 @test_krzino"), it("f_2", "a", "p", "JAMO", "ㅋr지노 @test_krzino")], h0, "t")
+    assert len(gs) == 1 and gs[0]["techniques"] == ["HOMOGLYPH", "JAMO"] and len(gs[0]["items"]) == 1 and len(gs[0]["items"][0]["f"]) == 2, gs
+    assert gs[0]["risk"] == "위험" and gs[0]["first_seen"] == "2026-10-01", gs
     # 보이는 변형, 게시판 영역, 같은 사이트 글 링크는 반복돼도 게시물형
     gs = group([it("f_1", "http://s/a", "p", "JAMO", "ㅋr지노"), it("f_2", "http://s/b", "p", "JAMO", "ㅋr지노"),
                 it("f_3", "http://s/a", "div#bo_v_con > p", "OFFSCREEN", "토토"), it("f_4", "http://s/b", "div#bo_v_con > p", "OFFSCREEN", "토토"),
