@@ -393,7 +393,7 @@ def run_scheduled(sid):
 
 
 def ui_html():
-    """화면 HTML. 동봉 글꼴을 data URI로 넣는다: 창 모드·report.html 모두 인터넷 없이, 보고서 파일을 옮겨도 같은 글꼴 (todo/13)"""
+    """화면 HTML. 동봉 글꼴을 data URI로 넣는다: 창 모드·report.html 모두 인터넷 없이, 보고서 파일을 옮겨도 같은 글꼴 (done/13)"""
     d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
     with open(os.path.join(d, "ui.html"), encoding="utf-8") as f:
         page = f.read()
