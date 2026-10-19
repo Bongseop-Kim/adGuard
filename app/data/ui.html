@@ -127,15 +127,15 @@ button.pick:hover { border-color: var(--krds-color-light-gray-70); }
 button.pick .pl { left: 16px; font-weight: 400; }
 button.pick .ai-st { border: 0; background: none; padding: 0; height: auto; font-size: 17px; color: var(--krds-color-light-gray-90); }
 button.pick .ai-st.on { color: var(--krds-color-light-success-60); }
-/* AI 모달: 기본 dialog (Esc·바깥 초점 잠금은 브라우저가). 열 때 살짝 커지며 나타난다 */
-dialog#aidlg { width: min(560px, calc(100% - 32px)); padding: 28px; border: 1px solid var(--krds-color-light-gray-20); border-radius: 12px; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); box-shadow: 0 16px 48px rgb(0 0 0 / .18); }
-dialog#aidlg::backdrop { background: rgb(0 0 0 / .4); }
-dialog#aidlg h2 { margin: 0 0 8px; font-size: 21px; }
-dialog#aidlg .hint:first-of-type { margin: 0 0 20px; }
-dialog#aidlg .dfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+/* 모달(AI·예약 점검): 기본 dialog (Esc·바깥 초점 잠금은 브라우저가). 열 때 살짝 커지며 나타난다 */
+dialog { width: min(560px, calc(100% - 32px)); padding: 28px; border: 1px solid var(--krds-color-light-gray-20); border-radius: 12px; background: var(--krds-color-light-gray-0); color: var(--krds-color-light-gray-90); box-shadow: 0 16px 48px rgb(0 0 0 / .18); }
+dialog::backdrop { background: rgb(0 0 0 / .4); }
+dialog h2 { margin: 0 0 8px; font-size: 21px; }
+dialog .hint:first-of-type { margin: 0 0 20px; }
+dialog .dfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 @media (prefers-reduced-motion: no-preference) {
-  dialog#aidlg[open] { animation: dlg .2s cubic-bezier(.23,1,.32,1); }
-  dialog#aidlg[open]::backdrop { animation: fade-in .2s ease-out; }
+  dialog[open] { animation: dlg .2s cubic-bezier(.23,1,.32,1); }
+  dialog[open]::backdrop { animation: fade-in .2s ease-out; }
 }
 @keyframes dlg { from { opacity: 0; transform: scale(.96); } }
 .keycard { border: 1px solid var(--krds-color-light-gray-20); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; }
@@ -155,6 +155,29 @@ button.danger-fill { background: var(--krds-color-light-danger-50); border-color
 #recent { margin-top: 16px; border-top: 1px solid var(--krds-color-light-gray-20); padding-top: 12px; }
 #recent .rtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; color: var(--krds-color-light-gray-70); margin-bottom: 4px; }
 #recent ul { list-style: none; margin: 0; padding: 0; }
+/* 예약 점검: 사이트 현황 줄에 예약 칩. 줄의 "예약"과 "+ 예약 추가"는 같은 예약 창 */
+.schip { justify-self: start; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  background: var(--krds-color-light-primary-5); color: var(--krds-color-light-primary-60); border: 1px solid var(--krds-color-light-primary-10); }
+.schip.miss { background: var(--krds-color-light-danger-5); color: var(--krds-color-light-danger-60); border-color: var(--krds-color-light-danger-10); }
+.srow .acts { display: flex; gap: 6px; margin-right: 4px; }
+button.sopen:disabled { background: none !important; border: 0 !important; color: inherit !important; }
+.sced .in { display: grid; gap: 14px; }
+.scf { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; align-items: center; }
+.scf > span { font-size: 15px; font-weight: 700; }
+.scf select, .scf input { height: 40px; font-size: 16px; justify-self: start; }
+.scf .scurl { width: 100%; justify-self: stretch; }
+.scseg { display: inline-flex; justify-self: start; border: 1px solid var(--krds-color-light-gray-50); border-radius: 6px; overflow: hidden; }
+.scseg button { height: 40px; border: 0; border-radius: 0; padding: 0 16px; font-weight: 700; }
+.scseg button + button { border-left: 1px solid var(--krds-color-light-gray-20); }
+.scseg button[aria-pressed="true"] { background: var(--krds-color-light-primary-50); color: #fff; }
+.scdays { border: 0; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.scdays label { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--krds-color-light-gray-50); border-radius: 50%; cursor: pointer; font-weight: 700; background: var(--krds-color-light-gray-0); }
+.scdays input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.scdays label:has(input:checked) { background: var(--krds-color-light-primary-50); border-color: var(--krds-color-light-primary-50); color: #fff; }
+.scdays label:has(input:focus-visible) { outline: 2px solid var(--krds-color-light-primary-50); outline-offset: 2px; }
+.sced .dfoot { align-items: center; margin-top: 10px; }
+.sced .dfoot .hint { flex: 1; margin: 0; }
+.sced .dfoot .lnk { border: 0; background: none; color: var(--krds-color-light-danger-60); font-weight: 700; padding: 0 4px; margin-right: auto; }
 /* 사이트 현황판: 사이트 하나 = 한 줄 (최근 결과 · 추이 · 지난번 대비 · 다시 진단). 줄을 누르면 최근 결과 */
 .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; border-bottom: 1px solid var(--krds-color-light-gray-10); }
 button.sopen { display: grid; grid-template-columns: minmax(0, 1fr) 64px 6.5em; gap: 16px; align-items: center; width: 100%; height: auto; min-height: 60px; padding: 8px 12px; border: 0; background: none; text-align: left; font-weight: 400; }
@@ -511,6 +534,10 @@ footer { border-top: 1px solid var(--krds-color-light-gray-20); margin-top: 64px
         <div class="dfoot"><button type="button" id="keyclose" onclick="$('#aidlg').close()">닫기</button><button class="primary" type="submit" id="keysave" disabled>저장</button></div>
       </form>
     </dialog>
+    <dialog id="scdlg" aria-labelledby="scdlg-t">
+      <h2 id="scdlg-t">예약 점검</h2>
+      <div id="scbody"></div>
+    </dialog>
     <div id="recent"></div>
   </section>
 
@@ -593,7 +620,10 @@ function start() {
   $('#progress').className = 'rise'; $('#ptitle').className = 'vt-title'; $('#ptitle').textContent = '탐지 중';
   $('#p-url').textContent = url; $('#p-time').textContent = '0초'; $('#p-cur').textContent = '시작 주소를 여는 중…';
   $('#p-found').textContent = '0건'; $('#p-visited').textContent = '0'; $('#p-queue').textContent = '0'; $('#p-bar').style.setProperty('--p', 0);
-  Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(() => { swap(() => show('progress')); poll(); });
+  Promise.resolve(api('start', url, +$('#minutes').value || 20)).then(err => {
+    if (err) { $('#go').disabled = false; $('#urlmsg').hidden = false; $('#urlmsg').textContent = err; return; }
+    swap(() => show('progress')); poll();
+  });
 }
 // AI 키 상태: 키 값은 받지 않고 가린 값(sk-…abcd)만 받는다
 // 키 상태(st): 키 값은 받지 않고 가린 값(sk-…abcd)만 받는다. 피커에는 켜짐/꺼짐만, 자세한 말은 모달 안에
@@ -1083,31 +1113,96 @@ const bySite = R => { const m = new Map(); R.forEach(r => { const k = hostOf(r.e
 const fileOf = m => m.started_at.replace(/\D/g, '').slice(0, 14) + '.html';  // report.save_record와 같은 규칙
 // 같은 사이트 다시 진단: 그 주소를 넣고 시작한 것과 같다 (설정은 첫 화면 값)
 const rescan = url => { $('#url').value = url; start(); };
-// 홈 = 사이트 현황판. 사이트 하나 = 한 줄, 끝에 닿을 때마다 20곳씩 더 그린다. 기록이 없으면 도구 설명 한 줄
+// 예약 점검 (작업 스케줄러). 사이트 하나에 예약 하나: 같은 사이트로 다시 저장하면 바뀐다 (main.add_schedule)
+const DAY_KO = { MON: '월', TUE: '화', WED: '수', THU: '목', FRI: '금', SAT: '토', SUN: '일' };
+const UNIT = { day: '일', week: '주', month: '개월' }, FREQ_KO = { day: '매일', week: '매주', month: '매월' };
+const ruleOf = s => (s.every > 1 ? s.every + UNIT[s.freq] + '마다' : FREQ_KO[s.freq])
+  + (s.freq === 'week' ? ' ' + s.days.map(d => DAY_KO[d]).join('·') : s.freq === 'month' ? ' ' + s.date + '일' : '') + ' ' + s.time;
+const schipOf = s => s.next ? h('span', { class: 'schip', title: '다음 실행 ' + s.next }, '⏱ ' + ruleOf(s) + ' · 다음 ' + s.next)
+  : h('span', { class: 'schip miss', title: '작업 스케줄러에서 지워졌습니다. 예약을 다시 저장하세요' }, '⏱ ' + ruleOf(s) + ' · 작업 스케줄러에 없음');
+// 예약 편집 폼: 반복 · 간격 · 요일/날짜 · 시각 · 시간 상한. 새 예약이면 주소 칸, 기존 예약이면 삭제 버튼
+function schedEditor(s, done, withUrl) {
+  let freq = s.freq || 'week';
+  const row = (name, ...el) => h('div', { class: 'scf' }, h('span', {}, name), ...el);
+  const url = withUrl ? h('input', { class: 'scurl', placeholder: 'https://www.example.go.kr', 'aria-label': '주소', autocomplete: 'url', spellcheck: 'false' }) : null;
+  if (url) url.value = s.url || '';
+  const seg = h('div', { class: 'scseg', role: 'group', 'aria-label': '반복' }, Object.entries(FREQ_KO).map(([v, k]) => h('button', { type: 'button', value: v, onclick: () => { freq = v; sync(); } }, k)));
+  const every = h('select', { 'aria-label': '간격' }), time = h('input', { type: 'time', 'aria-label': '시각' });
+  time.value = s.time || '10:00';
+  const days = h('fieldset', { class: 'scdays' }, h('legend', { class: 'sr' }, '요일'),
+    Object.entries(DAY_KO).map(([v, k]) => h('label', {}, h('input', { type: 'checkbox', value: v, checked: (s.days || ['MON']).includes(v) || null }), k)));
+  const date = h('select', { 'aria-label': '날짜' }, Array.from({ length: 28 }, (_, i) => h('option', { value: i + 1, selected: i + 1 === (s.date || 1) || null }, (i + 1) + '일')));
+  const mins = s.minutes || +$('#minutes').value || 20;
+  const limit = h('select', { 'aria-label': '시간 상한' }, [5, 10, 15, 20, 25].map(m => h('option', { value: m, selected: m === mins || null }, m + '분')));
+  const dayRow = row('요일', days), dateRow = row('날짜', date);
+  const msg = h('div', { class: 'hint', role: 'status' }), save = h('button', { class: 'primary', type: 'submit' }, '저장');
+  const sync = () => {
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.value === freq));
+    const keep = +every.value || s.every || 1;
+    every.replaceChildren(...Array.from({ length: 12 }, (_, i) => h('option', { value: i + 1, selected: i + 1 === keep || null }, (i + 1) + UNIT[freq] + '마다')));
+    dayRow.hidden = freq !== 'week'; dateRow.hidden = freq !== 'month';
+  };
+  sync();
+  const send = (call, ...args) => {
+    save.disabled = true; msg.className = 'hint'; msg.textContent = '';
+    Promise.resolve(api(call, ...args)).then(r => {
+      save.disabled = false;
+      if (r && r.error) { msg.className = 'hint err'; msg.textContent = r.error; return; }
+      done(true);
+    });
+  };
+  const submit = e => {
+    e.preventDefault();
+    send('add_schedule', { url: url ? url.value.trim() : s.url, freq, every: +every.value, time: time.value, date: +date.value, minutes: +limit.value,
+      days: [...days.querySelectorAll('input:checked')].map(x => x.value) });
+  };
+  return h('form', { class: 'in', onsubmit: submit }, url ? row('주소', url) : null, row('반복', seg), row('간격', every), dayRow, dateRow, row('시각', time), row('시간 상한', limit),
+    h('div', { class: 'dfoot' }, s.id ? h('button', { class: 'lnk', type: 'button', onclick: () => confirm(hostOf(s.url) + ' 예약을 삭제할까요?') && send('del_schedule', s.id) }, '예약 삭제') : null,
+      msg, h('button', { type: 'button', onclick: () => done(false) }, '취소'), save));
+}
+// 예약 창: "+ 예약 추가"(주소 입력)와 줄의 "예약"(그 사이트 고정)이 같이 쓴다
+function openSched(sc) {
+  const isNew = !sc;
+  const f = schedEditor(sc || { url: $('#url').value.trim() }, ok => { $('#scdlg').close(); if (ok) loadRecent(); }, isNew);
+  $('#scdlg-t').textContent = isNew ? '예약 점검' : hostOf(sc.url);
+  $('#scbody').replaceChildren(h('div', { class: 'sced' }, f));
+  $('#scdlg').showModal();
+  if (isNew && !f.querySelector('.scurl').value) f.querySelector('.scurl').focus();
+}
+// 홈 = 사이트 현황판. 사이트 하나 = 한 줄(최근 결과 · 추이 · 지난번 대비 · 예약 · 다시 진단), 끝에 닿을 때마다 20곳씩 더 그린다.
+// 예약만 있고 아직 점검하지 않은 사이트도 한 줄 (맨 앞)
 let recentIO;
 function loadRecent() {
   const root = $('#recent');
   if (recentIO) recentIO.disconnect();
-  Promise.resolve(api('records')).then(R => {
-    if (!R.length) return root.replaceChildren(h('p', { class: 'muted' }, '입력한 주소에서 시작해 하위 페이지, 게시글, 댓글, iframe 안까지 살펴보고 숨겨지거나 변형된 불법광고를 찾습니다. 결과는 보고서·Excel·제출 파일로 프로그램 폴더에 저장됩니다.'));
-    const S = [...bySite(R)];
+  Promise.all([api('records'), api('schedules')]).then(([R, L]) => {
+    const add = h('button', { class: 'xs', type: 'button', 'aria-haspopup': 'dialog', onclick: () => openSched() }, '+ 예약 추가');
+    const sch = new Map(L.map(x => [hostOf(x.url), x]));
+    const S = [...[...sch.keys()].filter(k => !R.some(r => hostOf(r.entry_url) === k)).map(k => [k, []]), ...bySite(R)];
+    if (!S.length) return root.replaceChildren(h('div', { class: 'rtop' }, h('span', {}, '사이트 현황'), add),
+      h('p', { class: 'muted' }, '입력한 주소에서 시작해 하위 페이지, 게시글, 댓글, iframe 안까지 살펴보고 숨겨지거나 변형된 불법광고를 찾습니다. 결과는 보고서·Excel·제출 파일로 프로그램 폴더에 저장됩니다.'));
     const ul = h('ul', {}), end = h('div', { 'aria-hidden': 'true' });
     let n = 0;
     const row = ([host, rs]) => {
-      const r = rs[0], ok = rs.filter(x => !x.error), prev = ok[1], cur = ok[0];
+      const r = rs[0], ok = rs.filter(x => !x.error), prev = ok[1], cur = ok[0], sc = sch.get(host);
       const d = cur && prev ? cur.kinds - prev.kinds : null;
-      const chg = !cur || !prev ? h('span', { class: 'chg' }, rs.length > 1 ? '' : '첫 점검')
+      const chg = !cur || !prev ? h('span', { class: 'chg' }, rs.length > 1 ? '' : rs.length ? '첫 점검' : '')
         : h('span', { class: 'chg' + (d < 0 ? ' down' : d > 0 ? ' up' : '') }, d ? (d > 0 ? '+' : '−') + Math.abs(d) + '종' : '변화 없음');
       const hist = ok.slice(0, 5).reverse(), top = Math.max(1, ...hist.map(x => x.kinds));  // 왼쪽이 오래된 점검
-      return h('li', { class: 'srow' },
-        h('button', { class: 'sopen', type: 'button', title: r.entry_url + ' 최근 결과 열기', onclick: () => openRecord(r.file) },
-          h('span', { class: 'sn' }, h('b', {}, host), h('span', {}, fmtTime(r.finished_at).slice(0, 16) + (rs.length > 1 ? ' · ' + rs.length + '회' : '') + (r.stopped ? ' · 중단' : ''), verdict(r))),
+      const url = r ? r.entry_url : sc.url;
+      const li = h('li', { class: 'srow' },
+        h('button', { class: 'sopen', type: 'button', disabled: !r || null, title: r ? url + ' 최근 결과 열기' : url, onclick: () => r && openRecord(r.file) },
+          h('span', { class: 'sn' }, h('b', {}, host),
+            h('span', {}, r ? [fmtTime(r.finished_at).slice(0, 16) + (rs.length > 1 ? ' · ' + rs.length + '회' : '') + (r.stopped ? ' · 중단' : ''), verdict(r)] : '아직 점검 안 함'),
+            sc ? schipOf(sc) : null),
           h('span', { class: 'spark', 'aria-hidden': 'true' }, hist.map(x => h('i', { class: x.kinds ? null : 'z', style: 'height:' + Math.round(26 * x.kinds / top) + 'px' }))),
           chg),
-        h('button', { class: 'xs', type: 'button', onclick: () => rescan(r.entry_url) }, '다시 진단'));
+        h('span', { class: 'acts' }, h('button', { class: 'xs', type: 'button', 'aria-haspopup': 'dialog', onclick: () => openSched(sc || { url }) }, '예약'),
+          h('button', { class: 'xs', type: 'button', onclick: () => rescan(url) }, r ? '다시 진단' : '지금 점검')));
+      return li;
     };
     const more = () => { ul.append(...S.slice(n, n += 20).map(row)); if (n >= S.length && recentIO) recentIO.disconnect(); };
-    root.replaceChildren(h('div', { class: 'rtop' }, h('span', {}, '사이트 현황 ' + S.length + '곳 · 점검 ' + R.length + '회')), ul, end);
+    root.replaceChildren(h('div', { class: 'rtop' }, h('span', {}, '사이트 현황 ' + S.length + '곳' + (L.length ? ' · 예약 ' + L.length : '') + ' · 점검 ' + R.length + '회'), add), ul, end);
     more();
     if (n < S.length) { recentIO = new IntersectionObserver(es => es[0].isIntersecting && more(), { rootMargin: '400px' }); recentIO.observe(end); }
   }).catch(() => root.replaceChildren());

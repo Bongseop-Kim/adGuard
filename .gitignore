@@ -16,3 +16,4 @@ status.json
 .env.txt
 cache/
 .venv/
+schedules.json

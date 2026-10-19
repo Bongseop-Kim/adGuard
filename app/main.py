@@ -3,6 +3,7 @@
 - 명령줄 모드: adguard.exe <URL>  → 창 없이 탐지하고 result.json을 쓴다 (--no-report <URL>: 보고서·캡처 생략)
 - 창 모드:     adguard.exe        → WebView2 창(pywebview)에서 URL 입력·탐지 시작
 - 검증 모드:   adguard.exe --smoke-gui <URL> → 창을 띄워 자동으로 탐지하고 닫는다 (CI용)
+- 예약 점검:   adguard.exe --scheduled <id> → Windows 작업 스케줄러가 부른다. schedules.json의 그 예약을 창 없이 점검
 - 결과: exe 폴더에 result.json(채점용), result_extra.json(추가 유형), report.html(단일 파일 보고서), result.csv(Excel용), history.json(최초 발견일), records/(점검 기록)
 """
 import asyncio
@@ -235,6 +236,162 @@ def run_all(url, log=print, ctl=None, minutes=20, on_done=None):
     return report.make(meta, items, c.visited if c else 0, bool(c and c.deadline == 0), minutes, log, pages, error, ctl, diag, finish)
 
 
+def open_log():
+    """진행 기록을 logs/날짜.log에도 남기는 log 함수와 닫기 함수. 창 모드·예약 점검 공통 (오류가 나면 이 파일로 원인을 본다)"""
+    try:
+        os.makedirs(os.path.join(base_dir(), "logs"), exist_ok=True)
+        f = open(os.path.join(base_dir(), "logs", datetime.now(KST).strftime("%Y%m%d") + ".log"), "a", encoding="utf-8")
+    except OSError:
+        f = None
+
+    def log(msg):
+        print(msg, flush=True)
+        try:
+            f and (f.write(datetime.now(KST).strftime("%H:%M:%S ") + msg + "\n"), f.flush())
+        except (OSError, ValueError):
+            pass
+    return log, (f.close if f else lambda: None)
+
+
+def take_lock():
+    """점검은 한 번에 하나만 (창 모드와 예약 점검이 같은 결과 파일을 쓴다). 반환: 잠금 파일(close로 풀기) 또는 None.
+    프로세스가 죽으면 OS가 풀어 주므로 남은 잠금 파일 때문에 막히지 않는다. 명령줄 모드(채점용)는 잠그지 않는다"""
+    try:
+        os.makedirs(os.path.join(base_dir(), "logs"), exist_ok=True)
+        f = open(os.path.join(base_dir(), "logs", "scan.lock"), "a+")
+    except OSError:
+        return None
+    try:
+        f.seek(0)
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return f
+    except OSError:
+        f.close()
+        return None
+
+
+# 예약 점검: 목록은 schedules.json, 실행은 Windows 작업 스케줄러(\adGuard\<id>)가 맡는다. 창을 닫아도·재부팅해도 돈다
+# ponytail: schtasks 기본 설정이라 PC가 꺼져 있던 회차는 건너뛰고 배터리로는 시작하지 않는다. 필요하면 /xml로 StartWhenAvailable
+DAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+NO_WINDOW = 0x08000000  # 창 모드에서 schtasks를 불러도 콘솔 창이 깜박이지 않게
+
+
+def schedules():
+    try:
+        with open(os.path.join(base_dir(), "schedules.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def check_schedule(s):
+    """화면에서 받은 예약을 검사해 정리한다. 반환: (예약, 오류 문구)"""
+    try:
+        s = {"url": fix_url(s.get("url")), "freq": s["freq"], "every": int(s.get("every") or 1), "time": str(s["time"]),
+             "days": [d for d in DAYS if d in (s.get("days") or [])], "date": int(s.get("date") or 1),
+             "minutes": max(5, min(25, int(s.get("minutes") or 20)))}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return None, "예약 값이 올바르지 않습니다"
+    if not re.match(r"https?://[^/\s]+", s["url"]):
+        return None, "점검할 주소를 입력하세요"
+    if s["freq"] not in ("day", "week", "month") or not 1 <= s["every"] <= 12:
+        return None, "주기를 고르세요"
+    if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", s["time"]):
+        return None, "시각을 고르세요"
+    if s["freq"] == "week" and not s["days"]:
+        return None, "요일을 하나 이상 고르세요"
+    if not 1 <= s["date"] <= 28:  # 29~31일은 짧은 달에 건너뛰어서 받지 않는다
+        return None, "날짜는 1~28일 중에서 고르세요"
+    return s, None
+
+
+def schtasks_args(sid, s):
+    """schtasks /create 인자. 매일·매주(요일)·매월(날짜) × n일·주·개월마다"""
+    me = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, os.path.abspath(__file__)]
+    import subprocess
+    a = ["/create", "/tn", "adGuard\\" + sid, "/tr", subprocess.list2cmdline(me + ["--scheduled", sid]), "/f",
+         "/sc", {"day": "DAILY", "week": "WEEKLY", "month": "MONTHLY"}[s["freq"]], "/mo", str(s["every"]), "/st", s["time"]]
+    if s["freq"] == "week":
+        a += ["/d", ",".join(s["days"])]
+    if s["freq"] == "month":
+        a += ["/d", str(s["date"])]
+    return a
+
+
+def schtasks(*args):
+    """Windows 작업 스케줄러 호출. 반환: (성공, 출력)"""
+    if os.name != "nt":
+        return False, "예약 점검은 Windows에서만 쓸 수 있습니다"
+    import subprocess
+    try:
+        p = subprocess.run(["schtasks", *args], capture_output=True, creationflags=NO_WINDOW, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, "작업 스케줄러를 부르지 못했습니다 (%s)" % e
+    out = (p.stdout if p.returncode == 0 else p.stderr or p.stdout).decode("oem", "replace").strip()
+    return p.returncode == 0, out or "작업 스케줄러 오류 (%d)" % p.returncode
+
+
+def next_runs():
+    """예약 id → 다음 실행 시각(작업 스케줄러가 쓰는 표기 그대로). 작업 스케줄러에 없는 예약은 빠진다"""
+    import csv
+    ok, out = schtasks("/query", "/fo", "csv", "/nh")
+    rows = csv.reader(out.splitlines()) if ok else []
+    return {r[0].rsplit("\\", 1)[-1]: r[1] for r in rows if len(r) >= 2 and r[0].lower().startswith("\\adguard\\")}
+
+
+def add_schedule(s):
+    """예약 추가·수정. 사이트(호스트) 하나에 예약 하나: 같은 사이트가 이미 있으면 그 작업을 덮어쓴다 (/f)"""
+    import secrets
+    from urllib.parse import urlsplit
+    s, err = check_schedule(s)
+    if err:
+        return {"error": err}
+    host = urlsplit(s["url"]).netloc.lower()
+    old = [x for x in schedules() if urlsplit(x["url"]).netloc.lower() == host]
+    sid = old[0]["id"] if old else secrets.token_hex(4)
+    ok, out = schtasks(*schtasks_args(sid, s))
+    if not ok:
+        return {"error": out}
+    write_json(os.path.join(base_dir(), "schedules.json"), [dict(s, id=sid) if x in old else x for x in schedules()] if old else schedules() + [dict(s, id=sid)])
+    return {}
+
+
+def del_schedule(sid):
+    # 작업 스케줄러에서 못 지워도 목록에서는 뺀다: 남은 작업이 돌아도 --scheduled가 목록에 없는 id라 바로 끝난다
+    schtasks("/delete", "/tn", "adGuard\\" + sid, "/f")
+    write_json(os.path.join(base_dir(), "schedules.json"), [x for x in schedules() if x["id"] != sid])
+
+
+def run_scheduled(sid):
+    """작업 스케줄러가 부르는 예약 점검. 다른 점검이 돌고 있으면 끝날 때까지 기다린다 (최대 60분)"""
+    s = next((x for x in schedules() if x["id"] == sid), None)
+    if not s:
+        return print("목록에 없는 예약: %s" % sid)
+    hide_own_console()
+    log, close = open_log()
+    log("예약 점검 %s: %s" % (sid, s["url"]))
+    for _ in range(120):
+        lock = take_lock()
+        if lock:
+            break
+        time.sleep(30)
+    else:
+        log("예약 점검 건너뜀: 다른 점검이 60분 넘게 끝나지 않았습니다")
+        return close()
+    try:
+        run_all(s["url"], log, None, s["minutes"])
+    except Exception as e:
+        log("예약 점검 오류: %r" % e)
+    finally:
+        lock.close()
+        close()
+
+
 def ui_html():
     """화면 HTML. 동봉 글꼴을 data URI로 넣는다: 창 모드·report.html 모두 인터넷 없이, 보고서 파일을 옮겨도 같은 글꼴 (todo/13)"""
     d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -258,8 +415,12 @@ class Api:
         self._s, self._ctl, self._t0 = {"phase": "idle", "log": []}, {}, 0
 
     def start(self, url, minutes=20):
+        """반환: 시작하지 못한 이유 (시작하면 None)"""
         if self._s["phase"] in ("running", "report"):
-            return
+            return None
+        self._lock = take_lock()
+        if not self._lock:
+            return "예약 점검이 진행 중입니다. 끝난 뒤 다시 시작하세요."
         url = fix_url(url)
         minutes = max(1, min(25, int(minutes or 20)))  # 25분: 보고서까지 끝나도 평가 상한 30분에 여유
         self._s, self._ctl, self._t0 = {"phase": "running", "log": [], "url": url, "minutes": minutes}, {}, time.monotonic()
@@ -311,6 +472,16 @@ class Api:
         st["saved"] = os.path.basename(saved) if saved else None
         return st
 
+    def schedules(self):
+        nxt = next_runs()
+        return [dict(x, next=nxt.get(x["id"])) for x in schedules()]
+
+    def add_schedule(self, s):
+        return add_schedule(s)
+
+    def del_schedule(self, sid):
+        del_schedule(sid)
+
     def records(self):
         import report
         return report.records(base_dir())
@@ -320,20 +491,11 @@ class Api:
         return report.read_record(base_dir(), name)
 
     def _run(self, url, minutes):
-        # 창 모드에서도 진행 기록을 파일로 남긴다: 오류가 나면 이 파일로 원인을 본다 (logs/날짜.log)
-        try:
-            os.makedirs(os.path.join(base_dir(), "logs"), exist_ok=True)
-            logf = open(os.path.join(base_dir(), "logs", datetime.now(KST).strftime("%Y%m%d") + ".log"), "a", encoding="utf-8")
-        except OSError:
-            logf = None
+        flog, close = open_log()
 
         def log(msg):
-            print(msg, flush=True)
+            flog(msg)
             self._s["log"].append(msg)
-            try:
-                logf and (logf.write(datetime.now(KST).strftime("%H:%M:%S ") + msg + "\n"), logf.flush())
-            except (OSError, ValueError):
-                pass
 
         try:
             # 탐지 중 → (on_done) 보고서 작성 중 → (run_all 끝) 탐지 완료. 시계는 보고서까지 간다
@@ -342,8 +504,8 @@ class Api:
         except Exception as e:
             log("오류: %r" % e)
             self._s["phase"] = "error"
-        if logf:
-            logf.close()
+        self._lock.close()
+        close()
         if self._smoke:
             self._window.destroy()
 
@@ -371,7 +533,7 @@ def serve(api):
 
         def do_POST(self):
             name = self.path.rsplit("/", 1)[-1]
-            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record", "set_status", "ai", "set_key"):
+            if not self.path.startswith("/%s/api/" % token) or name not in ("start", "stop", "state", "open", "records", "record", "set_status", "ai", "set_key", "schedules", "add_schedule", "del_schedule"):
                 return self.send_error(404)
             args = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"[]")
             self.reply(json.dumps(getattr(api, name)(*args), ensure_ascii=False).encode("utf-8"), "application/json")
@@ -423,10 +585,12 @@ def main():
     args = sys.argv[1:]
     env = load_env()
     print("설정: %s" % (env or ".env 없음, AI 꺼짐"), flush=True)
-    if args[:1] in (["--smoke-gui"], ["--no-report"]) and len(args) < 2:
+    if args[:1] in (["--smoke-gui"], ["--no-report"], ["--scheduled"]) and len(args) < 2:
         sys.exit("사용법: adguard.exe %s <URL>" % args[0])
     if args[:1] == ["--smoke-gui"]:
         gui(fix_url(args[1]))
+    elif args[:1] == ["--scheduled"]:
+        run_scheduled(args[1])
     elif args[:1] == ["--no-report"]:  # 탐지와 결과 파일만 (보고서·캡처 생략). 채점 자동화용
         scan(fix_url(args[1]))
     elif args:

@@ -74,10 +74,27 @@ jobs:
           python -c "import json; r=json.load(open('s1.json',encoding='utf-8')); print(r['hit'], r['answers'], r['recall'], r['precision']); assert r['recall'] == r['precision'] == 1 and r['answers'] > 0"
           if ($LASTEXITCODE -ne 0) { throw "S1 점수가 100점이 아님" }
 
+      - name: 예약 점검 (작업 스케줄러 등록·조회·삭제, exe --scheduled)
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $env:PYTHONIOENCODING = "utf-8"
+          python -c "import sys; sys.path.insert(0, 'app'); import main; r = main.add_schedule({'url': 'http://127.0.0.1:8100/', 'freq': 'week', 'every': 2, 'time': '03:00', 'days': ['MON', 'THU']}); assert not r, r; sid = main.schedules()[0]['id']; n = main.next_runs(); print(n); assert sid in n, n; main.del_schedule(sid); assert sid not in main.next_runs() and not main.schedules()"
+          if ($LASTEXITCODE -ne 0) { throw "작업 스케줄러 등록·삭제 실패" }
+          $dest = "C:\테스트 폴더\adguard"
+          '[{"id": "ci000001", "url": "http://127.0.0.1:8100/", "freq": "day", "every": 1, "time": "03:00", "days": [], "date": 1, "minutes": 5}]' | Set-Content -Encoding utf8NoBOM "$dest\schedules.json"
+          Remove-Item -Recurse -Force "$dest\records" -ErrorAction SilentlyContinue
+          $srv = Start-Process python -ArgumentList "eval/scenarios/S0-empty/serve.py" -PassThru
+          Start-Sleep -Seconds 3
+          & "$dest\adguard.exe" --scheduled ci000001
+          Stop-Process -Id $srv.Id
+          if (-not (Test-Path "$dest\records\index.json")) { throw "예약 점검 기록 없음" }
+          Get-Content "$dest\logs\*.log" -Tail 3
+
       - name: 배포 zip (dist에서는 실행하지 않았으므로 .env·결과 파일이 없다) + SHA-256
         shell: pwsh
         run: |
-          $bad = Get-ChildItem dist\adguard -Force | Where-Object Name -match '^(\.env|\.env\.txt|result.*\.json|report\.html|result\.csv|history\.json|status\.json|records|logs|cache)$'
+          $bad = Get-ChildItem dist\adguard -Force | Where-Object Name -match '^(\.env|\.env\.txt|result.*\.json|report\.html|result\.csv|history\.json|status\.json|schedules\.json|records|logs|cache)$'
           if ($bad) { throw "배포 폴더에 실행 산출물이 있음: $($bad.Name -join ', ')" }
           Compress-Archive -Path dist\adguard -DestinationPath adguard.zip
           (Get-FileHash adguard.zip -Algorithm SHA256).Hash | Tee-Object adguard.zip.sha256.txt
