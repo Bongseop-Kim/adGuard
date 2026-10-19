@@ -271,7 +271,7 @@ def save_record(base, data):
     m = data["meta"]
     name = re.sub(r"\D", "", m["started_at"])[:14] + ".html"
     # 사본에는 캡처를 넣지 않는다: 기록이 쌓여도 디스크를 덜 쓴다 (P9). 캡처는 그때의 report.html에만
-    lite = dict(data, groups=[dict(g, shot={"error": "점검 기록 사본에는 캡처를 넣지 않습니다"}) for g in data["groups"]])
+    lite = dict(data, groups=[dict(g, shot={"error": "지난 기록에는 화면 캡처를 저장하지 않아요. 캡처가 필요하면 다시 점검하세요"}) for g in data["groups"]])
     with open(os.path.join(d, name), "w", encoding="utf-8") as f:
         f.write(html_report(lite))
     idx = [e for e in records(base) if e["file"] != name]

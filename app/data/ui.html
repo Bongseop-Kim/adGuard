@@ -169,15 +169,14 @@ button.sopen { display: grid; grid-template-columns: minmax(0, 1fr) 64px 6.5em; 
 .chg.down { color: var(--krds-color-light-success-60); } .chg.up { color: var(--krds-color-light-danger-60); }
 .srow > button.xs { margin-right: 4px; }
 @media (max-width: 560px) { .dbar .ds span { display: none; } .picks { grid-template-columns: 1fr; } button.sopen { grid-template-columns: minmax(0, 1fr) 6em; } .spark { display: none; } }
-/* 결과 화면 진단 바: 맨 위에 붙어 있다. ← 사이트 현황 · 사이트 · 점검 이력 · 다시 진단 */
+/* 결과 화면 진단 바: 맨 위에 붙어 있다. 사이트 · 점검 이력 · < 다시 진단(첫 화면으로) */
 .dbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -32px 0 24px; padding: 12px 0; background: var(--krds-color-light-gray-0); border-bottom: 1px solid var(--krds-color-light-gray-20); }
-.dbar .back { height: 40px; padding: 0 10px 0 6px; border: 0; background: none; color: var(--krds-color-light-primary-60); font-size: 15px; }
-.dbar .back svg { width: 20px; height: 20px; }
+.dbar .primary svg { width: 20px; height: 20px; margin-left: -4px; }
 .dbar .ds { flex: 1; min-width: 180px; display: grid; line-height: 1.35; }
 .dbar .ds b { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dbar .ds span { font-size: 14px; color: var(--krds-color-light-gray-70); }
 .dbar select { height: 40px; font-size: 15px; max-width: 260px; }
-.dbar .primary { height: 40px; font-size: 15px; padding: 0 16px; }
+.dbar .primary { height: 40px; font-size: 15px; padding: 0 16px; display: inline-flex; align-items: center; gap: 2px; }
 #result h2[id] { scroll-margin-top: 88px; }
 
 /* 진행: 첫 화면의 주소창이 그 자리에서 상태 줄(주소·시간·막대)이 된다. 제목·주소 줄은 View Transitions로 이어진다 */
@@ -773,7 +772,7 @@ function renderReport(D) {
     }
 
     // R4 목록 (KRDS 구조화 목록 + 필터링 패턴: 레이블 있는 컨트롤 → 결과 수·적용 조건·초기화 → 항목)
-    C.append(sec('s-list', '검출 목록', '같은 광고 문구는 한 항목으로 묶었습니다. 항목을 누르면 근거·캡처·조치 방법이 나옵니다.'));
+    C.append(sec('s-list', '검출 목록', '같은 광고 문구는 한 항목으로 묶었습니다. 항목을 누르면 근거·캡처·조치 상태가 나옵니다.'));
     // 필터: 검색 한 줄 + 위험도·기법 칩(개수 표시, 여러 개 선택). 같은 묶음 안은 "또는", 묶음끼리는 "그리고"
     const q = h('input', { id: 'f-q', type: 'search', placeholder: '광고 원문·URL·위치 검색', 'aria-label': '검색 (광고 원문·URL·위치)', oninput: () => fill() });
     const fs = h('select', { id: 'f-st', 'aria-label': '조치 상태', onchange: () => fill() }, h('option', { value: '' }, '조치 상태 전체'), (D.statuses || []).map(t => h('option', { value: t }, t)));
@@ -858,10 +857,16 @@ function renderReport(D) {
     }
   }
 
-  // R7 조치 안내 (전체)
-  C.append(sec('s-guide', '조치 안내'));
-  C.append(h('div', {}, Object.entries(D.guide).map(([k, v]) =>
-    [h('h3', {}, k), h('ol', { class: 'guide' }, v.map(x => h('li', {}, x)))])));
+  // R7 조치 안내: 이번 점검에 나온 원인 유형만. 검색엔진 흔적은 항목마다 붙으므로 검출이 있으면 함께
+  const causes = new Set(G.map(g => g.cause));
+  if (G.length) causes.add('검색엔진 흔적');
+  if (G.some(g => g.tech_label.includes('내부 검색'))) causes.add('내부 검색 결과 악용');
+  const guides = Object.entries(D.guide).filter(([k]) => causes.has(k));
+  if (guides.length) {
+    C.append(sec('s-guide', '조치 안내'));
+    C.append(h('div', {}, guides.map(([k, v]) =>
+      [h('h3', {}, k), h('ol', { class: 'guide' }, v.map(x => h('li', {}, x)))])));
+  }
 
   // 점검 조건: 부가 정보라 뒤에 둔다
   C.append(sec('s-cond', '점검 조건'));
@@ -1038,7 +1043,7 @@ function detail(g, D) {
         g.kw.length ? h('div', { class: 'chips' }, '키워드 ', g.kw.map(k => h('span', {}, k))) : (g.chars.length ? null : '-')),
       one ? [row('페이지', link(g.items[0].url)), row('요소 위치', sel(g.items[0]))]
         : row('발견 위치 ' + g.items.length + '곳', h('ol', { class: 'locs' }, g.items.map(i => h('li', {}, link(i.url), h('br'), sel(i))))),
-      row('조치', h('ol', { class: 'guide' }, [...(D.guide[g.cause] || []), ...(D.guide['검색엔진 흔적'] || [])].map(x => h('li', {}, x)))),
+      row('조치', h('a', { href: '#s-guide', onclick: e => { e.preventDefault(); const el = document.getElementById('s-guide'); el.scrollIntoView(); el.focus({ preventScroll: true }); } }, '조치 안내 보기 (' + g.cause + ') →')),
       tech.length ? row('기술 상세', h('div', { class: 'why' }, tech.map(t => h('div', {}, h('div', { class: 'k' }, t[0]), t[1])))) : null,
       row('조치 상태', statusBox(g, D)),
       row('기록', '지문 ' + g.fp + ' · 최초 발견 ' + fmtTime(g.first_seen) + (g.change ? ' · 지난 점검 대비 ' + g.change : ''))));
@@ -1119,10 +1124,9 @@ function diagBar(m) {
     hist.title = '점검 이력 ' + rs.length + '회'; hist.hidden = false;
   }).catch(() => {});
   return h('div', { class: 'dbar noprint' },
-    h('button', { class: 'back', type: 'button', onclick: newScan }, ICON_BACK(), '사이트 현황'),
     h('div', { class: 'ds' }, h('b', { title: m.entry_url }, host), h('span', {}, fmtTime(m.finished_at).slice(0, 16) + ' 점검')),
     hist,
-    h('button', { class: 'primary', type: 'button', onclick: () => rescan(m.entry_url) }, '다시 진단'));
+    h('button', { class: 'primary', type: 'button', onclick: newScan }, ICON_BACK(), '다시 진단'));
 }
 const ICON_BACK = () => { const e = document.createElement('span'); e.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; return e.firstChild; };
 const RISK_ORDER = ['심각', '위험', '참고'];
